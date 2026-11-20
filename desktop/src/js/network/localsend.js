@@ -87,7 +87,7 @@ class LocalSend {
   const file=session.files.get(url.searchParams.get('fileId'));
   if(!file||file.token!==url.searchParams.get('token'))return reply(403);
   if(file.state!=='ready')return reply(409);
-  file.state='receiving';file.req=req;
+  file.state='receiving';file.req=req;const startedAt=Date.now();
   fs.mkdirSync(this.opts.receiveDir,{recursive:true});
   const dir=fs.mkdtempSync(path.join(this.opts.receiveDir,'transfer-'));const partial=path.join(dir,'.partial');const dest=path.join(dir,file.fileName);
   const sha=crypto.createHash('sha256');let received=0;
@@ -95,7 +95,7 @@ class LocalSend {
    await pipeline(req,new Transform({transform(chunk,enc,cb){received+=chunk.length;if(received>file.size)return cb(new Error('Size exceeded'));sha.update(chunk);cb(null,chunk);}}),fs.createWriteStream(partial,{flags:'wx'}));
    if(received!==file.size||(file.sha256&&normalize(file.sha256)!==sha.digest('hex'))){fs.rmSync(partial,{force:true});fs.rmdirSync(dir);file.state='failed';return reply(422);}
    fs.renameSync(partial,dest);file.state='complete';
-   this.opts.result?.({id:crypto.randomUUID(),peerId:session.peerId,name:file.fileName,size:received,path:dest,status:'received',time:Date.now()});
+   this.opts.result?.({id:crypto.randomUUID(),peerId:session.peerId,name:file.fileName,size:received,path:dest,status:'received',direction:'incoming',startedAt,time:Date.now()});
    reply(200);
   }catch(error){file.state='failed';fs.rmSync(partial,{force:true});try{fs.rmdirSync(dir);}catch{}this.opts.error?.(error.message);if(!res.destroyed)reply(500);}
   finally{file.req=null;if([...session.files.values()].every(f=>['complete','failed'].includes(f.state)))this.sessions.delete(sid);}
@@ -114,15 +114,22 @@ class LocalSend {
   });
  }
  async send(peerId,filePath){
+  const task={id:crypto.randomUUID(),peerId,name:path.basename(filePath),size:0,path:filePath,direction:'outgoing',startedAt:Date.now()};
+  const publish=status=>{const record={...task,status,time:Date.now()};this.opts.result?.(record);return record;};
+  try{
   const peer=this.peers.get(peerId);if(!peer||Date.now()-peer.seen>45000)throw new Error('Device is no longer nearby');
   const stat=fs.statSync(filePath);if(!stat.isFile()||stat.size>this.opts.maxBytes)throw new Error('File exceeds transfer limit');
+  task.size=stat.size;publish('preparing');
   const sha=crypto.createHash('sha256');for await(const chunk of fs.createReadStream(filePath))sha.update(chunk);
-  const id=crypto.randomUUID();const file={id,fileName:path.basename(filePath),size:stat.size,fileType:'application/octet-stream',sha256:sha.digest('hex')};
+  const id=task.id;const file={id,fileName:task.name,size:stat.size,fileType:'application/octet-stream',sha256:sha.digest('hex')};
+  publish('awaiting');
   const prepared=await this.request(peer,'prepare-upload',{info:this.info(),files:{[id]:file}});
   if(!prepared.sessionId||!prepared.files?.[id])throw new Error('Receiver did not accept the file');
+  publish('transferring');
   try{await this.request(peer,'upload?'+new URLSearchParams({sessionId:prepared.sessionId,fileId:id,token:prepared.files[id]}),null,{path:filePath,size:stat.size});}
   catch(error){await this.request(peer,'cancel?'+new URLSearchParams({sessionId:prepared.sessionId})).catch(()=>{});throw error;}
-  const result={id,peerId,name:file.fileName,size:stat.size,path:filePath,status:'delivered',time:Date.now()};this.opts.result?.(result);return result;
+  return publish('delivered');
+  }catch(error){task.error=error.message;publish('failed');throw error;}
  }
  stop(){this.closed=true;clearInterval(this.cleanup);clearInterval(this.beacons);for(const id of this.sessions.keys())this.cancel(id);try{this.udp?.close();}catch{}for(const socket of this.sockets)socket.destroy();this.server?.close();}
 }

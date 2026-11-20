@@ -1513,6 +1513,9 @@ app.whenReady().then(() => {
     currentIdentity = identity;
     if (globalDb.getSetting('locallink.transport', 'localsend') === 'localsend') {
       if (!localSendStarting) {
+        // A previous process cannot still be sending. Keep its card, mark interruption.
+        const oldTransfers=globalDb.getSetting('locallink.transfers',[]);
+        globalDb.setSetting('locallink.transfers',oldTransfers.map(r=>['preparing','awaiting','transferring'].includes(r.status)?{...r,status:'failed',error:'Transfer interrupted',time:Date.now()}:r));
         const {LocalSend} = require('./src/js/network/localsend');
         const emit = (channel, value) => { if(mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel,value); };
         localSendInstance = new LocalSend({
@@ -1526,7 +1529,9 @@ app.whenReady().then(() => {
             return result.response === 1;
           },
           result: record => {
-            const records=globalDb.getSetting('locallink.transfers',[]);records.push(record);
+            const records=globalDb.getSetting('locallink.transfers',[]);
+            const index=records.findIndex(r=>r.id===record.id);
+            if(index<0)records.push(record);else records[index]=record;
             globalDb.setSetting('locallink.transfers',records);
             emit('locallink-transfer-result',record);
           }
@@ -1629,9 +1634,6 @@ app.whenReady().then(() => {
     if(pick.canceled)return {cancelled:true};
     try{return {ok:true,record:await localSendInstance.send(peerId,pick.filePaths[0])};}
     catch(error){
-      const record={id:require('crypto').randomUUID(),peerId,name:path.basename(pick.filePaths[0]),size:0,path:pick.filePaths[0],status:'failed',error:error.message,time:Date.now()};
-      const records=globalDb.getSetting('locallink.transfers',[]);records.push(record);globalDb.setSetting('locallink.transfers',records);
-      if(mainWindow&&!mainWindow.isDestroyed())mainWindow.webContents.send('locallink-transfer-result',record);
       return {ok:false,error:error.message};
     }
   });

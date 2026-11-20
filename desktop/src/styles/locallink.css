@@ -1,0 +1,80 @@
+/* LocalSend uses Orbit's theme and conversation geometry. */
+.ll-conversation { display:flex; flex-direction:column; flex:1; min-height:0; min-width:0; }
+.ll-chat-header { height:72px; flex-shrink:0; display:flex; align-items:center; gap:12px; padding:0 24px; border-bottom:1px solid var(--border-subtle); }
+.ll-device-icon,.ll-empty-icon { display:grid; place-items:center; background:var(--bg-hover); border-radius:50%; width:40px; height:40px; flex-shrink:0; }
+.ll-device-icon svg { width:22px; height:22px; }
+.ll-peer-heading { min-width:0; flex:1; }
+.ll-peer-heading h2 { font-size:16px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ll-peer-heading p { display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text-secondary); margin-top:3px; }
+.ll-presence { width:6px; height:6px; border-radius:50%; background:var(--presence-offline); }
+.ll-presence.online { background:var(--presence-online); }
+.ll-icon-button { width:36px; height:36px; display:grid; place-items:center; border-radius:8px; color:var(--text-secondary); }
+.ll-icon-button:hover { background:var(--bg-hover); }
+.ll-icon-button svg { width:20px; height:20px; }
+.ll-timeline { flex:1; min-height:0; overflow:auto; padding:20px 28px; overflow-anchor:none; }
+.ll-date { display:flex; align-items:center; justify-content:center; gap:16px; margin:8px 0 24px; font-size:11px; color:var(--text-secondary); }
+.ll-date::before,.ll-date::after { content:''; height:1px; width:48px; background:var(--border-subtle); }
+.ll-transfer { display:flex; flex-direction:column; align-items:flex-start; margin-bottom:16px; }
+.ll-outgoing { align-items:flex-end; }
+.ll-bubble { width:340px; max-width:90%; padding:12px; background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:4px 16px 16px 16px; }
+.ll-outgoing .ll-bubble { background:color-mix(in srgb,var(--accent-primary) 10%,var(--bg-surface)); border-color:color-mix(in srgb,var(--accent-primary) 20%,var(--border-subtle)); border-radius:16px 16px 4px 16px; }
+.ll-file-main { display:flex; align-items:center; gap:12px; }
+.ll-file-icon { display:grid; place-items:center; width:38px; height:42px; flex-shrink:0; border-radius:10px; background:var(--bg-hover); color:var(--accent-primary); }
+.ll-file-icon svg { width:24px; height:24px; }
+.ll-file-copy { min-width:0; }
+.ll-file-copy strong { display:block; overflow-wrap:anywhere; font-size:14px; font-weight:600; line-height:1.5; }
+.ll-file-copy span { display:block; font-size:12px; color:var(--text-secondary); margin-top:3px; }
+.ll-file-state { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-secondary); margin-top:10px; }
+.ll-file-state svg,.ll-file-actions svg { width:14px; height:14px; }
+.ll-error,.ll-error-detail { color:var(--accent-danger); }
+.ll-error-detail { margin-top:6px; font-size:12px; overflow-wrap:anywhere; }
+.ll-file-actions { display:flex; gap:16px; border-top:1px solid var(--border-subtle); padding-top:8px; margin-top:8px; flex-wrap:wrap; }
+.ll-file-actions button { display:flex; gap:6px; align-items:center; color:var(--accent-primary); font-size:12px; min-height:24px; }
+.ll-file-actions button:hover { text-decoration:underline; }
+.ll-file-path { font-size:11px; color:var(--text-secondary); margin-top:8px; }
+.ll-file-path summary { cursor:pointer; }
+.ll-file-path p { overflow-wrap:anywhere; margin-top:8px; }
+.ll-message-meta { color:var(--text-secondary); font-size:11px; margin-top:6px; }
+.ll-composer { flex-shrink:0; padding:8px 24px 24px; }
+.ll-compose-wrapper { display:flex; align-items:center; gap:12px; padding:10px 12px; min-height:60px; border:1px solid var(--border-subtle); border-radius:16px; background:var(--bg-surface); }
+.ll-compose-icon { color:var(--text-secondary); display:flex; }
+.ll-compose-icon svg { width:20px; }
+.ll-compose-hint { flex:1; min-width:0; font-size:13px; color:var(--text-secondary); }
+.ll-send { display:flex; align-items:center; justify-content:center; gap:6px; background:var(--accent-primary); color:#fff; padding:10px 14px; border-radius:10px; font-size:13px; white-space:nowrap; }
+.ll-send svg { width:16px; height:16px; }
+.ll-send:disabled { opacity:.5; cursor:default; }
+.ll-send:not(:disabled):hover { background:var(--accent-hover); }
+#localsend-feedback { font-size:12px; color:var(--accent-danger); overflow-wrap:anywhere; }
+#localsend-feedback:not(:empty) { padding:0 4px 10px; }
+.ll-conversation-empty { height:100%; min-height:160px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:12px; }
+.ll-empty-icon { width:56px; height:56px; border-radius:18px; color:var(--text-secondary); }
+.ll-conversation-empty h3 { font-size:16px; }
+.ll-conversation-empty p { font-size:13px; color:var(--text-secondary); }
+@media(max-width:1000px) { .ll-timeline { padding:16px; } .ll-composer { padding:8px 16px 16px; } .ll-bubble { max-width:95%; } .ll-compose-icon { display:none; } }
+/* Keep new settings inside the established modal/card design. */
+.ll-settings-title { font-size:24px; margin-bottom:24px; }
+.ll-settings-card { border:1px solid var(--border-subtle); border-radius:12px; overflow:hidden; margin-bottom:16px; }
+.ll-settings-card-head { padding:16px; background:var(--bg-base); display:flex; gap:10px; align-items:center; font-size:13px; font-weight:600; }
+.ll-settings-card-head svg { width:18px; height:18px; color:var(--text-secondary); }
+.ll-settings-card-body { padding:20px; }
+.ll-settings-copy { font-size:12px; color:var(--text-secondary); line-height:1.6; margin:6px 0 16px; }
+.ll-setting-row { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.ll-setting-row label { font-size:13px; font-weight:600; }
+.ll-setting-row .ll-settings-copy { margin:5px 0 0; }
+.ll-field { background:var(--bg-base); color:var(--text-primary); border:1px solid var(--border-subtle); border-radius:8px; padding:10px 12px; font-size:13px; min-width:0; }
+.ll-name-row { display:flex; align-items:center; gap:10px; }
+.ll-name-row input { flex:1; }
+.ll-primary-button { background:var(--accent-primary); color:white; border-radius:8px; padding:10px 18px; font-size:13px; }
+.ll-settings-details { padding:16px 20px; font-size:12px; color:var(--text-secondary); border-top:1px solid var(--border-subtle); line-height:1.7; }
+.ll-settings-details summary { cursor:pointer; color:var(--text-primary); font-weight:500; }
+.ll-settings-details p { margin-top:10px; overflow-wrap:anywhere; }
+.ll-settings-details pre { white-space:pre-wrap; font-size:11px; margin-top:16px; user-select:text; }
+.ll-about-brand { display:flex; align-items:center; gap:16px; margin-bottom:24px; }
+.ll-about-mark { display:grid; place-items:center; height:56px; width:56px; border-radius:16px; background:var(--accent-soft); color:var(--accent-primary); }
+.ll-about-mark svg { height:30px; width:30px; }
+.ll-about-brand h2 { font-size:26px; }
+.ll-about-brand p { font-size:12px; color:var(--text-secondary); margin-top:4px; }
+.ll-about-description { font-size:14px; line-height:1.8; margin-bottom:24px; }
+.ll-about-facts { margin:0; }
+.ll-about-facts div { display:flex; justify-content:space-between; gap:16px; font-size:13px; padding:10px 0; }
+.ll-about-facts dt { color:var(--text-secondary); }

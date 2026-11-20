@@ -206,6 +206,8 @@ window.SettingsModal = {
 
   renderTab(tabName) {
     var content = this.container.querySelector('#settings-content');
+    const t = (...labels) => window.LocalSendPanel.text(...labels);
+    const esc = window.Sanitize.escapeHtml;
     var state = window.store.getState();
     var user = state.currentUser;
     var experimentalBadge = '<span style="display:inline-block;font-size:8px;font-weight:700;color:#fff;background:var(--accent-warning);border-radius:3px;padding:1px 5px;text-transform:uppercase;line-height:1.4;vertical-align:middle;margin-left:6px;">EXPERIMENTAL</span>';
@@ -217,30 +219,33 @@ window.SettingsModal = {
     var betaBadge = '<span style="display:inline-block;font-size:8px;font-weight:700;color:#fff;background:var(--accent-primary);border-radius:3px;padding:1px 5px;text-transform:uppercase;line-height:1.4;vertical-align:middle;margin-left:6px;">BETA</span>';
 
     if (tabName === 'account') {
-      content.innerHTML = '<h3 style="font-size:24px;margin-bottom:24px"><span data-i18n="s1">本设备</span></h3><p style="color:var(--text-muted);margin-bottom:24px"><span data-i18n="s45">设置其他设备看到的名称。改名不会改变当前身份或本地记录。</span></p><label for="input-username"><span data-i18n="s17">设备名称</span></label><input id="input-username" aria-label="Device name" maxlength="64" style="display:block;width:100%;max-width:440px;margin:12px 0 24px;padding:12px;background:var(--bg-base);color:var(--text-primary);border:1px solid var(--border-subtle);border-radius:8px"><button id="btn-save-account" style="padding:10px 24px;background:var(--accent-primary);color:white;border-radius:8px"><span data-i18n="s18">保存</span></button><p id="save-msg" role="status" style="margin-top:12px"></p><details style="margin-top:32px;color:var(--text-muted)"><summary><span data-i18n="s20">身份信息</span></summary><p style="margin-top:12px;overflow-wrap:anywhere">' + window.Sanitize.escapeHtml(user.userId) + '</p><p><span data-i18n="s46">此开发版仍沿用原身份体系；名称与 IP 地址不是身份标识。</span></p></details>';
+      content.innerHTML = `
+        <h3 class="ll-settings-title">${t('本裝置','本设备','This device')}</h3>
+        <section class="ll-settings-card">
+          <div class="ll-settings-card-head"><i data-lucide="monitor-smartphone"></i>${t('裝置名稱','设备名称','Device name')}</div>
+          <div class="ll-settings-card-body">
+            <p class="ll-settings-copy">${t('其他裝置會看到這個名稱。改名不會影響歷史記錄。','其他设备会看到这个名称。改名不会影响历史记录。','Other devices see this name. Renaming keeps your history.')}</p>
+            <div class="ll-name-row"><input class="ll-field" id="input-username" aria-label="${t('裝置名稱','设备名称','Device name')}" maxlength="32"><button class="ll-primary-button" id="btn-save-account">${t('儲存','保存','Save')}</button></div>
+            <p id="save-msg" role="status" class="ll-settings-copy" style="margin-bottom:0"></p>
+          </div>
+        </section>
+        <section class="ll-settings-card"><div class="ll-settings-card-body ll-setting-row">
+          <div><label for="interface-language">${t('介面語言','界面语言','Interface language')}</label><p class="ll-settings-copy">${t('立即套用到介面','立即应用到界面','Applies immediately')}</p></div>
+          <select class="ll-field" id="interface-language"><option value="zh-Hant">繁體中文</option><option value="zh-Hans">简体中文</option><option value="en">English</option></select>
+        </div></section>`;
       if (window.Identity.getAll().length > 1) {
-        const legacy = document.createElement('button');
-        legacy.textContent = '查看旧身份记录';
-        legacy.style.cssText = 'display:block;margin-top:24px;color:var(--text-muted)';
-        legacy.onclick = () => { this.close(); window.AccountSwitcher.toggle(); };
-        content.appendChild(legacy);
+        const legacy=document.createElement('button');
+        legacy.textContent=t('查看舊身份記錄','查看旧身份记录','Previous identities');
+        legacy.className='ll-field';legacy.onclick=()=>{this.close();window.AccountSwitcher.toggle();};content.appendChild(legacy);
       }
-      const language = document.createElement('div');
-      language.style.cssText='margin:24px 0;display:flex;gap:16px;align-items:center';
-      language.innerHTML='<label for="interface-language">Language / 語言 / 语言</label><select id="interface-language" style="padding:8px;background:var(--bg-base);color:var(--text-primary);border:1px solid var(--border-subtle);border-radius:8px"><option value="zh-Hant">繁體中文</option><option value="zh-Hans">简体中文</option><option value="en">English</option></select>';
-      content.prepend(language);
-      const transport=document.createElement('div');transport.style.cssText='margin:16px 0;line-height:1.8';
-      transport.innerHTML='<label for="transport-mode">傳輸協定 / 传输协议 / Transport</label> <select id="transport-mode"><option value="localsend">LocalSend (preview)</option><option value="orbit">Orbit (legacy / calls)</option></select><p>變更後重新啟動 / 更改后重启 / Restart after changing.</p><p>LocalSend: HTTPS · 500 MB / session · Downloads/LocalLink</p>';
-      content.prepend(transport);
-      transport.querySelector('select').value=window.orbitAPI.dbGetSetting('locallink.transport','localsend');
-      transport.querySelector('select').onchange=event=>window.orbitAPI.dbSetSetting('locallink.transport',event.target.value);
-
-      language.querySelector('select').value=window.I18n.locale;
-      language.querySelector('select').onchange=event => {
+      const language=content.querySelector('#interface-language');
+      language.value=window.I18n.locale;
+      language.onchange=event=>{
         const draft=content.querySelector('#input-username').value;
         window.I18n.set(event.target.value);
         this.container.querySelector('#input-username').value=draft;
       };
+      window.lucide.createIcons({root:content});
       content.querySelector('#input-username').value = user.username || '';
       content.querySelector('#btn-save-account').onclick = () => {
         const message = content.querySelector('#save-msg');
@@ -818,6 +823,14 @@ window.SettingsModal = {
         input.click();
       });
       
+    } else if (tabName === 'network' && window.orbitAPI.dbGetSetting('locallink.transport','localsend') === 'localsend') {
+      content.innerHTML=`<h3 class="ll-settings-title">${t('網路','网络','Network')}</h3>
+        <section class="ll-settings-card"><div class="ll-settings-card-head"><i data-lucide="wifi"></i>${t('區域網路傳輸','局域网传输','Local network transfer')}</div>
+        <div class="ll-settings-card-body"><dl class="ll-about-facts">
+          <div><dt>${t('接收方式','接收方式','Receiving')}</dt><dd>${t('每次確認','每次确认','Ask each time')}</dd></div>
+          <div><dt>${t('單次傳輸上限','单次传输上限','Session limit')}</dt><dd>500 MB</dd></div>
+          <div><dt>${t('儲存位置','保存位置','Save location')}</dt><dd>Downloads / LocalLink</dd></div>
+        </dl></div></section>`;
     } else if (tabName === 'network') {
       var n = state.networkSettings;
       var peerCount = state.friends ? state.friends.filter(function(f) { return f.status === 'online'; }).length : 0;
@@ -2225,10 +2238,32 @@ window.SettingsModal = {
     } else if (tabName === 'about') {
       const version = window.orbitAPI.getAppVersion();
       const license = "MIT License\n\nCopyright (c) 2026 D4niel-dev & Orbit Team\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n";
-      content.innerHTML = '<h3 style="font-size:24px;margin-bottom:24px"><span data-i18n="s50">关于 LocalLink · 近连</span></h3><section style="padding:24px;border:1px solid var(--border-subtle);border-radius:12px;line-height:1.8"><h2><span data-i18n="s51">LocalLink 开发版</span></h2><p style="margin:12px 0"><span data-i18n="about0">在个人设备之间传输文件、图片、文字与链接。</span></p><p>当前构建基于 Orbit ' + window.Sanitize.escapeHtml(version) + '。沿用并改造其界面，网络层将向 LocalSend 协议兼容方向重构。</p><p style="margin-top:12px"><span data-i18n="about1">LocalSend 互通尚未实现，当前不能发现原版 LocalSend。开发版暂未提供独立更新渠道，已停用 Orbit 更新检查。</span></p></section><section style="margin-top:24px;line-height:1.8"><h4><span data-i18n="s52">来源与许可</span></h4><p><span data-i18n="about2">基于 Orbit 开发，灵感来自 LocalSend。LocalLink 是暂定名称，未核查商标；不是 Orbit 或 LocalSend 官方版本。</span></p><p><span data-i18n="about3">上游版权：D4niel-dev &amp; Orbit Team。保留 MIT 许可及第三方适用声明。</span></p><details style="margin-top:16px"><summary><span data-i18n="s53">查看上游 MIT 许可证</span></summary><pre style="white-space:pre-wrap;font-size:12px;margin-top:12px">' + window.Sanitize.escapeHtml(license) + '</pre></details></section>';
+      content.innerHTML=`<h3 class="ll-settings-title">${t('關於','关于','About')}</h3>
+        <div class="ll-about-brand"><span class="ll-about-mark"><i data-lucide="link"></i></span><div><h2>LocalLink <span style="font-size:16px;font-weight:400;color:var(--text-secondary)">· ${t('近連','近连','近連')}</span></h2><p>${t('開發版','开发版','Development build')} · ${esc(version)}</p></div></div>
+        <p class="ll-about-description">${t('讓檔案在你的裝置之間流動。','让文件在你的设备之间流动。','Share files across your devices.')}<br><span style="color:var(--text-secondary)">${t('附近發現、收藏裝置，以對話時間線整理每次傳輸。','附近发现、收藏设备，以对话时间线整理每次传输。','Discover nearby devices, save favorites and follow transfers in a conversation timeline.')}</span></p>
+        <section class="ll-settings-card"><div class="ll-settings-card-head"><i data-lucide="package"></i>${t('版本資訊','版本信息','Build information')}</div>
+          <div class="ll-settings-card-body"><dl class="ll-about-facts"><div><dt>${t('更新渠道','更新渠道','Updates')}</dt><dd>${t('手動更新','手动更新','Manual updates')}</dd></div><div><dt>${t('檔案傳輸','文件传输','File transfer')}</dt><dd>LocalSend ${t('協定預覽','协议预览','protocol preview')}</dd></div></dl></div>
+          <details class="ll-settings-details"><summary>${t('開源許可','开源许可','Open-source licenses')}</summary>
+            <p>${t('LocalLink 是獨立的裝置互聯工具，基於 Orbit 開發，靈感來自 LocalSend。與兩者無官方關聯。','LocalLink 是独立的设备互联工具，基于 Orbit 开发，灵感来自 LocalSend。与两者无官方关联。','LocalLink is an independent device sharing tool built on Orbit, inspired by LocalSend. It is not affiliated with either project.')}</p>
+            <p>${t('以下聲明適用於所復用的 Orbit 程式碼。LocalLink 新增的原創程式碼與設計不因此轉讓給上游作者。','以下声明适用于所复用的 Orbit 代码。LocalLink 新增的原创代码与设计不因此转让给上游作者。','The following notice covers reused Orbit code. It does not assign original LocalLink additions to the upstream authors.')}</p><pre>${esc(license)}</pre>
+          </details>
+        </section>`;
+
     } else {
       content.innerHTML = '<h3 style="font-family:var(--font-display);font-size:24px;margin-bottom:24px;">' + tabName + '</h3><p style="color:var(--text-muted);">Coming soon...</p>';
     }
+    if(tabName==='network') {
+      const section=document.createElement('section');section.className='ll-settings-card';
+      section.innerHTML=`<details><summary class="ll-settings-card-head" style="cursor:pointer">${t('進階連線選項','高级连接选项','Advanced connection options')}</summary><div class="ll-settings-card-body">
+        <div class="ll-setting-row"><label for="transport-mode">${t('傳輸協定','传输协议','Transport')}</label><select class="ll-field" id="transport-mode"><option value="localsend">LocalSend ${t('（預覽）','（预览）','(preview)')}</option><option value="orbit">Orbit ${t('（舊版連線）','（旧版连接）','(legacy)')}</option></select></div>
+        <p class="ll-settings-copy" style="margin:12px 0 0">${t('變更後重新啟動。LocalSend 連線目前支援檔案；舊版連線保留原有通話。','更改后重启。LocalSend 连接目前支持文件；旧版连接保留原有通话。','Restart after changing. LocalSend connections support files; legacy connections retain calls.')}</p><p id="transport-save-msg" class="ll-settings-copy" role="status"></p>
+      </div></details>`;
+      content.appendChild(section);
+      const select=section.querySelector('select');select.value=window.orbitAPI.dbGetSetting('locallink.transport','localsend');
+      select.onchange=event=>{window.orbitAPI.dbSetSetting('locallink.transport',event.target.value);section.querySelector('#transport-save-msg').textContent=t('已儲存，重新啟動後生效','已保存，重启后生效','Saved. Restart to apply.');};
+    }
+    window.lucide.createIcons({root:content});
+
   },
 
   // Stable per-string hash → deterministic node placement across redraws

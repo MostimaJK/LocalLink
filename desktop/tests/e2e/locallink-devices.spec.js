@@ -9,7 +9,7 @@ test('device rename and local metadata preserve identity and survive restart', a
     await page.evaluate(() => window.SettingsModal.open('account'));
     await page.locator('#input-username').fill('我的笔记本');
     await page.locator('#btn-save-account').click();
-    await expect(page.locator('#save-msg')).toHaveText('Saved!');
+    await expect(page.locator('#save-msg')).toHaveText(await page.evaluate(()=>window.I18n.t('s19')));
     const renamed = await page.evaluate(() => window.store.getState().currentUser);
     expect(renamed.userId).toBe(before.userId);
     expect(renamed.usertag).toBe(before.usertag);

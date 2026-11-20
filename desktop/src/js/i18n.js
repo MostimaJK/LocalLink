@@ -302,6 +302,9 @@ window.I18n = {
   if(!['en','zh-Hant','zh-Hans'].includes(locale)) return;
   window.orbitAPI.dbSetSetting('locallink.language',locale);
   this.locale=locale;
+  const state=window.store.getState();
+  const peer=state.friends.find(p=>p.userId===state.activeChatId);
+  if(peer?.userId.startsWith('localsend:'))window.LocalSendPanel.render(peer,window.ChatPanel.container);
   // Re-render only navigation and settings; preserve composer drafts and history.
   window.SidebarMiddle.render();
   window.SettingsModal.render();

@@ -54,7 +54,7 @@
   position: relative;
   display: grid;
   grid-template-columns: 64px 260px 1fr;
-  grid-template-rows: 100vh;
+  grid-template-rows: minmax(0, 1fr);
   height: 100vh;
   overflow: hidden;
   padding-top: 32px; /* Avoid titlebar overlap */
