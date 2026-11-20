@@ -658,6 +658,10 @@ app.whenReady().then(() => {
   mainWindow.loadFile(path.join(__dirname, 'src/index.html'));
 
   // Handle window controls
+  ipcMain.on('locallink-window-state',event=>{event.returnValue={maximized:mainWindow.isMaximized()};});
+  const reportWindowState=()=>{if(!mainWindow.isDestroyed())mainWindow.webContents.send('locallink-window-state',{maximized:mainWindow.isMaximized()});};
+  mainWindow.on('maximize',reportWindowState);
+  mainWindow.on('unmaximize',reportWindowState);
   ipcMain.on('window-controls', (event, action) => {
     if (action === 'minimize') mainWindow.minimize();
     if (action === 'maximize') {

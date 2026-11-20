@@ -31,8 +31,8 @@ window.LocalLinkDevices = {
     const meta = this.get(peer);
     const dialog = document.createElement('dialog');
     dialog.id = 'device-details-dialog';
-    dialog.style.cssText = 'margin:auto;padding:24px;border:1px solid var(--border-subtle);border-radius:12px;background:var(--bg-surface);color:var(--text-primary);width:420px;max-width:90vw;';
-    dialog.innerHTML = '<form method="dialog"><h2 style="margin-bottom:16px"><span data-i18n="s30">Device details</span></h2><p id="device-reported-name"></p><p style="margin:12px 0;color:var(--text-muted)">These labels stay on this computer. Connecting does not establish trust.</p><label for="device-alias"><span data-i18n="s31">Local remark (optional)</span></label><input id="device-alias" maxlength="64" style="display:block;width:100%;margin:8px 0 16px;padding:8px"><label for="device-type"><span data-i18n="s32">Device type (set locally)</span></label><select id="device-type" style="display:block;width:100%;margin:8px 0 16px;padding:8px"><option value="unknown"><span data-i18n="s33">Unknown</span></option><option value="phone"><span data-i18n="s34">Phone</span></option><option value="desktop"><span data-i18n="s35">Desktop</span></option><option value="laptop"><span data-i18n="s36">Laptop</span></option><option value="tablet"><span data-i18n="s37">Tablet</span></option></select><p id="device-error" role="alert"></p><div style="display:flex;justify-content:flex-end;gap:16px;margin-top:20px"><button value="cancel"><span data-i18n="s28">Cancel</span></button><button id="device-save" type="button"><span data-i18n="s29">Save</span></button></div></form>';
+    dialog.style.cssText = 'position:relative;margin:auto;padding:24px;border:1px solid var(--border-subtle);border-radius:12px;background:var(--bg-surface);color:var(--text-primary);width:420px;max-width:90vw;';
+    dialog.innerHTML = '<form method="dialog"><h2 style="margin-bottom:16px"><span data-i18n="s30">Device details</span></h2><p id="device-reported-name"></p><label for="device-alias"><span data-i18n="s31">Local remark (optional)</span></label><input id="device-alias" maxlength="64" style="display:block;width:100%;margin:8px 0 16px;padding:8px"><label for="device-type"><span data-i18n="s32">Device type (set locally)</span></label><select id="device-type" style="display:block;width:100%;margin:8px 0 16px;padding:8px"><option value="unknown"><span data-i18n="s33">Unknown</span></option><option value="phone"><span data-i18n="s34">Phone</span></option><option value="desktop"><span data-i18n="s35">Desktop</span></option><option value="laptop"><span data-i18n="s36">Laptop</span></option><option value="tablet"><span data-i18n="s37">Tablet</span></option></select><p id="device-error" role="alert"></p><div style="display:flex;justify-content:flex-end;gap:16px;margin-top:20px"><button value="cancel"><span data-i18n="s28">Cancel</span></button><button id="device-save" type="button"><span data-i18n="s29">Save</span></button></div></form>';
     dialog.querySelectorAll('input, select, button').forEach(control => {
       control.style.background = 'var(--bg-base)';
       control.style.color = 'var(--text-primary)';
@@ -40,7 +40,8 @@ window.LocalLinkDevices = {
       control.style.borderRadius = '6px';
       control.style.padding = '8px';
     });
-    dialog.querySelector('#device-reported-name').textContent = 'Reported name: ' + peer.username;
+    dialog.querySelector('#device-reported-name').textContent = peer.username;
+    dialog.querySelector('#device-reported-name').style.cssText='color:var(--text-secondary);margin-bottom:20px';
     dialog.querySelector('#device-alias').value = meta.alias || '';
     dialog.querySelector('#device-type').value = meta.type || 'unknown';
     dialog.querySelector('#device-save').onclick = () => {
@@ -54,6 +55,14 @@ window.LocalLinkDevices = {
     };
     dialog.addEventListener('close', () => dialog.remove());
     document.body.appendChild(dialog);
+    const close=document.createElement('button');close.type='button';close.className='ll-dialog-close';close.setAttribute('aria-label',window.I18n.t('s9'));close.title=window.I18n.t('s9');
+    close.innerHTML='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8m0-8-8 8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
+    close.onclick=()=>dialog.close();dialog.appendChild(close);
+    const typeLabels={unknown:'s33',phone:'s34',desktop:'s35',laptop:'s36',tablet:'s37'};
+    dialog.querySelectorAll('#device-type option').forEach(option=>{option.textContent=window.I18n.t(typeLabels[option.value]);});
+    window.I18n.apply();
+    window.LocalLinkSelect.enhance(dialog);
+    dialog.addEventListener('close',()=>window.LocalLinkSelect.close());
     dialog.showModal();
   }
 };

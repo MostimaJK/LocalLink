@@ -26,7 +26,7 @@ window.PinLockScreen = {
       '<div style="display:flex;flex-direction:column;align-items:center;gap:24px;max-width:320px;width:100%;padding:24px;">' +
         '<img src="icons/app/orbit_1024.png" style="width:64px;height:64px;border-radius:16px;box-shadow:0 4px 16px rgba(0,0,0,0.2);">' +
         '<div style="text-align:center;">' +
-          '<div style="font-size:18px;font-weight:700;color:var(--text-primary);">Orbit is Locked</div>' +
+          '<div style="font-size:18px;font-weight:700;color:var(--text-primary);">LocalLink is Locked</div>' +
           '<div style="font-size:13px;color:var(--text-muted);margin-top:4px;">Enter your PIN to unlock</div>' +
         '</div>' +
         '<div style="width:100%;display:flex;flex-direction:column;gap:8px;">' +

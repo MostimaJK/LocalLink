@@ -12,7 +12,6 @@ window.LocalSendPanel = {
   const old=host.querySelector('.ll-timeline');
   const same=old?.dataset.peerId===peer.userId;
   const top=old?.scrollTop||0, atBottom=!same||old.scrollHeight-old.clientHeight-top<60;
-  const expanded=new Set(same?[...old.querySelectorAll('details[open]')].map(el=>el.closest('[data-transfer-id]').dataset.transferId):[]);
   const activeElement=document.activeElement;
   const focused=host.contains(activeElement)?activeElement.id:null;
   const nearby=window.LocalLinkDevices.isNearby(peer), busy=this.busy.has(peer.userId);
@@ -33,7 +32,7 @@ window.LocalSendPanel = {
     '<div class="ll-file-state '+(failed?'ll-error':'')+'">'+icon(failed?'circle-alert':done?'check-check':'clock-3')+'<span>'+esc(this.statusLabel(r.status))+'</span></div>'+
     (failed?'<p class="ll-error-detail selectable">'+esc(r.error||t('請重新選擇檔案再試一次','请重新选择文件再试一次','Choose the file to try again'))+'</p>':'')+
     (done?'<div class="ll-file-actions"><button data-open="'+esc(r.id)+'">'+icon('file')+t('開啟','打开','Open')+'</button><button data-folder="'+esc(r.id)+'">'+icon('folder-open')+t('所在資料夾','所在目录','Show in folder')+'</button></div>':'')+
-    (done&&r.path?'<details class="ll-file-path"><summary>'+t('檔案位置','文件位置','File location')+'</summary><p class="selectable">'+esc(r.path)+'</p></details>':'')+'</div>'+
+    (done&&r.path?'<p class="ll-file-path selectable">'+esc(r.path)+'</p>':'')+'</div>'+
     '<div class="ll-message-meta">'+esc(incoming?name:t('本裝置','本设备','This device'))+' · <time datetime="'+date.toISOString()+'">'+date.toLocaleTimeString(locale,{hour:'2-digit',minute:'2-digit',hour12:false})+'</time></div></article>';
   }
   host.style.display='flex';host.style.flexDirection='column';
@@ -43,7 +42,6 @@ window.LocalSendPanel = {
    '<footer class="ll-composer"><p id="localsend-feedback" role="status">'+esc(this.feedback.get(peer.userId)||'')+'</p><div class="ll-compose-wrapper"><span class="ll-compose-icon">'+icon('paperclip')+'</span><span class="ll-compose-hint">'+(busy?t('等待接收或傳輸中…','等待接收或传输中…','Waiting or transferring…'):nearby?t('將檔案傳送到此裝置','将文件发送到此设备','Send a file to this device'):t('裝置離線，仍可查看歷史檔案','设备离线，仍可查看历史文件','Offline — saved history is available'))+'</span><button id="localsend-send" class="ll-send" '+(busy||!nearby?'disabled':'')+'>'+icon('plus')+t('選擇檔案','选择文件','Choose file')+'</button></div></footer></section>';
   window.lucide.createIcons({root:host});
   const timeline=host.querySelector('.ll-timeline');
-  timeline.querySelectorAll('[data-transfer-id]').forEach(el=>{if(expanded.has(el.dataset.transferId)){const details=el.querySelector('details');if(details)details.open=true;}});
   timeline.scrollTop=atBottom?timeline.scrollHeight:top;
   if(focused)host.querySelector('#'+focused)?.focus({preventScroll:true});
   const stillActive=()=>window.store.getState().activeChatId===peer.userId&&host.isConnected;

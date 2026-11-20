@@ -270,26 +270,6 @@ window.I18n = {
     "en": "View upstream MIT license",
     "zh-Hant": "查看上游 MIT 授權條款",
     "zh-Hans": "查看上游 MIT 许可证"
-  },
-  "about0": {
-    "zh-Hans": "在个人设备之间传输文件、图片、文字与链接。",
-    "zh-Hant": "在個人裝置之間傳輸檔案、圖片、文字與連結。",
-    "en": "Transfer files, images, text and links between your devices."
-  },
-  "about1": {
-    "zh-Hans": "已接入 LocalSend 协议预览版；原版客户端互测尚未完成。开发版暂未提供独立更新渠道，已停用 Orbit 更新检查。",
-    "zh-Hant": "已接入 LocalSend 協定預覽版；原版客戶端互測尚未完成。開發版暫未提供獨立更新管道，已停用 Orbit 更新檢查。",
-    "en": "LocalSend protocol preview is implemented. Original-client interoperability testing is pending. Orbit update checks are disabled; no independent update channel is available."
-  },
-  "about2": {
-    "zh-Hans": "基于 Orbit 开发，灵感来自 LocalSend。LocalLink 是暂定名称，未核查商标；不是 Orbit 或 LocalSend 官方版本。",
-    "zh-Hant": "基於 Orbit 開發，靈感來自 LocalSend。LocalLink 是暫定名稱，尚未查核商標；並非 Orbit 或 LocalSend 官方版本。",
-    "en": "Based on Orbit, inspired by LocalSend. LocalLink is a working name without trademark clearance and is not an official Orbit or LocalSend release."
-  },
-  "about3": {
-    "zh-Hans": "上游版权：D4niel-dev & Orbit Team。保留 MIT 许可及第三方适用声明。",
-    "zh-Hant": "上游著作權：D4niel-dev & Orbit Team。保留 MIT 授權及第三方適用聲明。",
-    "en": "Upstream copyright: D4niel-dev & Orbit Team. MIT license and applicable third-party notices are retained."
   }
 },
  locale: window.orbitAPI.dbGetSetting('locallink.language', 'zh-Hant'),
@@ -302,6 +282,7 @@ window.I18n = {
   if(!['en','zh-Hant','zh-Hans'].includes(locale)) return;
   window.orbitAPI.dbSetSetting('locallink.language',locale);
   this.locale=locale;
+  window.dispatchEvent(new Event('locallink-language-change'));
   const state=window.store.getState();
   const peer=state.friends.find(p=>p.userId===state.activeChatId);
   if(peer?.userId.startsWith('localsend:'))window.LocalSendPanel.render(peer,window.ChatPanel.container);

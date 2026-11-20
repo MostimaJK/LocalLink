@@ -1,3 +1,4 @@
+const {chooseSetting}=require('./helpers');
 const {test, expect} = require('@playwright/test');
 const {tmpUserDataDir, launchApp} = require('./helpers');
 const path = require('path');
@@ -24,7 +25,12 @@ test('device rename and local metadata preserve identity and survive restart', a
     });
     await page.locator('#btn-device-details').click();
     await page.locator('#device-alias').fill('书房电脑');
-    await page.locator('#device-type').selectOption('desktop');
+    await chooseSetting(page,'device-type','desktop');
+    await expect(page.locator('#device-type')).not.toBeVisible();
+    await expect(page.locator('#device-type-trigger')).toHaveText(await page.evaluate(()=>window.I18n.t('s35')));
+    await expect(page.locator('#device-details-dialog')).not.toContainText('These labels');
+    await expect(page.locator('#device-details-dialog .ll-dialog-close')).toBeVisible();
+    await page.screenshot({path:path.resolve('../artifacts/device-details-refined.png')});
     await page.locator('#device-save').click();
     await expect(page.locator('#chat-header-strip')).toContainText('书房电脑');
     await page.locator('[data-device-scope="history"]').click();

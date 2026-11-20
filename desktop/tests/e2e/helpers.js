@@ -120,4 +120,11 @@ function seedFriends(page, count) {
   }, count);
 }
 
-module.exports = { DESKTOP_DIR, tmpUserDataDir, launchApp, getPersistedSettings, setPersistedSettings, seedFriends, seedNewUI };
+module.exports = { DESKTOP_DIR, tmpUserDataDir, launchApp, getPersistedSettings, setPersistedSettings, seedFriends, seedNewUI };// Choose through the visible custom menu, preserving native value/change assertions.
+async function chooseSetting(page,id,value) {
+  const index=await page.locator('#'+id).evaluate((el,value)=>[...el.options].findIndex(o=>o.value===value),value);
+  if(index<0)throw new Error('Unknown setting option: '+value);
+  await page.locator('#'+id+'-trigger').click();
+  await page.locator('#'+id+'-option-'+index).click();
+}
+module.exports.chooseSetting=chooseSetting;

@@ -41,13 +41,13 @@ window.SettingsModal = {
     // the modal is closed or the canvas is hidden, so it's idle-cheap.
     var self = this;
     setInterval(function() { self._drawNetworkMap(); }, 250);
-    // Keyboard accessibility for collapsible sections
-    this.container.addEventListener('keydown', function(e) {
-      var header = e.target.closest('.collapsible-header');
-      if (!header) return;
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        header.click();
+    this.container.addEventListener('keydown',e=>{
+      if(e.key==='Escape'&&!window.LocalLinkSelect.active){e.preventDefault();e.stopPropagation();this.close();}
+      if(e.key==='Tab'){
+        const items=[...this.container.querySelectorAll('button,input,textarea,select,[tabindex="0"]')].filter(el=>!el.disabled&&el.getClientRects().length);
+        const first=items[0],last=items.at(-1);
+        if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}
+        else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}
       }
     });
     // Close theme dropdown on outside click
@@ -89,12 +89,12 @@ window.SettingsModal = {
     }).join('');
 
     this.container.innerHTML =
-      '<div style="width:800px;height:600px;background:var(--bg-surface);border-radius:var(--radius-lg);display:flex;overflow:hidden;box-shadow:var(--shadow-xl);border:1px solid var(--border-subtle);">' +
+      '<div class="ll-settings-window" role="dialog" aria-modal="true" aria-labelledby="settings-heading" style="width:800px;height:600px;background:var(--bg-surface);border-radius:var(--radius-lg);display:flex;overflow:hidden;box-shadow:var(--shadow-xl);border:1px solid var(--border-subtle);">' +
         '<div style="width:240px;background:var(--bg-base);padding:24px;border-right:1px solid var(--border-subtle);display:flex;flex-direction:column;">' +
           // ⚠ The heading and the collapse control share a row, so the h2 is no longer
           // a DIRECT child of the rail — the layer's selector for it moved with it.
           '<div class="settings-rail-head">' +
-            '<h2 style="font-family:var(--font-display);font-size:20px;margin-bottom:24px;color:var(--text-primary);font-weight:bold;"><span data-i18n="s0">Settings</span></h2>' +
+            '<h2 id="settings-heading" style="font-family:var(--font-display);font-size:20px;margin-bottom:24px;color:var(--text-primary);font-weight:bold;"><span data-i18n="s0">Settings</span></h2>' +
             // ⚠ Rendered ALWAYS and hidden by `_syncNavToggle` when the redesign is off.
             // Deciding it here would read `OrbitRedesign` during init, and init runs on
             // DOMContentLoaded — before the settings are hydrated and, on some load
@@ -108,11 +108,9 @@ window.SettingsModal = {
             navItems +
           '</div>' +
           '<div style="flex:1;"></div>' +
-          // ⚠ An icon for the collapsed rail: "Close" is 40px of text and the rail is
-          // 64px wide. Shown only when collapsed — the expanded rail keeps the word.
-          '<button id="btn-close-settings" style="padding:10px;border:1px solid var(--border-subtle);border-radius:8px;color:var(--text-secondary);background:transparent;cursor:pointer;"><i data-lucide="x"></i><span><span data-i18n="s9">Close</span></span></button>' +
         '</div>' +
         '<div id="settings-content" style="flex:1;padding:32px;overflow-y:auto;background:var(--bg-surface);"></div>' +
+        '<button type="button" id="btn-close-settings" class="ll-dialog-close" aria-label="' + window.I18n.t('s9') + '" title="' + window.I18n.t('s9') + '"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8m0-8-8 8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>' +
       '</div>';
     // ⚠⚠ THE NAV'S ICONS HAVE TO BE CONVERTED HERE, AND THEY NEVER WERE. `render()`
     // writes `<i data-lucide="…">` into the rail and then called only `attachEvents()`;
@@ -205,7 +203,9 @@ window.SettingsModal = {
   },
 
   renderTab(tabName) {
+    window.LocalLinkSelect.close();
     var content = this.container.querySelector('#settings-content');
+    const nameDraft=content.querySelector('#input-username');if(nameDraft)this.accountDraft=nameDraft.value;
     const t = (...labels) => window.LocalSendPanel.text(...labels);
     const esc = window.Sanitize.escapeHtml;
     var state = window.store.getState();
@@ -224,13 +224,12 @@ window.SettingsModal = {
         <section class="ll-settings-card">
           <div class="ll-settings-card-head"><i data-lucide="monitor-smartphone"></i>${t('裝置名稱','设备名称','Device name')}</div>
           <div class="ll-settings-card-body">
-            <p class="ll-settings-copy">${t('其他裝置會看到這個名稱。改名不會影響歷史記錄。','其他设备会看到这个名称。改名不会影响历史记录。','Other devices see this name. Renaming keeps your history.')}</p>
             <div class="ll-name-row"><input class="ll-field" id="input-username" aria-label="${t('裝置名稱','设备名称','Device name')}" maxlength="32"><button class="ll-primary-button" id="btn-save-account">${t('儲存','保存','Save')}</button></div>
             <p id="save-msg" role="status" class="ll-settings-copy" style="margin-bottom:0"></p>
           </div>
         </section>
         <section class="ll-settings-card"><div class="ll-settings-card-body ll-setting-row">
-          <div><label for="interface-language">${t('介面語言','界面语言','Interface language')}</label><p class="ll-settings-copy">${t('立即套用到介面','立即应用到界面','Applies immediately')}</p></div>
+          <div><label for="interface-language">${t('介面語言','界面语言','Interface language')}</label></div>
           <select class="ll-field" id="interface-language"><option value="zh-Hant">繁體中文</option><option value="zh-Hans">简体中文</option><option value="en">English</option></select>
         </div></section>`;
       if (window.Identity.getAll().length > 1) {
@@ -246,11 +245,12 @@ window.SettingsModal = {
         this.container.querySelector('#input-username').value=draft;
       };
       window.lucide.createIcons({root:content});
-      content.querySelector('#input-username').value = user.username || '';
+      content.querySelector('#input-username').value = this.accountDraft ?? user.username ?? '';
       content.querySelector('#btn-save-account').onclick = () => {
         const message = content.querySelector('#save-msg');
         try {
           window.Identity.update({username: content.querySelector('#input-username').value});
+          this.accountDraft=null;
           message.style.color = 'var(--text-primary)';
           message.textContent = window.I18n.t('s19');
         } catch (error) {
@@ -1281,7 +1281,7 @@ window.SettingsModal = {
             '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">' +
               '<div>' +
                 '<div style="font-size:15px;font-weight:600;color:var(--text-primary);">App Lock (PIN)</div>' +
-                '<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Protect Orbit with a PIN code on launch</div>' +
+                '<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Protect LocalLink with a PIN code on launch</div>' +
               '</div>' +
               // ⚠ One shared switch — geometry, off-colour and knob travel all live
               // in §9c of styles/redesign.css. State comes from `checked`, so the
@@ -1312,7 +1312,7 @@ window.SettingsModal = {
 
           '<div style="margin-top:16px;padding:16px;background:var(--accent-soft);border-radius:12px;border:1px solid var(--accent-primary);">' +
             '<div style="font-size:12px;color:var(--text-muted);line-height:1.5;">' +
-              '<strong style="color:var(--accent-primary);">Note:</strong> PIN lock is an experimental feature. It protects access to Orbit on this device but does not encrypt your messages or data. ' +
+              '<strong style="color:var(--accent-primary);">Note:</strong> PIN lock is an experimental feature. It protects access to LocalLink on this device but does not encrypt your messages or data. ' +
               'If you forget your PIN, use "Forgot PIN" on the lock screen to reset it (your account data stays intact).' +
             '</div>' +
           '</div>';
@@ -1584,7 +1584,7 @@ window.SettingsModal = {
 
           window.ConfirmModal.show({
             title: wantNewLook ? 'Switch to the new look?' : 'Switch back to the original look?',
-            message: 'Orbit will close and reopen to apply it. Nothing else changes — your messages, accounts and settings are untouched.'
+            message: 'LocalLink will close and reopen to apply it. Nothing else changes — your messages, accounts and settings are untouched.'
               + (inCall ? ' You are in a call right now, and restarting will end it.' : ''),
             confirmText: inCall ? 'End call and restart' : 'Restart now',
             cancelText: 'Not now',
@@ -1657,10 +1657,12 @@ window.SettingsModal = {
           window.SettingsModal.render();
           var tabEl = window.SettingsModal.container.querySelector('.settings-tab[data-tab="advanced"]');
           if (tabEl) tabEl.click();
+    this.container.querySelector('#btn-close-settings').focus({preventScroll:true});
         } else if (!e.target.checked && secTab) {
           window.SettingsModal.render();
           var tabEl = window.SettingsModal.container.querySelector('.settings-tab[data-tab="advanced"]');
           if (tabEl) tabEl.click();
+    this.container.querySelector('#btn-close-settings').focus({preventScroll:true});
         } else {
           if (window.SettingsModal) window.SettingsModal.renderTab('advanced');
         }
@@ -2237,16 +2239,12 @@ window.SettingsModal = {
 
     } else if (tabName === 'about') {
       const version = window.orbitAPI.getAppVersion();
-      const license = "MIT License\n\nCopyright (c) 2026 D4niel-dev & Orbit Team\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n";
       content.innerHTML=`<h3 class="ll-settings-title">${t('關於','关于','About')}</h3>
         <div class="ll-about-brand"><span class="ll-about-mark"><i data-lucide="link"></i></span><div><h2>LocalLink <span style="font-size:16px;font-weight:400;color:var(--text-secondary)">· ${t('近連','近连','近連')}</span></h2><p>${t('開發版','开发版','Development build')} · ${esc(version)}</p></div></div>
-        <p class="ll-about-description">${t('讓檔案在你的裝置之間流動。','让文件在你的设备之间流动。','Share files across your devices.')}<br><span style="color:var(--text-secondary)">${t('附近發現、收藏裝置，以對話時間線整理每次傳輸。','附近发现、收藏设备，以对话时间线整理每次传输。','Discover nearby devices, save favorites and follow transfers in a conversation timeline.')}</span></p>
+        <p class="ll-about-description">${t('個人裝置之間的檔案傳輸工具','个人设备之间的文件传输工具','File sharing across your devices')}</p>
         <section class="ll-settings-card"><div class="ll-settings-card-head"><i data-lucide="package"></i>${t('版本資訊','版本信息','Build information')}</div>
           <div class="ll-settings-card-body"><dl class="ll-about-facts"><div><dt>${t('更新渠道','更新渠道','Updates')}</dt><dd>${t('手動更新','手动更新','Manual updates')}</dd></div><div><dt>${t('檔案傳輸','文件传输','File transfer')}</dt><dd>LocalSend ${t('協定預覽','协议预览','protocol preview')}</dd></div></dl></div>
-          <details class="ll-settings-details"><summary>${t('開源許可','开源许可','Open-source licenses')}</summary>
-            <p>${t('LocalLink 是獨立的裝置互聯工具，基於 Orbit 開發，靈感來自 LocalSend。與兩者無官方關聯。','LocalLink 是独立的设备互联工具，基于 Orbit 开发，灵感来自 LocalSend。与两者无官方关联。','LocalLink is an independent device sharing tool built on Orbit, inspired by LocalSend. It is not affiliated with either project.')}</p>
-            <p>${t('以下聲明適用於所復用的 Orbit 程式碼。LocalLink 新增的原創程式碼與設計不因此轉讓給上游作者。','以下声明适用于所复用的 Orbit 代码。LocalLink 新增的原创代码与设计不因此转让给上游作者。','The following notice covers reused Orbit code. It does not assign original LocalLink additions to the upstream authors.')}</p><pre>${esc(license)}</pre>
-          </details>
+
         </section>`;
 
     } else {
@@ -2254,15 +2252,22 @@ window.SettingsModal = {
     }
     if(tabName==='network') {
       const section=document.createElement('section');section.className='ll-settings-card';
-      section.innerHTML=`<details><summary class="ll-settings-card-head" style="cursor:pointer">${t('進階連線選項','高级连接选项','Advanced connection options')}</summary><div class="ll-settings-card-body">
-        <div class="ll-setting-row"><label for="transport-mode">${t('傳輸協定','传输协议','Transport')}</label><select class="ll-field" id="transport-mode"><option value="localsend">LocalSend ${t('（預覽）','（预览）','(preview)')}</option><option value="orbit">Orbit ${t('（舊版連線）','（旧版连接）','(legacy)')}</option></select></div>
-        <p class="ll-settings-copy" style="margin:12px 0 0">${t('變更後重新啟動。LocalSend 連線目前支援檔案；舊版連線保留原有通話。','更改后重启。LocalSend 连接目前支持文件；旧版连接保留原有通话。','Restart after changing. LocalSend connections support files; legacy connections retain calls.')}</p><p id="transport-save-msg" class="ll-settings-copy" role="status"></p>
-      </div></details>`;
+      section.innerHTML=`<div class="ll-settings-card-head">${t('進階連線選項','高级连接选项','Advanced connection options')}</div><div class="ll-settings-card-body">
+        <div class="ll-setting-row"><label for="transport-mode">${t('傳輸協定','传输协议','Transport')}</label><select class="ll-field" id="transport-mode"><option value="localsend">LocalSend ${t('（預覽）','（预览）','(preview)')}</option><option value="orbit">${t('舊版連線（支援通話）','旧版连接（支持通话）','Legacy connection (calls)')}</option></select></div>
+        <p class="ll-settings-copy" style="margin:12px 0 0">${t('變更後重新啟動生效','更改后重启生效','Restart to apply changes')}</p><p id="transport-save-msg" class="ll-settings-copy" role="status"></p>
+      </div>`;
       content.appendChild(section);
       const select=section.querySelector('select');select.value=window.orbitAPI.dbGetSetting('locallink.transport','localsend');
       select.onchange=event=>{window.orbitAPI.dbSetSetting('locallink.transport',event.target.value);section.querySelector('#transport-save-msg').textContent=t('已儲存，重新啟動後生效','已保存，重启后生效','Saved. Restart to apply.');};
     }
     window.lucide.createIcons({root:content});
+
+    content.querySelectorAll('.collapsible-header').forEach(header=>{
+      header.removeAttribute('onclick');header.removeAttribute('tabindex');header.removeAttribute('role');header.style.cursor='default';
+      header.querySelector('.collapse-icon')?.remove();
+      const body=header.nextElementSibling;if(body?.classList.contains('collapsible-body'))body.style.display='block';
+    });
+    window.LocalLinkSelect.enhance(content);
 
   },
 
@@ -2449,6 +2454,7 @@ window.SettingsModal = {
     if (!tab) {
       tab = window.Storage ? window.Storage.get('lastSettingsTab', 'account') : 'account';
     }
+    if(!this.isOpen)this.returnFocus=document.activeElement;
     this.container.style.display = 'flex';
     this.isOpen = true;
     // ⚠ Before the tab click, and for a reason: this is the first moment the hydrated
@@ -2456,9 +2462,12 @@ window.SettingsModal = {
     this._syncNavToggle();
     var tabEl = this.container.querySelector('.settings-tab[data-tab="' + tab + '"]');
     if (tabEl) tabEl.click();
+    this.container.querySelector('#btn-close-settings').focus({preventScroll:true});
   },
 
   close() {
+    window.LocalLinkSelect.close();
+    const draft=this.container.querySelector('#input-username');if(draft)this.accountDraft=draft.value;
     // Save active tab
     var activeTab = this.container ? this.container.querySelector('.settings-tab.active') : null;
     if (activeTab && window.Storage) {
@@ -2466,6 +2475,7 @@ window.SettingsModal = {
     }
     this.container.style.display = 'none';
     this.isOpen = false;
+    if(this.returnFocus?.isConnected)this.returnFocus.focus({preventScroll:true});
   }
 };
 

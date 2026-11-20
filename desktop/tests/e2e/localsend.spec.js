@@ -1,3 +1,4 @@
+const {chooseSetting}=require('./helpers');
 const {test,expect}=require('@playwright/test');
 const {tmpUserDataDir,launchApp}=require('./helpers');
 const path=require('path');
@@ -43,7 +44,7 @@ test('file conversation preserves order, direction, status, history and scroll',
   });
   await expect(cards).toHaveCount(3);
   await expect(page.locator('[data-transfer-id="c"]')).toContainText('傳輸失敗');
-  await page.locator('[data-transfer-id="a"] summary').click();
+  await expect(page.locator('[data-transfer-id="a"] .ll-file-path')).toBeVisible();
   await page.evaluate(()=>{
    const rows=window.orbitAPI.dbGetSetting('locallink.transfers',[]);
    for(let i=0;i<15;i++)rows.push({...rows[0],id:'extra'+i,startedAt:rows[2].startedAt+60000*(i+1)});
@@ -54,7 +55,7 @@ test('file conversation preserves order, direction, status, history and scroll',
    window.LocalSendPanel.render(peer,window.ChatPanel.container);
   });
   expect(Math.abs(await page.locator('.ll-timeline').evaluate(el=>el.scrollTop)-50)).toBeLessThan(1); // Windows DPI rounds to device pixels.
-  await expect(page.locator('[data-transfer-id="a"] details')).toHaveAttribute('open','');
+  await expect(page.locator('.ll-timeline details')).toHaveCount(0);
   await page.evaluate(()=>{
    window.LocalLinkDevices.nearby.clear();
    window.LocalSendPanel.render(window.store.getState().friends.find(p=>p.userId==='localsend:test'),window.ChatPanel.container);
@@ -94,7 +95,7 @@ test('file conversation preserves order, direction, status, history and scroll',
  }finally{await app.close();}
 });
 
-test('settings retain Orbit cards, localize language, and keep notices in license details',async()=>{
+test('settings localize controls, show retained content directly, and use LocalLink branding',async()=>{
  const {app,page}=await launchApp(tmpUserDataDir('settings-polish'),[],{keepBootState:true});
  try{
   await page.locator('#btn-profile').click();
@@ -103,31 +104,31 @@ test('settings retain Orbit cards, localize language, and keep notices in licens
   await expect(page.locator('#settings-content')).not.toContainText('Language /');
   await page.screenshot({path:screen('settings-device-refined')});
   await page.locator('#input-username').fill('未保存的设备名');
-  await page.locator('#interface-language').selectOption('en');
+  await chooseSetting(page,'interface-language','en');
   await expect(page.locator('#settings-content')).toContainText('Interface language');
   await expect(page.locator('#input-username')).toHaveValue('未保存的设备名');
-  await page.locator('#interface-language').selectOption('zh-Hans');
+  await chooseSetting(page,'interface-language','zh-Hans');
   await expect(page.locator('#settings-content')).toContainText('界面语言');
-  await page.locator('#interface-language').selectOption('zh-Hant');
+  await chooseSetting(page,'interface-language','zh-Hant');
   await page.locator('.settings-tab[data-tab="network"]').click();
   await expect(page.locator('#settings-content')).toContainText('區域網路傳輸');
-  await page.locator('#settings-content summary').click();
   await expect(page.locator('#transport-mode')).toHaveValue('localsend');
-  await page.locator('#transport-mode').selectOption('orbit');
+  await chooseSetting(page,'transport-mode','orbit');
   await expect(page.locator('#transport-save-msg')).toContainText('重新啟動');
   expect(await page.evaluate(()=>window.orbitAPI.dbGetSetting('locallink.transport'))).toBe('orbit');
-  await page.locator('#transport-mode').selectOption('localsend');
+  await chooseSetting(page,'transport-mode','localsend');
   await page.locator('.settings-tab[data-tab="about"]').click();
   await expect(page.locator('.ll-about-brand')).toContainText('LocalLink');
   await expect(page.locator('#settings-content pre')).not.toBeVisible();
   await page.screenshot({path:screen('about-locallink-refined')});
-  await page.locator('#settings-content summary').click();
-  const license=fs.readFileSync(path.resolve('../LICENSE'),'utf8').replace(/\r\n/g,'\n').trim();
-  expect((await page.locator('#settings-content pre').innerText()).trim()).toBe(license);
+  await expect(page.locator('#settings-content')).not.toContainText('Orbit');
+  await expect(page.locator('#settings-content details')).toHaveCount(0);
+  expect(fs.readFileSync(path.resolve('../LICENSE'),'utf8')).toContain('D4niel-dev & Orbit Team');
+  expect(fs.readFileSync(path.resolve('electron-builder.yml'),'utf8')).toContain('to: licenses/Orbit-LICENSE.txt');
   // Also verify controls fit a shorter normal desktop window.
   await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1000,680));
   await page.locator('.settings-tab[data-tab="account"]').click();
   await expect(page.locator('#btn-save-account')).toBeInViewport();
-  await expect(page.locator('#interface-language')).toBeInViewport();
+  await expect(page.locator('#interface-language-trigger')).toBeInViewport();
  }finally{await app.close();}
 });

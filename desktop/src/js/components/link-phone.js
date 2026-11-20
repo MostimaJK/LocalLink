@@ -74,7 +74,7 @@ window.OrbitLinkPhone = {
         '<h3 style="margin:0;font-family:var(--font-display);font-size:17px;font-weight:600;color:var(--text-primary);">Link a phone</h3>' +
       '</div>' +
       '<p style="margin:0 0 16px;font-size:12px;line-height:1.55;color:var(--text-muted);">' +
-        'On the phone: <b style="color:var(--text-secondary);">Orbit → Settings → Pair a desktop</b>, then point it at this code.' +
+        'On the phone: <b style="color:var(--text-secondary);">Settings → Pair a desktop</b>, then point it at this code.' +
       '</p>' +
       '<div id="link-phone-qr" style="background:#fff;padding:12px;border-radius:10px;display:inline-block;line-height:0;"></div>' +
       '<div id="link-phone-code" style="margin-top:12px;font-family:var(--font-mono);font-size:11px;' +
