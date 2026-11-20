@@ -75,14 +75,14 @@ window.SettingsModal = {
     // ⚠ The inline styles are gone — the layer owns `.settings-tab` outright now, so
     // the active state is a class and there is no second writer left to fight it.
     var navItems = [
-      { tab: 'account', icon: 'monitor-smartphone', label: 'This Device' },
+      { tab: 'account', icon: 'monitor-smartphone', label: '本设备' },
       { tab: 'appearance', icon: 'palette', label: 'Appearance' },
       { tab: 'network', icon: 'wifi', label: 'Network' },
       { tab: 'notifications', icon: 'bell', label: 'Notifications' },
       { tab: 'data', icon: 'database', label: 'Data Manager' },
       { tab: 'security', icon: 'shield', label: 'Security', experimental: true },
       { tab: 'advanced', icon: 'sliders-horizontal', label: 'Advanced' },
-      { tab: 'about', icon: 'info', label: 'About' }
+      { tab: 'about', icon: 'info', label: '关于' }
     ].filter(function (it) { return !it.experimental || showSecurity; }).map(function (it) {
       return '<button class="settings-tab' + (it.tab === 'account' ? ' active' : '') + '" data-tab="' + it.tab + '">' +
         '<i data-lucide="' + it.icon + '"></i><span>' + it.label + '</span></button>';
@@ -217,394 +217,26 @@ window.SettingsModal = {
     var betaBadge = '<span style="display:inline-block;font-size:8px;font-weight:700;color:#fff;background:var(--accent-primary);border-radius:3px;padding:1px 5px;text-transform:uppercase;line-height:1.4;vertical-align:middle;margin-left:6px;">BETA</span>';
 
     if (tabName === 'account') {
-      var s = state.settings || {};
-      var frameNum = (user && user.profileFrame != null ? user.profileFrame : (s.profileFrame || 0));
-      var frameOverlayPreview = frameNum ? '<img src="icons/frames/pfp_frame_' + frameNum + '.png" style="position:absolute;top:-11%;left:-11%;width:117%;height:117%;pointer-events:none;object-fit:contain;" draggable="false" alt="">' : '';
-
-      var avatarPreview = user.avatar
-        ? '<div id="preview-avatar-wrapper" style="position:relative;display:inline-block;">' +
-          '<img src="' + window.Sanitize.escapeHtml(user.avatar) + '" id="preview-avatar-img" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:4px solid var(--bg-surface);">' +
-          frameOverlayPreview +
-          '</div>'
-        : '<div id="preview-avatar-wrapper" style="position:relative;display:inline-block;">' +
-          '<div id="preview-avatar-img" style="width:80px;height:80px;border-radius:50%;background:var(--accent-primary);display:flex;align-items:center;justify-content:center;font-size:32px;color:white;font-weight:600;border:4px solid var(--bg-surface);">' + (user.username ? user.username.charAt(0).toUpperCase() : '?') + '</div>' +
-          frameOverlayPreview +
-          '</div>';
-
-      var bannerStyle = user.banner
-        ? (user.banner.startsWith('#') || user.banner.startsWith('linear-gradient') || user.banner.startsWith('rgb')
-          ? 'background:' + window.Sanitize.escapeHtml(user.banner)
-          : 'background-image:url(' + window.Sanitize.escapeHtml(user.banner) + ');background-size:cover;background-position:center')
-        // ⚠ Changed HERE rather than overridden in redesign.css on purpose: this
-        // inline style is either the default or the banner the user chose, and a
-        // stylesheet rule with `!important` could not tell the two apart — it would
-        // quietly discard a custom banner.
-        : 'background:' + DEFAULT_BANNER;
-
-      content.innerHTML =
-        '<h3 style="font-family:var(--font-display);font-size:24px;margin-bottom:24px;">This Device</h3>' +
-
-        // Preview Card
-        '<div style="margin-bottom:24px;border-radius:12px;overflow:hidden;border:1px solid var(--border-subtle);">' +
-          '<div id="preview-banner" style="height:120px;' + bannerStyle + ';position:relative;">' +
-            '<div style="position:absolute;bottom:-40px;left:24px;">' + avatarPreview + '</div>' +
-          '</div>' +
-          '<div style="padding:48px 24px 20px 24px;background:var(--bg-surface);">' +
-            '<div style="font-size:18px;font-weight:700;color:var(--text-primary);" id="preview-username">' + window.Sanitize.escapeHtml(user.username) + '</div>' +
-            '<div style="font-size:13px;color:var(--text-muted);font-family:var(--font-mono);" id="preview-usertag">#' + window.Sanitize.escapeHtml(user.usertag || '') + '</div>' +
-          '</div>' +
-        '</div>' +
-
-        // Collapsible: Profile
-        '<div class="settings-collapsible" style="margin-bottom:12px;border-radius:10px;border:1px solid var(--border-subtle);overflow:hidden;">' +
-          '<div class="collapsible-header" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg-base);cursor:pointer;user-select:none;" onclick="var b=this.nextElementSibling;var i=this.querySelector(\'.collapse-icon\');if(b.style.display===\'none\'){b.style.display=\'block\';i.style.transform=\'rotate(0deg)\'}else{b.style.display=\'none\';i.style.transform=\'rotate(-90deg)\'}">' +
-            '<span style="font-size:13px;font-weight:600;color:var(--text-primary);">Device identity</span>' +
-            '<i data-lucide="chevron-down" class="collapse-icon" style="width:16px;height:16px;color:var(--text-muted);transition:transform 0.2s;"></i>' +
-          '</div>' +
-          '<div class="collapsible-body" style="padding:16px;display:block;">' +
-            '<div style="margin-bottom:16px;"><label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px;">Device name</label>' +
-            '<div style="display:flex;gap:8px;"><input type="text" id="input-username" aria-label="Device name" value="' + window.Sanitize.escapeHtml(user.username) + '" style="flex:1;padding:10px 12px;border-radius:8px;border:1px solid var(--border-subtle);background:var(--bg-surface);color:var(--text-primary);font-size:14px;outline:none;">' +
-            '<div style="padding:10px 12px;border-radius:8px;background:var(--bg-surface);color:var(--text-muted);font-family:var(--font-mono);font-size:14px;border:1px solid var(--border-subtle);">#' + window.Sanitize.escapeHtml(user.usertag || '') + '</div></div></div>' +
-            '<div><label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px;">Bio</label>' +
-            '<textarea id="input-bio" rows="3" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border-subtle);background:var(--bg-base);color:var(--text-primary);font-size:14px;outline:none;resize:none;">' + window.Sanitize.escapeHtml(user.bio || '') + '</textarea></div>' +
-          '</div>' +
-        '</div>' +
-
-        // Collapsible: Profile Frame
-        '<div class="settings-collapsible" style="margin-bottom:12px;border-radius:10px;border:1px solid var(--border-subtle);overflow:hidden;">' +
-          '<div class="collapsible-header" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg-base);cursor:pointer;user-select:none;" onclick="var b=this.nextElementSibling;var i=this.querySelector(\'.collapse-icon\');if(b.style.display===\'none\'){b.style.display=\'block\';i.style.transform=\'rotate(0deg)\'}else{b.style.display=\'none\';i.style.transform=\'rotate(-90deg)\'}">' +
-            '<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:13px;font-weight:600;color:var(--text-primary);">Profile Frame</span></div>' +
-            '<i data-lucide="chevron-down" class="collapse-icon" style="width:16px;height:16px;color:var(--text-muted);transition:transform 0.2s;"></i>' +
-          '</div>' +
-          '<div class="collapsible-body" style="padding:16px;display:block;">' +
-            '<div style="display:flex;flex-wrap:wrap;gap:6px;" id="frame-picker">' +
-              '<button class="frame-option" data-frame="0" style="width:44px;height:44px;border-radius:50%;border:2px solid ' + (!frameNum ? 'var(--accent-primary)' : 'var(--border-subtle)') + ';background:var(--bg-base);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-muted);">None</button>' +
-              (function() {
-                // The numbers that have an asset, listed rather than ranged, so a missing
-                // asset cannot put a broken tile in the picker. All of 1..55 exist as of the
-                // latest batch. Regenerate if the frame assets change.
-                // The shared list — the mobile reads the same one. This was a
-                // literal 1..55 here and a loop stopping at 42 on the phone, so
-                // the two drifted and nobody could tell.
-                var FRAME_NUMBERS = (window.ProfileFrames && window.ProfileFrames.numbers) || [
-                  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
-                  13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
-                  25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36,
-                  37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48,
-                  49, 50, 51, 52, 53, 54, 55
-                ];
-                var html = '';
-                for (var fi = 0; fi < FRAME_NUMBERS.length; fi++) {
-                  var i = FRAME_NUMBERS[fi];
-                  html += '<button class="frame-option" data-frame="' + i + '" style="width:44px;height:44px;border-radius:50%;border:2px solid ' + (frameNum === i ? 'var(--accent-primary)' : 'var(--border-subtle)') + ';cursor:pointer;overflow:hidden;padding:0;background:var(--bg-base);">' +
-                    '<img src="icons/frames/pfp_frame_' + i + '.png" style="width:100%;height:100%;object-fit:contain;" draggable="false">' +
-                  '</button>';
-                }
-                return html;
-              })() +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-
-        // Collapsible: Avatar & Banner
-        '<div class="settings-collapsible" style="margin-bottom:12px;border-radius:10px;border:1px solid var(--border-subtle);overflow:hidden;">' +
-          '<div class="collapsible-header" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg-base);cursor:pointer;user-select:none;" onclick="var b=this.nextElementSibling;var i=this.querySelector(\'.collapse-icon\');if(b.style.display===\'none\'){b.style.display=\'block\';i.style.transform=\'rotate(0deg)\'}else{b.style.display=\'none\';i.style.transform=\'rotate(-90deg)\'}">' +
-            '<span style="font-size:13px;font-weight:600;color:var(--text-primary);">Avatar & Banner</span>' +
-            '<i data-lucide="chevron-down" class="collapse-icon" style="width:16px;height:16px;color:var(--text-muted);transition:transform 0.2s;"></i>' +
-          '</div>' +
-          '<div class="collapsible-body" style="padding:16px;display:none;">' +
-            '<div style="margin-bottom:16px;">' +
-              '<label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px;">Avatar</label>' +
-              '<div style="display:flex;gap:8px;align-items:center;">' +
-                '<div style="flex:1;"><input type="text" id="input-avatar" placeholder="Avatar URL..." value="' + window.Sanitize.escapeHtml(user.avatar || '') + '" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border-subtle);background:var(--bg-base);color:var(--text-primary);font-size:13px;outline:none;"></div>' +
-                '<label style="padding:10px;background:var(--bg-hover);color:var(--text-primary);border-radius:8px;cursor:pointer;border:1px solid var(--border-subtle);flex-shrink:0;"><i data-lucide="upload" style="width:16px;"></i><input type="file" id="input-avatar-file" accept="image/*" style="display:none;"></label>' +
-              '</div>' +
-            '</div>' +
-            '<div>' +
-              '<label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px;">Banner</label>' +
-              '<div style="display:flex;gap:8px;align-items:center;">' +
-                '<div style="flex:1;"><input type="text" id="input-banner" placeholder="#Hex, gradient, or Image URL..." value="' + window.Sanitize.escapeHtml(user.banner || '') + '" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border-subtle);background:var(--bg-base);color:var(--text-primary);font-size:13px;outline:none;"></div>' +
-                '<label style="padding:10px;background:var(--bg-hover);color:var(--text-primary);border-radius:8px;cursor:pointer;border:1px solid var(--border-subtle);flex-shrink:0;"><i data-lucide="upload" style="width:16px;"></i><input type="file" id="input-banner-file" accept="image/*" style="display:none;"></label>' +
-              '</div>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-
-        // Collapsible: Account Info
-        '<div class="settings-collapsible" style="margin-bottom:24px;border-radius:10px;border:1px solid var(--border-subtle);overflow:hidden;">' +
-          '<div class="collapsible-header" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg-base);cursor:pointer;user-select:none;" onclick="var b=this.nextElementSibling;var i=this.querySelector(\'.collapse-icon\');if(b.style.display===\'none\'){b.style.display=\'block\';i.style.transform=\'rotate(0deg)\'}else{b.style.display=\'none\';i.style.transform=\'rotate(-90deg)\'}">' +
-            '<span style="font-size:13px;font-weight:600;color:var(--text-primary);">Account Info</span>' +
-            '<i data-lucide="chevron-down" class="collapse-icon" style="width:16px;height:16px;color:var(--text-muted);transition:transform 0.2s;"></i>' +
-          '</div>' +
-          '<div class="collapsible-body" style="padding:16px;display:none;">' +
-            '<div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">User ID</div>' +
-            '<div style="font-size:13px;color:var(--text-secondary);font-family:var(--font-mono);word-break:break-all;padding:10px 12px;background:var(--bg-base);border-radius:8px;border:1px solid var(--border-subtle);">' + (user.userId || 'N/A') + '</div>' +
-            '<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border-subtle);text-align:center;">' +
-              '<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Your QR Code</div>' +
-              '<p style="font-size:11px;color:var(--text-muted);margin:0 0 10px;">Scan this with Orbit on another device to connect instantly.</p>' +
-              '<div id="qr-code-container" style="display:inline-block;padding:10px;background:#fff;border-radius:10px;"></div>' +
-              '<div style="margin-top:14px;">' +
-                '<button id="btn-scan-qr" style="padding:8px 16px;background:transparent;color:var(--text-secondary);' +
-                'border:1px solid var(--border-subtle);border-radius:8px;font-size:12px;cursor:pointer;">Scan a QR code…</button>' +
-              '</div>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-
-        // Save
-        '<div style="display:flex;align-items:center;gap:12px;">' +
-          '<button id="btn-save-account" style="padding:10px 24px;background:var(--accent-primary);color:white;border-radius:8px;border:none;font-weight:600;cursor:pointer;">Save Changes</button>' +
-          '<span id="save-msg" style="font-size:14px;color:var(--accent-success);"></span>' +
-        '</div>';
-
-      lucide.createIcons({ root: content });
-
-      // Generate QR code for user profile (pairing payload v2)
-      // See plans/docs/Orbit QR Pairing v2 Design.md
-      (function generateQR() {
-        var qrContainer = document.getElementById('qr-code-container');
-        if (!qrContainer || typeof QRCode === 'undefined') return;
-        var state = window.store.getState();
-        var user = state.currentUser;
-        if (!user) return;
-
-        function render(qrData) {
-          try {
-            var qr = QRCode(0, 'M');
-            qr.addData(qrData);
-            qr.make();
-            qrContainer.innerHTML = qr.createImgTag(4, 0);
-            qrContainer.querySelector('img').style.display = 'block';
-          } catch(e) {
-            qrContainer.innerHTML = '<span style="color:var(--text-muted);font-size:12px;">Could not generate QR code</span>';
-          }
-        }
-
-        // Identity-only payload (v1). Used if the shared pairing module is
-        // unavailable, so this panel never renders blank.
-        function renderV1() {
-          render(JSON.stringify({ v: 1, id: user.userId, n: user.username, t: user.usertag }));
-        }
-
-        if (!window.Orbit || !Orbit.QRPairing) { renderV1(); return; }
-
-        var publicKey = null;
+      content.innerHTML = '<h3 style="font-size:24px;margin-bottom:24px">本设备</h3><p style="color:var(--text-muted);margin-bottom:24px">设置其他设备看到的名称。改名不会改变当前身份或本地记录。</p><label for="input-username">设备名称</label><input id="input-username" aria-label="Device name" maxlength="64" style="display:block;width:100%;max-width:440px;margin:12px 0 24px;padding:12px;background:var(--bg-base);color:var(--text-primary);border:1px solid var(--border-subtle);border-radius:8px"><button id="btn-save-account" style="padding:10px 24px;background:var(--accent-primary);color:white;border-radius:8px">保存</button><p id="save-msg" role="status" style="margin-top:12px"></p><details style="margin-top:32px;color:var(--text-muted)"><summary>身份信息</summary><p style="margin-top:12px;overflow-wrap:anywhere">' + window.Sanitize.escapeHtml(user.userId) + '</p><p>此开发版仍沿用原身份体系；名称与 IP 地址不是身份标识。</p></details>';
+      if (window.Identity.getAll().length > 1) {
+        const legacy = document.createElement('button');
+        legacy.textContent = '查看旧身份记录';
+        legacy.style.cssText = 'display:block;margin-top:24px;color:var(--text-muted)';
+        legacy.onclick = () => { this.close(); window.AccountSwitcher.toggle(); };
+        content.appendChild(legacy);
+      }
+      content.querySelector('#input-username').value = user.username || '';
+      content.querySelector('#btn-save-account').onclick = () => {
+        const message = content.querySelector('#save-msg');
         try {
-          if (window.orbitAPI && window.orbitAPI.e2eeGetPublicKey) publicKey = window.orbitAPI.e2eeGetPublicKey();
-        } catch(e) {}
-
-        Orbit.QRPairing.listLocalIPv4().then(function(ips) {
-          var payload = Orbit.QRPairing.buildPayload(user, {
-            ips: ips,
-            port: Orbit.QRPairing.DEFAULT_PORT,
-            publicKey: publicKey
-          });
-          if (payload) render(payload); else renderV1();
-        }).catch(renderV1);
-      })();
-
-      // Desktop has no camera — pairing from an image (paste / drop / picker)
-      var scanBtn = document.getElementById('btn-scan-qr');
-      if (scanBtn) {
-        scanBtn.addEventListener('click', function() {
-          if (window.OrbitQRScanner) {
-            window.OrbitQRScanner.open();
-          } else if (window.Toast) {
-            window.Toast.show('Unavailable', 'QR scanner not loaded.', 'error');
-          }
-        });
-      }
-
-      // Live preview updates
-      function updatePreview() {
-        try {
-          var nameInput = content.querySelector('#input-username');
-          var avatarInput = content.querySelector('#input-avatar');
-          var bannerInput = content.querySelector('#input-banner');
-          if (!nameInput || !avatarInput || !bannerInput) return;
-
-          var name = nameInput.value.trim();
-          var avatar = avatarInput.value.trim();
-          var banner = bannerInput.value.trim();
-          var frame = window.store.getState().settings.profileFrame || 0;
-
-          var nameEl = content.querySelector('#preview-username');
-          if (nameEl) nameEl.textContent = name || 'User';
-
-          var wrapper = content.querySelector('#preview-avatar-wrapper');
-          if (wrapper) {
-            var innerHtml;
-            if (avatar) {
-              innerHtml = '<img src="' + window.Sanitize.escapeHtml(avatar) + '" id="preview-avatar-img" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:4px solid var(--bg-surface);">';
-            } else {
-              innerHtml = '<div id="preview-avatar-img" style="width:80px;height:80px;border-radius:50%;background:var(--accent-primary);display:flex;align-items:center;justify-content:center;font-size:32px;color:white;font-weight:600;border:4px solid var(--bg-surface);">' + (name ? name.charAt(0).toUpperCase() : '?') + '</div>';
-            }
-            var frameHtml = frame ? '<img src="icons/frames/pfp_frame_' + frame + '.png" style="position:absolute;top:-11%;left:-11%;width:117%;height:117%;pointer-events:none;object-fit:contain;" draggable="false" alt="">' : '';
-            wrapper.innerHTML = innerHtml + frameHtml;
-          }
-
-          var bannerEl = content.querySelector('#preview-banner');
-          if (bannerEl) {
-            if (banner) {
-              if (banner.startsWith('#') || banner.startsWith('linear-gradient') || banner.startsWith('rgb')) {
-                bannerEl.style.cssText = 'height:120px;position:relative;background:' + window.Sanitize.escapeHtml(banner) + ';';
-              } else {
-                bannerEl.style.cssText = 'height:120px;position:relative;background-image:url(' + window.Sanitize.escapeHtml(banner) + ');background-size:cover;background-position:center;';
-              }
-            } else {
-              bannerEl.style.cssText = 'height:120px;position:relative;background:' + DEFAULT_BANNER + ';';
-            }
-          }
-        } catch (e) {
-          // Silently fail if DOM is stale (tab was re-rendered)
-        }
-      }
-
-      function openAvatarCropper(source) {
-      if (window.ImageCropper) {
-        window.ImageCropper.open(source, {
-          aspectRatio: 1,
-          cropWidth: 300,
-          cropHeight: 300,
-          title: 'Crop Avatar'
-        }, function(result) {
-          if (result) {
-            var input = content.querySelector('#input-avatar');
-            if (input) {
-              input.value = result;
-              updatePreview();
-            }
-          }
-        });
-      }
-    }
-
-    function openBannerCropper(source) {
-      if (window.ImageCropper) {
-        window.ImageCropper.open(source, {
-          aspectRatio: 3,
-          cropWidth: 600,
-          cropHeight: 200,
-          title: 'Crop Banner'
-        }, function(result) {
-          if (result) {
-            var input = content.querySelector('#input-banner');
-            if (input) {
-              input.value = result;
-              updatePreview();
-            }
-          }
-        });
-      }
-    }
-
-      var avatarFileInput = content.querySelector('#input-avatar-file');
-      if (avatarFileInput) {
-      avatarFileInput.addEventListener('change', function(e) {
-          var file = e.target.files[0];
-          if (!file) return;
-          openAvatarCropper(file);
-          e.target.value = '';
-        });
-      }
-      var bannerFileInput = content.querySelector('#input-banner-file');
-      if (bannerFileInput) {
-        bannerFileInput.addEventListener('change', function(e) {
-          var file = e.target.files[0];
-          if (!file) return;
-          openBannerCropper(file);
-          e.target.value = '';
-        });
-      }
-
-      content.querySelector('#input-username').addEventListener('input', updatePreview);
-      content.querySelector('#input-avatar').addEventListener('input', updatePreview);
-      content.querySelector('#input-banner').addEventListener('input', updatePreview);
-
-      // Enter key in avatar/banner URL inputs opens cropper
-      content.querySelector('#input-avatar').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          var val = this.value.trim();
-          if (val) openAvatarCropper(val);
-        }
-      });
-      content.querySelector('#input-banner').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          var val = this.value.trim();
-          if (val) openBannerCropper(val);
-        }
-      });
-
-      content.querySelector('#btn-save-account').addEventListener('click', function() {
-        try {
-          window.Identity.update({
-            username: content.querySelector('#input-username').value.trim(),
-            bio: content.querySelector('#input-bio').value.trim(),
-            avatar: content.querySelector('#input-avatar').value.trim() || null,
-            banner: content.querySelector('#input-banner').value.trim() || null
-          });
-          content.querySelector('#save-msg').textContent = "Saved!";
-          setTimeout(function() { 
-            var msgEl = content.querySelector('#save-msg');
-            if (msgEl) msgEl.textContent = ""; 
-          }, 3000);
-        } catch (e) {
-          content.querySelector('#save-msg').style.color = "var(--accent-danger)";
-          content.querySelector('#save-msg').textContent = e.message;
-        }
-      });
-
-      // Settings helper for Account tab (also syncs profileFrame to identity)
-      var updateSettings = function(key, val) {
-        // Record undo/redo action
-        if (window.UndoManager && !window.UndoManager._paused) {
-          var _oldVal = window.store.getState().settings[key];
-          var _key = key;
-          var _newVal = val;
-          if (_oldVal !== _newVal) {
-            window.UndoManager.pushAction('Change ' + _key, function() {
-              var s = { ...window.store.getState().settings };
-              s[_key] = _oldVal;
-              window.store.setState({ settings: s });
-              window.Storage.set('settings', s);
-              if (window.App && window.App.applySettings) window.App.applySettings(s);
-            }, function() {
-              var s = { ...window.store.getState().settings };
-              s[_key] = _newVal;
-              window.store.setState({ settings: s });
-              window.Storage.set('settings', s);
-              if (window.App && window.App.applySettings) window.App.applySettings(s);
-            });
-          }
-        }
-        var newSettings = { ...window.store.getState().settings };
-        newSettings[key] = val;
-        window.store.setState({ settings: newSettings });
-        window.Storage.set('settings', newSettings);
-        if (key === 'profileFrame') {
-          var cu = window.store.getState().currentUser;
-          if (cu) {
-            var updated = { ...cu, profileFrame: val || null };
-            window.store.setState({ currentUser: updated });
-            if (window.orbitAPI) window.orbitAPI.dbSaveUser(updated);
-            // Broadcast profile frame change to connected peers in real time
-            if (window.orbitAPI && window.orbitAPI.broadcastBeacon) {
-              window.orbitAPI.broadcastBeacon(updated);
-            }
-          }
+          window.Identity.update({username: content.querySelector('#input-username').value});
+          message.style.color = 'var(--text-primary)';
+          message.textContent = 'Saved!';
+        } catch (error) {
+          message.style.color = 'var(--accent-danger)';
+          message.textContent = error.message;
         }
       };
-
-      // Frame picker in Account tab
-      content.querySelectorAll('.frame-option').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-          var frame = parseInt(btn.dataset.frame);
-          updateSettings('profileFrame', frame);
-          if (window.SettingsModal) window.SettingsModal.renderTab('account');
-        });
-      });
     } else if (tabName === 'appearance') {
       var s = state.settings;
 
@@ -849,12 +481,6 @@ window.SettingsModal = {
                    '<div><div>Reduce Motion</div><div style="font-size:12px;color:var(--text-muted);font-weight:400;">Disable animations, freeze GIF previews, and stop avatar effects</div></div>' +
                 '</label>' +
               '</div>' +
-              '<div style="border-top:1px solid var(--border-subtle);padding-top:12px;margin-top:4px;">' +
-                '<label style="display:flex;align-items:center;gap:12px;font-size:14px;color:var(--text-primary);cursor:pointer;">' +
-                  '<input id="set-nobang" type="checkbox" '+(s.noFlashbang?'checked':'')+'>' +
-                  '<div><div>Disable Light Mode Flashbang</div><div style="font-size:12px;color:var(--text-muted);font-weight:400;">Skip the white flash when switching to Light Mode</div></div>' +
-                '</label>' +
-              '</div>' +
             '</div>' +
           '</div>' +
         '</div>' +
@@ -991,79 +617,6 @@ window.SettingsModal = {
       content.querySelectorAll('input[name="theme"]').forEach(function(radio) {
         radio.addEventListener('change', function(e) {
           if (e.target.checked) {
-            var currentTheme = window.store.getState().settings.theme;
-            // Easter egg: Light mode warning 😎
-            if (e.target.value === 'light' && currentTheme !== 'light') {
-              // Revert the radio visually while we show the dialog
-              e.target.checked = false;
-              var prevRadio = content.querySelector('input[name="theme"][value="' + currentTheme + '"]');
-              if (prevRadio) prevRadio.checked = true;
-
-              // Build a funny warning dialog
-              var overlay = document.createElement('div');
-              overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);z-index:99999;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.2s ease;';
-              overlay.innerHTML =
-                '<div style="background:var(--bg-surface);border:1px solid var(--border-strong);border-radius:16px;padding:32px;max-width:440px;width:90%;box-shadow:0 24px 48px rgba(0,0,0,0.4);text-align:center;">' +
-                  '<div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#FFD93D,#FF6B6B);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></div>' +
-                  '<h3 style="font-family:var(--font-display);font-size:20px;color:var(--text-primary);margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:8px;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="var(--accent-warning)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>CAUTION : Light Mode</h3>' +
-                  '<p style="font-size:14px;color:var(--text-secondary);line-height:1.6;margin-bottom:6px;">' +
-                    'Are you <b>ABSOLUTELY</b> sure you want to switch to <br><span style="color:#FFD93D;font-weight:700;">Light Mode</span> ?' +
-                  '</p>' +
-                  '<p style="font-size:13px;color:var(--text-muted);line-height:1.5;margin-bottom:20px;">' +
-                    'This action will deploy a tactical <b style="color:var(--accent-warning);">FLASHBANG</b> directly to your retinas. ' +
-                    '<br>Side effects may include temporary blindness, existential confusion, and an overwhelming urge to switch back to Dark Mode immediately.<br><br>' +
-                    '<span style="font-size:12px;opacity:0.7;">We recommend putting on sunglasses before proceeding. <br>You have been warned.</span>' +
-                  '</p>' +
-                  '<label style="display:flex;align-items:center;gap:8px;justify-content:center;font-size:13px;color:var(--text-muted);cursor:pointer;margin-bottom:16px;">' +
-                    '<input id="light-mode-nobang" type="checkbox" '+(window.store.getState().settings.noFlashbang?'checked':'')+'>' +
-                    '<span>Don\u0027t flashbang me next time</span>' +
-                  '</label>' +
-                  '<div style="display:flex;gap:10px;justify-content:center;">' +
-                    '<button id="light-mode-cancel" style="padding:10px 20px;border-radius:10px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-secondary);cursor:pointer;font-size:13px;font-weight:500;">No thanks, I choose life</button>' +
-                    '<button id="light-mode-confirm" style="padding:10px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,#FFD93D,#FF8C00);color:#000;cursor:pointer;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:6px;"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Flashbang me</button>' +
-                  '</div>' +
-                '</div>';
-              document.body.appendChild(overlay);
-
-              overlay.querySelector('#light-mode-cancel').addEventListener('click', function() {
-                overlay.style.opacity = '0';
-                overlay.style.transition = 'opacity 0.2s';
-                setTimeout(function() { overlay.remove(); }, 200);
-              });
-              overlay.addEventListener('click', function(ev) {
-                if (ev.target === overlay) {
-                  overlay.style.opacity = '0';
-                  overlay.style.transition = 'opacity 0.2s';
-                  setTimeout(function() { overlay.remove(); }, 200);
-                }
-              });
-
-              overlay.querySelector('#light-mode-confirm').addEventListener('click', function() {
-                overlay.remove();
-                var noBang = overlay.querySelector('#light-mode-nobang').checked;
-                if (noBang) {
-                  updateSettings('noFlashbang', true);
-                }
-                if (!noBang) {
-                  var settings = window.store.getState().settings;
-                  if (!settings || !settings.noFlashbang) {
-                    // Deploy the flashbang 💥
-                    var flash = document.createElement('div');
-                    flash.style.cssText = 'position:fixed;inset:0;background:#fff;z-index:999999;opacity:1;transition:opacity 0.8s ease;pointer-events:none;';
-                    document.body.appendChild(flash);
-                    setTimeout(function() {
-                      flash.style.opacity = '0';
-                      setTimeout(function() { flash.remove(); }, 800);
-                    }, 400);
-                  }
-                }
-                // Apply the theme
-                updateSettings('theme', 'light');
-                if (window.SettingsModal) window.SettingsModal.renderTab('appearance');
-              });
-              return;
-            }
-
             updateSettings('theme', e.target.value);
             content.querySelectorAll('input[name="theme"]').forEach(function(r) {
               r.parentElement.style.borderColor = 'var(--border-subtle)';
@@ -1127,12 +680,6 @@ window.SettingsModal = {
       content.querySelector('#set-anim').addEventListener('change', function(e) { updateSettings('animations', e.target.checked); });
       content.querySelector('#set-reduce-motion').addEventListener('change', function(e) { updateSettings('reduceMotion', e.target.checked); });
       content.querySelector('#set-classic-bubbles').addEventListener('change', function(e) { updateSettings('classicBubbles', e.target.checked); });
-      var nobangEl = content.querySelector('#set-nobang');
-      if (nobangEl) {
-        nobangEl.addEventListener('change', function(e) {
-          updateSettings('noFlashbang', e.target.checked);
-        });
-      }
       content.querySelector('#set-msg-anim').addEventListener('change', function(e) { updateSettings('messageAnim', e.target.value); });
       content.querySelector('#set-24h').addEventListener('change', function(e) { updateSettings('timeFormat24', e.target.checked); });
 
@@ -2660,186 +2207,9 @@ window.SettingsModal = {
       });
 
     } else if (tabName === 'about') {
-      // Prefer the main process's app.getVersion(): preload's `version` field
-      // reads process.env.npm_package_version, which is unset in a packaged
-      // build, so it would report a hardcoded fallback forever.
-      var version = '0.0.0';
-      if (window.orbitAPI) {
-        if (typeof window.orbitAPI.getAppVersion === 'function') {
-          try { version = window.orbitAPI.getAppVersion() || version; } catch (e) { /* fall through */ }
-        } else if (window.orbitAPI.version) {
-          version = window.orbitAPI.version;
-        }
-      }
-      var friendCount = state.friends ? state.friends.length : 0;
-      var groupCount = state.groups ? state.groups.length : 0;
-      var chatCount = Object.keys(state.messages || {}).length;
-      var s = state.settings || {};
-      var updateCheckOn = s.updateCheckEnabled !== false;
-
-      content.innerHTML =
-        '<h3 style="font-family:var(--font-display);font-size:24px;margin-bottom:24px;">About</h3>' +
-
-        // Section: App Info
-        '<div class="settings-collapsible" style="margin-bottom:12px;border-radius:10px;border:1px solid var(--border-subtle);overflow:hidden;">' +
-          '<div class="collapsible-header" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg-base);cursor:pointer;user-select:none;" onclick="var b=this.nextElementSibling;var i=this.querySelector(\'.collapse-icon\');if(b.style.display===\'none\'){b.style.display=\'block\';i.style.transform=\'rotate(0deg)\'}else{b.style.display=\'none\';i.style.transform=\'rotate(-90deg)\'}">' +
-            '<div style="display:flex;align-items:center;gap:10px;">' +
-              '<img src="icons/app/orbit_256.png" style="width:32px;height:32px;border-radius:8px;">' +
-              '<div><span style="font-size:13px;font-weight:600;color:var(--text-primary);">Orbit Beta</span><span style="font-size:11px;color:var(--text-muted);margin-left:8px;font-family:var(--font-mono);">v' + version + '</span></div>' +
-            '</div>' +
-            '<i data-lucide="chevron-down" class="collapse-icon" style="width:16px;height:16px;color:var(--text-muted);transition:transform 0.2s;"></i>' +
-          '</div>' +
-          '<div class="collapsible-body" style="padding:16px;display:block;">' +
-            '<p style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin:0 0 16px;">A peer-to-peer messaging app for local networks. Connect, chat, and share files without the cloud.</p>' +
-            '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px;padding:12px;background:var(--bg-surface);border-radius:8px;font-size:12px;">' +
-              '<div style="display:flex;justify-content:space-between;"><span style="color:var(--text-muted);">Version</span><span style="color:var(--text-primary);font-family:var(--font-mono);">' + version + '</span></div>' +
-              '<div style="display:flex;justify-content:space-between;"><span style="color:var(--text-muted);">Electron</span><span style="color:var(--text-primary);font-family:var(--font-mono);">' + (window.orbitAPI ? (window.orbitAPI.electronVersion || '?') : '?') + '</span></div>' +
-              '<div style="display:flex;justify-content:space-between;"><span style="color:var(--text-muted);">Node.js</span><span style="color:var(--text-primary);font-family:var(--font-mono);">' + (window.orbitAPI ? (window.orbitAPI.nodeVersion || '?') : '?') + '</span></div>' +
-              '<div style="display:flex;justify-content:space-between;"><span style="color:var(--text-muted);">License</span><span style="color:var(--text-primary);font-family:var(--font-mono);">MIT</span></div>' +
-            '</div>' +
-            '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
-              '<button id="settings-btn-changelog" style="display:flex;align-items:center;gap:8px;padding:10px 20px;border-radius:24px;background:var(--accent-primary);color:#fff;border:none;cursor:pointer;font-size:13px;font-weight:600;transition:opacity 0.15s;" onmouseenter="this.style.opacity=\'0.85\'" onmouseleave="this.style.opacity=\'1\'">' +
-                '<i data-lucide="sparkles" style="width:16px;height:16px;"></i> What\'s New' +
-              '</button>' +
-              '<button id="settings-btn-check-update" style="display:flex;align-items:center;gap:8px;padding:10px 20px;border-radius:24px;background:transparent;color:var(--text-secondary);border:1px solid var(--border-subtle);cursor:pointer;font-size:13px;font-weight:500;transition:opacity 0.15s;" onmouseenter="this.style.opacity=\'0.85\'" onmouseleave="this.style.opacity=\'1\'">' +
-                '<i data-lucide="download-cloud" style="width:16px;height:16px;"></i> Check for updates' +
-              '</button>' +
-            '</div>' +
-            '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border-subtle);">' +
-              '<div>' +
-                '<div style="font-size:13px;font-weight:600;color:var(--text-primary);">Automatic Update Checks</div>' +
-                '<div style="font-size:12px;color:var(--text-muted);margin-top:2px;line-height:1.4;">Ask GitHub for a newer version shortly after launch (at most once every 6 hours). Off means no automatic network contact — the button above still works.</div>' +
-              '</div>' +
-              '<label class="orbit-switch">' +
-                '<input type="checkbox" id="update-check-toggle"' + (updateCheckOn ? ' checked' : '') + '>' +
-                '<span class="orbit-switch-track"><span class="orbit-switch-knob"></span></span>' +
-              '</label>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-
-        // Section: Tutorial
-        '<div class="settings-collapsible" style="margin-bottom:12px;border-radius:10px;border:1px solid var(--border-subtle);overflow:hidden;">' +
-          '<div class="collapsible-header" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg-base);cursor:pointer;user-select:none;" onclick="var b=this.nextElementSibling;var i=this.querySelector(\'.collapse-icon\');if(b.style.display===\'none\'){b.style.display=\'block\';i.style.transform=\'rotate(0deg)\'}else{b.style.display=\'none\';i.style.transform=\'rotate(-90deg)\'}">' +
-            '<div style="display:flex;align-items:center;gap:8px;"><i data-lucide="graduation-cap" style="width:16px;height:16px;color:var(--text-muted);"></i><span style="font-size:13px;font-weight:600;color:var(--text-primary);">Welcome Tour</span></div>' +
-            '<i data-lucide="chevron-down" class="collapse-icon" style="width:16px;height:16px;color:var(--text-muted);transition:transform 0.2s;"></i>' +
-          '</div>' +
-          '<div class="collapsible-body" style="padding:16px;display:none;">' +
-            '<button id="settings-btn-replay-tour" style="display:flex;align-items:center;gap:8px;padding:10px 20px;border-radius:24px;background:var(--accent-primary);color:#fff;border:none;cursor:pointer;font-size:13px;font-weight:600;margin-bottom:16px;transition:opacity 0.15s;" onmouseenter="this.style.opacity=\'0.85\'" onmouseleave="this.style.opacity=\'1\'">' +
-              '<i data-lucide="refresh-cw" style="width:16px;height:16px;"></i> Replay Welcome Tour' +
-            '</button>' +
-            '<label style="display:flex;align-items:center;gap:12px;padding:12px 0;font-size:14px;color:var(--text-primary);cursor:pointer;">' +
-              '<input id="settings-tour-startup" type="checkbox" ' + (s.showTutorialOnStartup ? 'checked' : '') + ' style="width:18px;height:18px;accent-color:var(--accent-primary);cursor:pointer;">' +
-              '<div><div>Show Welcome Tour on Startup</div>' +
-              '<div style="font-size:12px;color:var(--text-muted);font-weight:400;">Automatically show the welcome tour when Orbit starts.</div>' +
-            '</div></label>' +
-          '</div>' +
-        '</div>' +
-
-        // Section: Stats
-        '<div class="settings-collapsible" style="margin-bottom:12px;border-radius:10px;border:1px solid var(--border-subtle);overflow:hidden;">' +
-          '<div class="collapsible-header" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg-base);cursor:pointer;user-select:none;" onclick="var b=this.nextElementSibling;var i=this.querySelector(\'.collapse-icon\');if(b.style.display===\'none\'){b.style.display=\'block\';i.style.transform=\'rotate(0deg)\'}else{b.style.display=\'none\';i.style.transform=\'rotate(-90deg)\'}">' +
-            '<div style="display:flex;align-items:center;gap:8px;"><i data-lucide="bar-chart-3" style="width:16px;height:16px;color:var(--text-muted);"></i><span style="font-size:13px;font-weight:600;color:var(--text-primary);">Statistics</span></div>' +
-            '<i data-lucide="chevron-down" class="collapse-icon" style="width:16px;height:16px;color:var(--text-muted);transition:transform 0.2s;"></i>' +
-          '</div>' +
-          '<div class="collapsible-body" style="padding:16px;display:none;">' +
-            '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">' +
-              '<div style="text-align:center;padding:16px;background:var(--bg-base);border-radius:10px;border:1px solid var(--border-subtle);">' +
-                '<div style="font-size:28px;font-weight:700;color:var(--accent-primary);">' + friendCount + '</div>' +
-                '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Friends</div>' +
-              '</div>' +
-              '<div style="text-align:center;padding:16px;background:var(--bg-base);border-radius:10px;border:1px solid var(--border-subtle);">' +
-                '<div style="font-size:28px;font-weight:700;color:var(--accent-primary);">' + groupCount + '</div>' +
-                '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Groups</div>' +
-              '</div>' +
-              '<div style="text-align:center;padding:16px;background:var(--bg-base);border-radius:10px;border:1px solid var(--border-subtle);">' +
-                '<div style="font-size:28px;font-weight:700;color:var(--accent-primary);">' + chatCount + '</div>' +
-                '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Chats</div>' +
-              '</div>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-
-        // Section: Links
-        '<div class="settings-collapsible" style="margin-bottom:12px;border-radius:10px;border:1px solid var(--border-subtle);overflow:hidden;">' +
-          '<div class="collapsible-header" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg-base);cursor:pointer;user-select:none;" onclick="var b=this.nextElementSibling;var i=this.querySelector(\'.collapse-icon\');if(b.style.display===\'none\'){b.style.display=\'block\';i.style.transform=\'rotate(0deg)\'}else{b.style.display=\'none\';i.style.transform=\'rotate(-90deg)\'}">' +
-            '<div style="display:flex;align-items:center;gap:8px;"><i data-lucide="external-link" style="width:16px;height:16px;color:var(--text-muted);"></i><span style="font-size:13px;font-weight:600;color:var(--text-primary);">Links</span></div>' +
-            '<i data-lucide="chevron-down" class="collapse-icon" style="width:16px;height:16px;color:var(--text-muted);transition:transform 0.2s;"></i>' +
-          '</div>' +
-          '<div class="collapsible-body" style="padding:16px;display:none;">' +
-            '<a href="https://github.com/D4niel-dev/Orbit-beta" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:var(--bg-surface);text-decoration:none;margin-bottom:8px;transition:background 0.15s;" onmouseenter="this.style.background=\'var(--bg-base)\'" onmouseleave="this.style.background=\'var(--bg-surface)\'">' +
-              '<i data-lucide="code" style="width:20px;height:20px;color:var(--text-primary);flex-shrink:0;"></i>' +
-              '<div><div style="font-size:13px;font-weight:600;color:var(--text-primary);">GitHub Repository</div><div style="font-size:11px;color:var(--text-muted);">View source code, report issues, contribute</div></div>' +
-            '</a>' +
-            '<a href="https://github.com/D4niel-dev/Orbit-beta/issues" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:var(--bg-surface);text-decoration:none;transition:background 0.15s;" onmouseenter="this.style.background=\'var(--bg-base)\'" onmouseleave="this.style.background=\'var(--bg-surface)\'">' +
-              '<i data-lucide="bug" style="width:20px;height:20px;color:#ef4444;flex-shrink:0;"></i>' +
-              '<div><div style="font-size:13px;font-weight:600;color:var(--text-primary);">Report an Issue</div><div style="font-size:11px;color:var(--text-muted);">Found a bug? Let us know on GitHub</div></div>' +
-            '</a>' +
-          '</div>' +
-        '</div>';
-
-      if (window.lucide) window.lucide.createIcons({ root: content });
-
-      var changelogBtn = content.querySelector('#settings-btn-changelog');
-      if (changelogBtn) {
-        changelogBtn.addEventListener('click', function() {
-          if (window.Changelog) window.Changelog.show();
-        });
-      }
-
-      var updateBtn = content.querySelector('#settings-btn-check-update');
-      if (updateBtn) {
-        updateBtn.addEventListener('click', function() {
-          if (window.UpdateNotice) window.UpdateNotice.checkManual();
-        });
-      }
-
-      var updateToggle = content.querySelector('#update-check-toggle');
-      if (updateToggle) {
-        updateToggle.addEventListener('change', function() {
-          var on = updateToggle.checked;
-          var next = { ...window.store.getState().settings, updateCheckEnabled: on };
-          window.store.setState({ settings: next });
-          // Write BOTH stores. Boot reads settings from SQLite
-          // (database.getAllStartupData → getSetting('settings')), but the DB
-          // constructor re-runs migrateFromElectronStore(true) on every launch,
-          // and that call bypasses its own "already migrated" guard — so it
-          // copies electron-store's `settings` over SQLite each boot. A
-          // SQLite-only write is therefore silently reverted on the next
-          // launch whenever electron-store still holds an older snapshot
-          // (verified). electron-store alone also works, but only because of
-          // that migration; writing both makes the choice robust either way.
-          if (window.orbitAPI && window.orbitAPI.dbSetSetting) {
-            window.orbitAPI.dbSetSetting('settings', next);
-          }
-          window.Storage.set('settings', next);
-          // ⚠ Nothing repaints the switch here any more. It used to repaint the
-          // slider and the knob by hand — a SECOND writer for one piece of state,
-          // with its own copy of the travel distance. The checkbox already carries
-          // the state and §9c of styles/redesign.css reads it.
-        });
-      }
-
-      var replayBtn = content.querySelector('#settings-btn-replay-tour');
-      if (replayBtn) {
-        replayBtn.addEventListener('click', function() {
-          window.SettingsModal.close();
-          setTimeout(function() {
-            if (window.TutorialModal) window.TutorialModal.show();
-          }, 300);
-        });
-      }
-
-      var tourStartupToggle = content.querySelector('#settings-tour-startup');
-      if (tourStartupToggle) {
-        tourStartupToggle.addEventListener('change', function(e) {
-          var newSettings = { ...window.store.getState().settings };
-          newSettings.showTutorialOnStartup = e.target.checked;
-          window.store.setState({ settings: newSettings });
-          window.Storage.set('settings', newSettings);
-        });
-      }
-
+      const version = window.orbitAPI.getAppVersion();
+      const license = "MIT License\n\nCopyright (c) 2026 D4niel-dev & Orbit Team\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n";
+      content.innerHTML = '<h3 style="font-size:24px;margin-bottom:24px">关于 LocalLink · 近连</h3><section style="padding:24px;border:1px solid var(--border-subtle);border-radius:12px;line-height:1.8"><h2>LocalLink 开发版</h2><p style="margin:12px 0">在个人设备之间传输文件、图片、文字与链接。</p><p>当前构建基于 Orbit ' + window.Sanitize.escapeHtml(version) + '。沿用并改造其界面，网络层将向 LocalSend 协议兼容方向重构。</p><p style="margin-top:12px">LocalSend 互通尚未实现，当前不能发现原版 LocalSend。开发版暂未提供独立更新渠道，已停用 Orbit 更新检查。</p></section><section style="margin-top:24px;line-height:1.8"><h4>来源与许可</h4><p>基于 Orbit 开发，灵感来自 LocalSend。LocalLink 是暂定名称，未核查商标；不是 Orbit 或 LocalSend 官方版本。</p><p>上游版权：D4niel-dev &amp; Orbit Team。保留 MIT 许可及第三方适用声明。</p><details style="margin-top:16px"><summary>查看上游 MIT 许可证</summary><pre style="white-space:pre-wrap;font-size:12px;margin-top:12px">' + window.Sanitize.escapeHtml(license) + '</pre></details></section>';
     } else {
       content.innerHTML = '<h3 style="font-family:var(--font-display);font-size:24px;margin-bottom:24px;">' + tabName + '</h3><p style="color:var(--text-muted);">Coming soon...</p>';
     }

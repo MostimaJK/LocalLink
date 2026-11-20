@@ -65,6 +65,7 @@ window.UpdateNotice = {
   // Silent check a few seconds after boot so it never competes with the
   // startup work (tutorial overlay, message load, first paint).
   init(opts) {
+    if (window.LocalLinkDevices) return; // No independent release channel.
     opts = opts || {};
     var self = this;
     var engine = this._engine();
@@ -88,6 +89,10 @@ window.UpdateNotice = {
   // Manual check (Settings → About). Always reports an outcome.
   // opts is passed through to the engine — used by tests to inject a transport.
   checkManual(opts) {
+    if (window.LocalLinkDevices) {
+      this._toast('LocalLink', '开发版暂未提供更新渠道。', 'info');
+      return Promise.resolve(null);
+    }
     var self = this;
     var engine = this._engine();
     if (!engine) {

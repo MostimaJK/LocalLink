@@ -749,14 +749,7 @@ window.ChatPanel = {
     // Profile frame — same overlay pattern as the chat list / message avatars.
     // The frame sits at -14%/122% so it bleeds slightly outside the 36px avatar
     // circle; `.avatar` has no overflow:hidden, so it is not clipped.
-    var headerFrame = window.Frames ? window.Frames.getFrameForUser(activeFriend.userId) : 0;
-    var headerAvatarInner = activeFriend.avatar
-      ? '<img src="' + window.Sanitize.escapeHtml(activeFriend.avatar) + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">'
-      : '<i data-lucide="' + window.LocalLinkDevices.icon(activeFriend) + '"></i>';
-    var headerAvatarContainer = '<div style="position:relative;display:flex;align-items:center;justify-content:center;width:100%;height:100%;">' +
-      headerAvatarInner +
-      (headerFrame ? '<img src="icons/frames/pfp_frame_' + headerFrame + '.png" style="position:absolute;top:-14%;left:-14%;width:122%;height:122%;pointer-events:none;object-fit:contain;" draggable="false" alt="">' : '') +
-    '</div>';
+    var headerAvatarContainer = '<i data-lucide="' + window.LocalLinkDevices.icon(activeFriend) + '"></i>';
 
     return '<div class="avatar avatar-md chat-header-avatar" style="margin-right: var(--spacing-md); position:relative; cursor:pointer;">' +
         headerAvatarContainer +

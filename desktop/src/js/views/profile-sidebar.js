@@ -342,6 +342,12 @@ window.ProfileSidebar = {
   },
 
   open(user) {
+    // Device details replace the social profile surface in LocalLink.
+    if (window.LocalLinkDevices && user) {
+      if (user.userId === window.store.getState().currentUser.userId) window.SettingsModal.open('account');
+      else window.LocalLinkDevices.edit(user);
+      return;
+    }
     if (!this.container || !user) return;
     this.currentUserId = user.userId;
     this.render(user);

@@ -30,13 +30,12 @@ test('device rename and local metadata preserve identity and survive restart', a
     await page.locator('[data-device-scope="history"]').click();
     await expect(page.locator('#friends-list-container')).toContainText('书房电脑');
     expect(await page.evaluate(() => window.store.getState().friends.find(p => p.userId === 'test-device').username)).toBe('Original name');
-    await page.screenshot({path:path.resolve('../artifacts/phase2-device-dark.png')});
+    await page.screenshot({path:path.resolve('../artifacts/simplified-device-dark.png')});
     await page.evaluate(() => window.SettingsModal.open('appearance'));
     await page.locator('input[name="theme"][value="light"]').click();
-    await page.locator('#light-mode-confirm').click();
     await page.evaluate(() => window.SettingsModal.close());
     await page.locator('div[style*="z-index: 999999"]').waitFor({state:'detached'});
-    await page.screenshot({path:path.resolve('../artifacts/phase2-device-light.png')});
+    await page.screenshot({path:path.resolve('../artifacts/simplified-device-light.png')});
     await app.close();
     ({app,page} = await launchApp(dir));
     expect(await page.evaluate(() => window.store.getState().currentUser.userId)).toBe(before.userId);

@@ -795,7 +795,7 @@ window.SidebarMiddle = {
     rows.forEach(friend => {
       html += '<div style="display:flex;align-items:center"><div style="flex:1;min-width:0">' + self._buildFriendRowHtml(friend, state, {reopen:true}) + '</div><button data-favorite-id="' + window.Sanitize.escapeHtml(friend.userId) + '" aria-label="' + (devices.isFavorite(friend) ? '取消收藏' : '收藏设备') + '" aria-pressed="' + devices.isFavorite(friend) + '" style="padding:8px;color:var(--accent-primary)"><i data-lucide="star" style="width:18px;height:18px;' + (devices.isFavorite(friend) ? 'fill:currentColor;' : '') + '"></i></button></div>';
     });
-    if (!rows.length) html += '<div style="padding:24px 16px;color:var(--text-muted);font-size:13px">' + (query ? '没有匹配的设备' : scope === 'nearby' ? '暂未发现设备，请在另一台设备上打开 LocalLink 或 Orbit。' : scope === 'favorites' ? '点击设备旁的星标即可收藏。' : '暂无设备记录') + '</div>';
+    if (!rows.length) html += '<div style="padding:24px 16px;color:var(--text-muted);font-size:13px">' + (query ? '没有匹配的设备' : scope === 'nearby' ? '暂未发现设备，请在另一台设备上打开 LocalLink。当前开发版尚不支持 LocalSend。' : scope === 'favorites' ? '点击设备旁的星标即可收藏。' : '暂无设备记录') + '</div>';
     listContainer.innerHTML = html;
     lucide.createIcons({root:listContainer});
     listContainer.querySelectorAll('[data-device-scope]').forEach(button => button.onclick = () => {
@@ -836,11 +836,7 @@ window.SidebarMiddle = {
         '<i data-lucide="archive" style="width:12px;height:12px;"></i> Closed \u2014 click to reopen</span>';
     }
 
-    var frame = window.Frames.getFrameForUser(friend.userId);
-    var avatarImg = friend.avatar
-      ? '<img src="' + window.Sanitize.escapeHtml(friend.avatar) + '" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">'
-      : '<i data-lucide="' + window.LocalLinkDevices.icon(friend) + '"></i>';
-    var avatarContainer = '<div style="position:relative;display:flex;align-items:center;justify-content:center;width:100%;height:100%;">' + avatarImg + (frame ? '<img src="icons/frames/pfp_frame_' + frame + '.png" style="position:absolute;top:-14%;left:-14%;width:122%;height:122%;pointer-events:none;object-fit:contain;" draggable="false" alt="">' : '') + '</div>';
+    var avatarContainer = '<i data-lucide="' + window.LocalLinkDevices.icon(friend) + '"></i>';
 
     var unreadCount = unreadCounts[friend.userId] || 0;
     var mentionCount = mentionCounts[friend.userId] || 0;

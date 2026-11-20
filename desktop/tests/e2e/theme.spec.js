@@ -46,19 +46,9 @@ test.describe('theme', () => {
     await expect(appearanceTab).toBeVisible();
     await appearanceTab.click();
 
-    // Flip the theme radio to "light". NOTE: use click(), not check() — the
-    // app's change handler deliberately reverts the light radio (settings-modal
-    // easter egg) until the confirmation dialog is accepted, which makes
-    // check()'s post-click state verification fail by design.
-    const lightRadio = page.locator('input[name="theme"][value="light"]');
-    await expect(lightRadio).toBeVisible();
-    await lightRadio.click();
-
-    // Light theme is gated behind the in-app "CAUTION: Light Mode" easter-egg
-    // dialog (the radio is visually reverted until confirmed).
-    const confirmBtn = page.locator('#light-mode-confirm');
-    await expect(confirmBtn).toBeVisible();
-    await confirmBtn.click();
+    // LocalLink switches themes directly, without Orbit's flashbang dialog.
+    await page.locator('input[name="theme"][value="light"]').click();
+    await expect(page.locator('#light-mode-confirm')).toHaveCount(0);
 
     // data-theme attribute reflects the new theme.
     await expect
