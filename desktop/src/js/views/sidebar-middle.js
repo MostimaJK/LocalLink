@@ -24,7 +24,7 @@ window.SidebarMiddle = {
   },
 
   _formatLastMessage(text) {
-    if (!text) return 'No messages yet';
+    if (!text) return window.I18n.t('s23');
     var preview = text;
     // Strip multi-line code blocks entirely
     preview = preview.replace(/```[\s\S]*?```/g, 'code');
@@ -55,8 +55,8 @@ window.SidebarMiddle = {
         '</div>' +
       '</div>' +
       '<div class="tabs-container" style="display:flex; padding: 0 var(--spacing-md); margin-bottom: var(--spacing-md); gap: 16px;">' +
-        '<button class="tab active" data-view="friends" style="flex:1; text-align:center; padding: 12px 4px; border-bottom: 3px solid var(--accent-primary); border-top: none; border-left: none; border-right: none; font-weight: 600; color: var(--text-primary); background: transparent; transition: var(--transition); cursor:pointer;">设备</button>' +
-        '<button class="tab" data-view="groups" style="flex:1; text-align:center; padding: 12px 4px; border-bottom: 3px solid transparent; border-top: none; border-left: none; border-right: none; color: var(--text-muted); font-weight: 500; background: transparent; transition: var(--transition); cursor:pointer;">Groups</button>' +
+        '<button class="tab active" data-view="friends" style="flex:1; text-align:center; padding: 12px 4px; border-bottom: 3px solid var(--accent-primary); border-top: none; border-left: none; border-right: none; font-weight: 600; color: var(--text-primary); background: transparent; transition: var(--transition); cursor:pointer;"><span data-i18n="s10">设备</span></button>' +
+        '<button class="tab" data-view="groups" style="flex:1; text-align:center; padding: 12px 4px; border-bottom: 3px solid transparent; border-top: none; border-left: none; border-right: none; color: var(--text-muted); font-weight: 500; background: transparent; transition: var(--transition); cursor:pointer;"><span data-i18n="s11">Groups</span></button>' +
       '</div>' +
       '<div class="list-container" id="friends-list-container" style="flex:1; overflow-y:auto;">' +
         '<!-- Dynamically rendered -->' +
@@ -300,7 +300,7 @@ window.SidebarMiddle = {
               (friends.length === 0 ? '<div style="display:flex;flex-direction:column;align-items:center;padding:24px 0;color:var(--text-muted);gap:8px;"><i data-lucide="user-round-x" style="width:28px;height:28px;opacity:0.3;"></i><div style="font-size:13px;">No friends available.</div></div>' : '') +
             '</div>' +
             '<div style="margin-top:auto;padding:20px 40px 28px;border-top:1px solid var(--border-subtle);display:flex;gap:12px;justify-content:flex-end;background:var(--bg-surface);">' +
-              '<button id="btn-cancel-group" style="padding:11px 24px;border-radius:10px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-secondary);cursor:pointer;font-weight:500;flex-shrink:0;">Cancel</button>' +
+              '<button id="btn-cancel-group" style="padding:11px 24px;border-radius:10px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-secondary);cursor:pointer;font-weight:500;flex-shrink:0;"><span data-i18n="s28">Cancel</span></button>' +
               '<button id="btn-confirm-group" style="padding:11px 28px;border-radius:10px;background:var(--accent-primary);color:white;border:none;cursor:pointer;font-weight:600;flex-shrink:0;">Create</button>' +
             '</div>' +
           '</div>' +
@@ -314,7 +314,7 @@ window.SidebarMiddle = {
               '<input id="join-code-input" type="text" placeholder="Paste invite code..." style="width:100%;padding:14px 16px;border-radius:10px;border:1px solid var(--border-subtle);background:var(--bg-base);color:var(--text-primary);font-size:14px;outline:none;box-sizing:border-box;">' +
             '</div>' +
             '<div style="padding:20px 40px 28px;border-top:1px solid var(--border-subtle);display:flex;gap:12px;justify-content:flex-end;background:var(--bg-surface);">' +
-              '<button id="btn-cancel-join" style="padding:11px 24px;border-radius:10px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-secondary);cursor:pointer;font-weight:500;flex-shrink:0;">Cancel</button>' +
+              '<button id="btn-cancel-join" style="padding:11px 24px;border-radius:10px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-secondary);cursor:pointer;font-weight:500;flex-shrink:0;"><span data-i18n="s28">Cancel</span></button>' +
               '<button id="btn-confirm-join" style="padding:11px 28px;border-radius:10px;background:var(--accent-primary);color:white;border:none;cursor:pointer;font-weight:600;flex-shrink:0;">Join</button>' +
             '</div>' +
           '</div>' +
@@ -784,18 +784,18 @@ window.SidebarMiddle = {
       history: known
     };
     let html = '<div style="padding:0 16px 12px;display:flex;gap:6px;flex-wrap:wrap">';
-    [['nearby','附近'],['favorites','收藏'],['history','记录']].forEach(([id, label]) => {
+    [['nearby',window.I18n.t('s12')],['favorites',window.I18n.t('s13')],['history',window.I18n.t('s14')]].forEach(([id, label]) => {
       html += '<button data-device-scope="' + id + '" aria-pressed="' + (scope === id) + '" style="padding:7px 10px;border-radius:8px;border:1px solid var(--border-subtle);color:var(--text-primary);background:' + (scope === id ? 'var(--bg-hover)' : 'transparent') + '">' + label + ' ' + sets[id].length + '</button>';
     });
-    html += '</div><div style="padding:0 16px 12px;display:flex;justify-content:space-between;gap:8px"><button id="btn-add-friend" style="color:var(--accent-primary)">连接设备</button><button id="btn-all-friends" style="color:var(--text-muted)">全部记录</button></div>';
-    const hint = {nearby:'同一局域网中的兼容设备会自动出现在这里。', favorites:'收藏常用设备，离线时也能查阅记录。', history:'已知设备的本地记录，包含离线设备。'};
+    html += '</div><div style="padding:0 16px 12px;display:flex;justify-content:space-between;gap:8px"><button id="btn-add-friend" style="color:var(--accent-primary)"><span data-i18n="s15">连接设备</span></button><button id="btn-all-friends" style="color:var(--text-muted)"><span data-i18n="s16">全部记录</span></button></div>';
+    const hint = {nearby:window.I18n.t('s38'), favorites:window.I18n.t('s39'), history:window.I18n.t('s40')};
     html += '<p style="padding:0 16px 12px;font-size:12px;color:var(--text-muted);line-height:1.6">' + hint[scope] + '</p>';
     const query = (this.container.querySelector('.search-input').value || '').toLowerCase();
     const rows = sets[scope].filter(f => (devices.name(f) + ' ' + f.username).toLowerCase().includes(query));
     rows.forEach(friend => {
       html += '<div style="display:flex;align-items:center"><div style="flex:1;min-width:0">' + self._buildFriendRowHtml(friend, state, {reopen:true}) + '</div><button data-favorite-id="' + window.Sanitize.escapeHtml(friend.userId) + '" aria-label="' + (devices.isFavorite(friend) ? '取消收藏' : '收藏设备') + '" aria-pressed="' + devices.isFavorite(friend) + '" style="padding:8px;color:var(--accent-primary)"><i data-lucide="star" style="width:18px;height:18px;' + (devices.isFavorite(friend) ? 'fill:currentColor;' : '') + '"></i></button></div>';
     });
-    if (!rows.length) html += '<div style="padding:24px 16px;color:var(--text-muted);font-size:13px">' + (query ? '没有匹配的设备' : scope === 'nearby' ? '暂未发现设备，请在另一台设备上打开 LocalLink。当前开发版尚不支持 LocalSend。' : scope === 'favorites' ? '点击设备旁的星标即可收藏。' : '暂无设备记录') + '</div>';
+    if (!rows.length) html += '<div style="padding:24px 16px;color:var(--text-muted);font-size:13px">' + (query ? window.I18n.t('s41') : scope === 'nearby' ? window.I18n.t('s44') : scope === 'favorites' ? window.I18n.t('s43') : window.I18n.t('s42')) + '</div>';
     listContainer.innerHTML = html;
     lucide.createIcons({root:listContainer});
     listContainer.querySelectorAll('[data-device-scope]').forEach(button => button.onclick = () => {
@@ -969,7 +969,7 @@ window.SidebarMiddle = {
     var groups = (state.groups || []).filter(function(g) {
       return g.members && g.members.some(function(m) { return m.userId === uid; });
     });
-    html += '<div style="font-size:10px;color:var(--text-muted);margin:6px 0 4px;font-weight:600;">Groups</div>';
+    html += '<div style="font-size:10px;color:var(--text-muted);margin:6px 0 4px;font-weight:600;"><span data-i18n="s11">Groups</span></div>';
     if (groups.length === 0) {
       html += window.OrbitEmpty.html({ icon: 'users-round', title: 'No groups yet', compact: true, muted: true });
     } else {
@@ -1263,7 +1263,7 @@ window.SidebarMiddle = {
           '<input id="new-folder-modal-input" type="text" maxlength="32" placeholder="Folder name..." style="width:100%;padding:12px 14px;border-radius:10px;border:1px solid var(--border-subtle);background:var(--bg-base);color:var(--text-primary);font-size:14px;outline:none;box-sizing:border-box;">' +
         '</div>' +
         '<div style="padding:16px 32px 24px;border-top:1px solid var(--border-subtle);display:flex;gap:12px;justify-content:flex-end;background:var(--bg-surface);">' +
-          '<button id="btn-cancel-folder" style="padding:9px 20px;border-radius:10px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-secondary);cursor:pointer;font-weight:500;">Cancel</button>' +
+          '<button id="btn-cancel-folder" style="padding:9px 20px;border-radius:10px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-secondary);cursor:pointer;font-weight:500;"><span data-i18n="s28">Cancel</span></button>' +
           '<button id="btn-confirm-folder" style="padding:9px 24px;border-radius:10px;background:var(--accent-primary);color:white;border:none;cursor:pointer;font-weight:600;">Create</button>' +
         '</div>' +
       '</div>';
@@ -1345,7 +1345,7 @@ window.SidebarMiddle = {
           '<div id="add-friend-content" style="min-height:152px;display:flex;flex-direction:column;justify-content:center;"></div>' +
         '</div>' +
         '<div style="padding:18px 40px 26px;border-top:1px solid var(--border-subtle);display:flex;gap:12px;justify-content:flex-end;background:var(--bg-surface);">' +
-          '<button id="btn-cancel-connect" style="padding:11px 24px;border-radius:10px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-secondary);cursor:pointer;font-weight:500;flex-shrink:0;">Cancel</button>' +
+          '<button id="btn-cancel-connect" style="padding:11px 24px;border-radius:10px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-secondary);cursor:pointer;font-weight:500;flex-shrink:0;"><span data-i18n="s28">Cancel</span></button>' +
           '<button id="btn-confirm-connect" style="padding:11px 28px;border-radius:10px;background:var(--accent-primary);color:white;border:none;cursor:pointer;font-weight:600;flex-shrink:0;">Connect</button>' +
         '</div>' +
       '</div>';
@@ -2315,7 +2315,7 @@ window.SidebarMiddle = {
         ? '<img src="' + window.Sanitize.escapeHtml(group.avatarDataUrl) + '" id="group-info-preview-avatar-img" style="position:absolute;left:24px;bottom:-38px;width:76px;height:76px;border-radius:18px;object-fit:cover;border:4px solid var(--bg-surface);">'
         : '<div id="group-info-preview-avatar-img" style="position:absolute;left:24px;bottom:-38px;width:76px;height:76px;border-radius:18px;overflow:hidden;background:var(--bg-surface);border:4px solid var(--bg-surface);">' + previewFallback + '</div>';
 
-    // No 'Unknown' fallback: a row that says "Created Unknown" is worse than no row at all.
+    // No window.I18n.t('s33') fallback: a row that says "Created Unknown" is worse than no row at all.
     // Whether the row shows is a setting — Dan was unsure whether he wanted it, so it is his
     // call rather than mine.
     var showCreated = !window.store || window.store.getState().settings.showGroupCreated !== false;
@@ -2363,7 +2363,7 @@ window.SidebarMiddle = {
           '<div class="gi-fact">Role: ' + (isOwner ? 'Owner' : (isAdmin ? 'Admin' : 'Member')) + '</div>' +
         '</div>' +
         '<div style="flex:1;"></div>' +
-        '<button class="btn-ghost" id="group-info-close" style="padding:10px;border:1px solid var(--border-subtle);border-radius:8px;color:var(--text-secondary);background:transparent;cursor:pointer;">Close</button>' +
+        '<button class="btn-ghost" id="group-info-close" style="padding:10px;border:1px solid var(--border-subtle);border-radius:8px;color:var(--text-secondary);background:transparent;cursor:pointer;"><span data-i18n="s9">Close</span></button>' +
       '</div>' +
       '<div style="flex:1;padding:32px;overflow-y:auto;background:var(--bg-surface);">' +
         '<h3 style="font-family:var(--font-display);font-size:24px;margin:0 0 24px;color:var(--text-primary);">Manage Group</h3>' +

@@ -690,7 +690,7 @@ window.ChatPanel = {
       <div id="chat-welcome-host" style="flex:1; display:flex; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;"></div>
     `;
     const host = document.getElementById('chat-welcome-host');
-    host.innerHTML = '<div style="max-width:480px;text-align:center"><i data-lucide="send" style="width:48px;height:48px;color:var(--accent-primary)"></i><h1 style="font-size:28px;margin:20px 0 12px">在你的设备之间传输</h1><p style="color:var(--text-muted);line-height:1.8">从左侧选择附近或收藏的设备，发送文件、图片、文字与链接。<br>每台设备的传输记录保存在本机。</p><button id="home-connect-device" style="margin:24px 0 12px;padding:12px 24px;border-radius:10px;background:var(--accent-primary);color:white">连接设备</button><p style="font-size:12px;color:var(--text-muted)">收藏仅保存常用目标，不代表信任或自动接收授权。</p><button id="home-local-demo" style="margin-top:20px;color:var(--text-muted)">本机演示</button></div>';
+    host.innerHTML = '<div style="max-width:480px;text-align:center"><i data-lucide="send" style="width:48px;height:48px;color:var(--accent-primary)"></i><h1 style="font-size:28px;margin:20px 0 12px"><span data-i18n="s21">在你的设备之间传输</span></h1><p style="color:var(--text-muted);line-height:1.8"><span data-i18n="s48">从左侧选择附近或收藏的设备，发送文件、图片、文字与链接。</span><br><span data-i18n="s49">每台设备的传输记录保存在本机。</span></p><button id="home-connect-device" style="margin:24px 0 12px;padding:12px 24px;border-radius:10px;background:var(--accent-primary);color:white"><span data-i18n="s15">连接设备</span></button><p style="font-size:12px;color:var(--text-muted)"><span data-i18n="s47">收藏仅保存常用目标，不代表信任或自动接收授权。</span></p><button id="home-local-demo" style="margin-top:20px;color:var(--text-muted)"><span data-i18n="s22">本机演示</span></button></div>';
     host.querySelector('#home-connect-device').onclick = () => window.SidebarMiddle.showAddFriendModal();
     host.querySelector('#home-local-demo').onclick = () => window.store.setState({activeChatId:'local-echo'});
     lucide.createIcons({ root: this.container });
@@ -938,14 +938,14 @@ window.ChatPanel = {
           }
           // activeFriend is undefined for group chats — resolve the reply
           // sender via the group roster instead of throwing on .username.
-          let replyUser = 'Unknown';
+          let replyUser = window.I18n.t('s33');
           if (origMsg.sender === myId) {
             replyUser = 'You';
           } else if (activeFriend) {
             replyUser = window.Sanitize.escapeHtml(window.LocalLinkDevices.name(activeFriend));
           } else if (isGroup && activeGroup && activeGroup.members) {
             var senderMem = activeGroup.members.find(function(m) { return m.userId === origMsg.sender; });
-            replyUser = senderMem && senderMem.username ? window.Sanitize.escapeHtml(senderMem.username) : 'Unknown';
+            replyUser = senderMem && senderMem.username ? window.Sanitize.escapeHtml(senderMem.username) : window.I18n.t('s33');
           }
           replyHtml = '<div data-reply-msg-id="' + origMsg.id + '" style="font-size:12px;padding:6px 10px;margin-bottom:6px;border-left:3px solid rgba(255,255,255,0.3);border-radius:4px;background:rgba(0,0,0,0.1);color:rgba(255,255,255,0.7);cursor:pointer;">' +
             '<span style="font-weight:600;">' + replyUser + '</span> ' + window.Sanitize.escapeHtml(replyPreview) +
@@ -1159,7 +1159,7 @@ window.ChatPanel = {
         '</div>';
       } else {
         const sender = msg.sender === state.currentUser.userId ? state.currentUser : (isGroup ? null : activeFriend);
-        let senderName = isGroup ? 'Unknown' : window.Sanitize.escapeHtml(window.LocalLinkDevices.name(activeFriend));
+        let senderName = isGroup ? window.I18n.t('s33') : window.Sanitize.escapeHtml(window.LocalLinkDevices.name(activeFriend));
         let senderAvatar = isGroup ? null : (activeFriend.avatar || null);
 
         if (isGroup) {
@@ -1212,8 +1212,8 @@ window.ChatPanel = {
       if (isFirstMessageWithFriend) {
         messagesHtml = window.OrbitEmpty.html({
           icon: 'message-circle',
-          title: 'No messages yet',
-          hint: 'Send text, images or files to this device.',
+          title: window.I18n.t('s23'),
+          hint: window.I18n.t('s24'),
           fill: true
         });
       } else if (isGroup) {
@@ -3006,7 +3006,7 @@ window.ChatPanel = {
         if (fromFriend) return fromFriend.username;
       }
       if (friend) return friend.username;
-      return 'Unknown';
+      return window.I18n.t('s33');
     }
 
     var senderName = getSenderName(msg);
@@ -3167,7 +3167,7 @@ window.ChatPanel = {
           '<span style="font-size:12px;color:var(--text-muted);">Don\'t show this warning again</span>' +
         '</label>' +
         '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px;">' +
-          '<button class="btn-av-warning-cancel" style="padding:8px 16px;border-radius:8px;border:1px solid var(--border-subtle);background:var(--bg-surface);color:var(--text-normal);cursor:pointer;font-size:13px;">Cancel</button>' +
+          '<button class="btn-av-warning-cancel" style="padding:8px 16px;border-radius:8px;border:1px solid var(--border-subtle);background:var(--bg-surface);color:var(--text-normal);cursor:pointer;font-size:13px;"><span data-i18n="s28">Cancel</span></button>' +
           '<button class="btn-av-warning-proceed" style="padding:8px 16px;border-radius:8px;border:none;background:#f59e0b;color:#fff;cursor:pointer;font-size:13px;font-weight:500;">Send Anyway</button>' +
         '</div>';
 
@@ -4146,7 +4146,7 @@ window.ChatPanel = {
         var member = (group.members || []).find(function(mm) { return mm.userId === m.sender; });
         if (member) return member.username;
       }
-      return 'Unknown';
+      return window.I18n.t('s33');
     }
 
     var rowsHtml = chain.map(function(m, idx) {
@@ -4439,7 +4439,7 @@ window.ChatPanel = {
               var isSelf = window.store && window.store.getState().currentUser && m.userId === window.store.getState().currentUser.userId;
               var friend = (_stMem.friends || []).find(function(f) { return f.userId === m.userId; });
               var onlineDot = friend && friend.status === 'online' ? '<span style="width:8px;height:8px;border-radius:50%;background:var(--accent-success);display:inline-block;" title="Online"></span>' : (friend ? '<span style="width:8px;height:8px;border-radius:50%;background:var(--text-muted);display:inline-block;opacity:0.4;" title="Offline"></span>' : '');
-              var nameEsc = window.Sanitize ? window.Sanitize.escapeHtml(m.username || m.userId || 'Unknown') : (m.username || m.userId);
+              var nameEsc = window.Sanitize ? window.Sanitize.escapeHtml(m.username || m.userId || window.I18n.t('s33')) : (m.username || m.userId);
               var tagEsc = m.usertag ? (window.Sanitize ? window.Sanitize.escapeHtml(m.usertag) : m.usertag) : '';
               html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-subtle);">' +
                 '<div style="width:32px;height:32px;border-radius:50%;background:var(--bg-hover);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">' + (m.avatar ? '<img src="' + (window.Sanitize ? window.Sanitize.escapeHtml(m.avatar) : m.avatar) + '" style="width:100%;height:100%;object-fit:cover;">' : '<i data-lucide="user-round" style="width:16px;height:16px;color:var(--text-muted);"></i>') + '</div>' +
@@ -4868,7 +4868,7 @@ window.ChatPanel = {
         '<button id="poll-builder-add" style="align-self:flex-start;background:transparent;border:1px dashed var(--border-subtle);color:var(--accent-primary);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;"><i data-lucide="plus" style="width:14px;height:14px;"></i> Add option</button>' +
       '</div>' +
       '<div style="display:flex;justify-content:flex-end;gap:8px;padding-top:4px;border-top:1px solid var(--border-subtle);margin-top:4px;">' +
-        '<button id="poll-builder-cancel" style="background:transparent;border:1px solid var(--border-subtle);color:var(--text-secondary);border-radius:8px;padding:8px 16px;font-size:13px;font-weight:500;cursor:pointer;">Cancel</button>' +
+        '<button id="poll-builder-cancel" style="background:transparent;border:1px solid var(--border-subtle);color:var(--text-secondary);border-radius:8px;padding:8px 16px;font-size:13px;font-weight:500;cursor:pointer;"><span data-i18n="s28">Cancel</span></button>' +
         '<button id="poll-builder-create" style="background:var(--accent-primary);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;">Create Poll</button>' +
       '</div>' +
       '<div style="font-size:11px;color:var(--text-muted);">Tip: power users can still use <span style="font-family:var(--font-mono,monospace);background:var(--bg-hover);padding:1px 4px;border-radius:4px;">/poll "Question?" "Option1" "Option2"</span></div>';

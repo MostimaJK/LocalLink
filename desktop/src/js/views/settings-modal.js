@@ -75,14 +75,14 @@ window.SettingsModal = {
     // ⚠ The inline styles are gone — the layer owns `.settings-tab` outright now, so
     // the active state is a class and there is no second writer left to fight it.
     var navItems = [
-      { tab: 'account', icon: 'monitor-smartphone', label: '本设备' },
-      { tab: 'appearance', icon: 'palette', label: 'Appearance' },
-      { tab: 'network', icon: 'wifi', label: 'Network' },
-      { tab: 'notifications', icon: 'bell', label: 'Notifications' },
-      { tab: 'data', icon: 'database', label: 'Data Manager' },
-      { tab: 'security', icon: 'shield', label: 'Security', experimental: true },
-      { tab: 'advanced', icon: 'sliders-horizontal', label: 'Advanced' },
-      { tab: 'about', icon: 'info', label: '关于' }
+      { tab: 'account', icon: 'monitor-smartphone', label: window.I18n.t('s1') },
+      { tab: 'appearance', icon: 'palette', label: window.I18n.t('s2') },
+      { tab: 'network', icon: 'wifi', label: window.I18n.t('s3') },
+      { tab: 'notifications', icon: 'bell', label: window.I18n.t('s4') },
+      { tab: 'data', icon: 'database', label: window.I18n.t('s5') },
+      { tab: 'security', icon: 'shield', label: window.I18n.t('s6'), experimental: true },
+      { tab: 'advanced', icon: 'sliders-horizontal', label: window.I18n.t('s7') },
+      { tab: 'about', icon: 'info', label: window.I18n.t('s8') }
     ].filter(function (it) { return !it.experimental || showSecurity; }).map(function (it) {
       return '<button class="settings-tab' + (it.tab === 'account' ? ' active' : '') + '" data-tab="' + it.tab + '">' +
         '<i data-lucide="' + it.icon + '"></i><span>' + it.label + '</span></button>';
@@ -94,7 +94,7 @@ window.SettingsModal = {
           // ⚠ The heading and the collapse control share a row, so the h2 is no longer
           // a DIRECT child of the rail — the layer's selector for it moved with it.
           '<div class="settings-rail-head">' +
-            '<h2 style="font-family:var(--font-display);font-size:20px;margin-bottom:24px;color:var(--text-primary);font-weight:bold;">Settings</h2>' +
+            '<h2 style="font-family:var(--font-display);font-size:20px;margin-bottom:24px;color:var(--text-primary);font-weight:bold;"><span data-i18n="s0">Settings</span></h2>' +
             // ⚠ Rendered ALWAYS and hidden by `_syncNavToggle` when the redesign is off.
             // Deciding it here would read `OrbitRedesign` during init, and init runs on
             // DOMContentLoaded — before the settings are hydrated and, on some load
@@ -110,7 +110,7 @@ window.SettingsModal = {
           '<div style="flex:1;"></div>' +
           // ⚠ An icon for the collapsed rail: "Close" is 40px of text and the rail is
           // 64px wide. Shown only when collapsed — the expanded rail keeps the word.
-          '<button id="btn-close-settings" style="padding:10px;border:1px solid var(--border-subtle);border-radius:8px;color:var(--text-secondary);background:transparent;cursor:pointer;"><i data-lucide="x"></i><span>Close</span></button>' +
+          '<button id="btn-close-settings" style="padding:10px;border:1px solid var(--border-subtle);border-radius:8px;color:var(--text-secondary);background:transparent;cursor:pointer;"><i data-lucide="x"></i><span><span data-i18n="s9">Close</span></span></button>' +
         '</div>' +
         '<div id="settings-content" style="flex:1;padding:32px;overflow-y:auto;background:var(--bg-surface);"></div>' +
       '</div>';
@@ -217,7 +217,7 @@ window.SettingsModal = {
     var betaBadge = '<span style="display:inline-block;font-size:8px;font-weight:700;color:#fff;background:var(--accent-primary);border-radius:3px;padding:1px 5px;text-transform:uppercase;line-height:1.4;vertical-align:middle;margin-left:6px;">BETA</span>';
 
     if (tabName === 'account') {
-      content.innerHTML = '<h3 style="font-size:24px;margin-bottom:24px">本设备</h3><p style="color:var(--text-muted);margin-bottom:24px">设置其他设备看到的名称。改名不会改变当前身份或本地记录。</p><label for="input-username">设备名称</label><input id="input-username" aria-label="Device name" maxlength="64" style="display:block;width:100%;max-width:440px;margin:12px 0 24px;padding:12px;background:var(--bg-base);color:var(--text-primary);border:1px solid var(--border-subtle);border-radius:8px"><button id="btn-save-account" style="padding:10px 24px;background:var(--accent-primary);color:white;border-radius:8px">保存</button><p id="save-msg" role="status" style="margin-top:12px"></p><details style="margin-top:32px;color:var(--text-muted)"><summary>身份信息</summary><p style="margin-top:12px;overflow-wrap:anywhere">' + window.Sanitize.escapeHtml(user.userId) + '</p><p>此开发版仍沿用原身份体系；名称与 IP 地址不是身份标识。</p></details>';
+      content.innerHTML = '<h3 style="font-size:24px;margin-bottom:24px"><span data-i18n="s1">本设备</span></h3><p style="color:var(--text-muted);margin-bottom:24px"><span data-i18n="s45">设置其他设备看到的名称。改名不会改变当前身份或本地记录。</span></p><label for="input-username"><span data-i18n="s17">设备名称</span></label><input id="input-username" aria-label="Device name" maxlength="64" style="display:block;width:100%;max-width:440px;margin:12px 0 24px;padding:12px;background:var(--bg-base);color:var(--text-primary);border:1px solid var(--border-subtle);border-radius:8px"><button id="btn-save-account" style="padding:10px 24px;background:var(--accent-primary);color:white;border-radius:8px"><span data-i18n="s18">保存</span></button><p id="save-msg" role="status" style="margin-top:12px"></p><details style="margin-top:32px;color:var(--text-muted)"><summary><span data-i18n="s20">身份信息</span></summary><p style="margin-top:12px;overflow-wrap:anywhere">' + window.Sanitize.escapeHtml(user.userId) + '</p><p><span data-i18n="s46">此开发版仍沿用原身份体系；名称与 IP 地址不是身份标识。</span></p></details>';
       if (window.Identity.getAll().length > 1) {
         const legacy = document.createElement('button');
         legacy.textContent = '查看旧身份记录';
@@ -225,13 +225,23 @@ window.SettingsModal = {
         legacy.onclick = () => { this.close(); window.AccountSwitcher.toggle(); };
         content.appendChild(legacy);
       }
+      const language = document.createElement('div');
+      language.style.cssText='margin:24px 0;display:flex;gap:16px;align-items:center';
+      language.innerHTML='<label for="interface-language">Language / 語言 / 语言</label><select id="interface-language" style="padding:8px;background:var(--bg-base);color:var(--text-primary);border:1px solid var(--border-subtle);border-radius:8px"><option value="zh-Hant">繁體中文</option><option value="zh-Hans">简体中文</option><option value="en">English</option></select>';
+      content.prepend(language);
+      language.querySelector('select').value=window.I18n.locale;
+      language.querySelector('select').onchange=event => {
+        const draft=content.querySelector('#input-username').value;
+        window.I18n.set(event.target.value);
+        this.container.querySelector('#input-username').value=draft;
+      };
       content.querySelector('#input-username').value = user.username || '';
       content.querySelector('#btn-save-account').onclick = () => {
         const message = content.querySelector('#save-msg');
         try {
           window.Identity.update({username: content.querySelector('#input-username').value});
           message.style.color = 'var(--text-primary)';
-          message.textContent = 'Saved!';
+          message.textContent = window.I18n.t('s19');
         } catch (error) {
           message.style.color = 'var(--accent-danger)';
           message.textContent = error.message;
@@ -241,9 +251,9 @@ window.SettingsModal = {
       var s = state.settings;
 
       var defaultThemes = [
-        { value: 'dark', icon: 'moon', label: 'Dark' },
-        { value: 'light', icon: 'sun', label: 'Light' },
-        { value: 'system', icon: 'monitor', label: 'System' }
+        { value: 'dark', icon: 'moon', label: window.I18n.t('s25') },
+        { value: 'light', icon: 'sun', label: window.I18n.t('s26') },
+        { value: 'system', icon: 'monitor', label: window.I18n.t('s27') }
       ];
 
       var customThemes = [
@@ -284,7 +294,7 @@ window.SettingsModal = {
         '</div>';
 
       content.innerHTML =
-        '<h3 style="font-family:var(--font-display);font-size:24px;margin-bottom:24px;">Appearance</h3>' +
+        '<h3 style="font-family:var(--font-display);font-size:24px;margin-bottom:24px;"><span data-i18n="s2">Appearance</span></h3>' +
 
         // ⚠ The "Look" card that used to sit here — and FIRST in this tab — has
         // moved to Advanced → Experimental Features, with a BETA badge. The
@@ -844,7 +854,7 @@ window.SettingsModal = {
       };
 
       content.innerHTML =
-        '<h3 style="font-family:var(--font-display);font-size:24px;margin-bottom:24px;">Network</h3>' +
+        '<h3 style="font-family:var(--font-display);font-size:24px;margin-bottom:24px;"><span data-i18n="s3">Network</span></h3>' +
 
         // Dashboard
         '<div style="margin-bottom:20px;">' +
@@ -860,7 +870,7 @@ window.SettingsModal = {
             '</div>' +
             '<div style="padding:14px;background:var(--bg-base);border-radius:10px;text-align:center;border:1px solid var(--border-subtle);">' +
               '<div style="font-size:26px;font-weight:700;color:var(--accent-warning);">' + groupCount + '</div>' +
-              '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Groups</div>' +
+              '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;"><span data-i18n="s11">Groups</span></div>' +
             '</div>' +
             '<div style="padding:14px;background:var(--bg-base);border-radius:10px;text-align:center;border:1px solid var(--border-subtle);">' +
               '<div style="font-size:26px;font-weight:700;' + (n.mode === 'LAN Auto-Discovery' ? 'color:var(--text-primary);' : 'color:var(--accent-primary);') + '">' + (n.mode === 'LAN Auto-Discovery' ? 'LAN' : 'Custom') + '</div>' +
@@ -898,7 +908,7 @@ window.SettingsModal = {
         ) +
 
         // Settings sections
-        '<h4 style="font-size:14px;font-weight:600;color:var(--text-primary);margin:0 0 12px;">Settings</h4>' +
+        '<h4 style="font-size:14px;font-weight:600;color:var(--text-primary);margin:0 0 12px;"><span data-i18n="s0">Settings</span></h4>' +
 
         // Connection
         collapsible('Connection', 'cable', 
@@ -940,7 +950,7 @@ window.SettingsModal = {
         ) +
 
         // Advanced
-        collapsible('Advanced', 'settings-2',
+        collapsible(window.I18n.t('s7'), 'settings-2',
           toggleRow('net-rtc', 'Enable WebRTC Fallback', 'Use WebRTC when direct connection fails', n.webrtcFallback) +
           selectRow('net-log', 'Connection Log Level', [{val:'None',label:'None'},{val:'Error',label:'Error'},{val:'Info',label:'Info'},{val:'Debug',label:'Debug'}], n.logLevel) +
           '<div style="padding-top:8px;"><button id="net-clear" style="padding:10px 24px;background:transparent;color:var(--accent-danger);border-radius:8px;border:1px solid var(--accent-danger);font-weight:600;cursor:pointer;width:fit-content;">Clear Network Cache</button></div>',
@@ -1079,7 +1089,7 @@ window.SettingsModal = {
       var dndActive = s.notifyDnd;
 
       content.innerHTML =
-        '<h3 style="font-family:var(--font-display);font-size:24px;margin-bottom:24px;">Notifications</h3>' +
+        '<h3 style="font-family:var(--font-display);font-size:24px;margin-bottom:24px;"><span data-i18n="s4">Notifications</span></h3>' +
 
         // DND status banner
         (dndActive
@@ -1113,7 +1123,7 @@ window.SettingsModal = {
         // Section: Group Notifications
         '<div class="settings-collapsible" style="margin-bottom:12px;border-radius:10px;border:1px solid var(--border-subtle);overflow:hidden;">' +
           '<div class="collapsible-header" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg-base);cursor:pointer;user-select:none;" onclick="var b=this.nextElementSibling;var i=this.querySelector(\'.collapse-icon\');if(b.style.display===\'none\'){b.style.display=\'block\';i.style.transform=\'rotate(0deg)\'}else{b.style.display=\'none\';i.style.transform=\'rotate(-90deg)\'}">' +
-            '<div style="display:flex;align-items:center;gap:8px;"><i data-lucide="users-round" style="width:16px;height:16px;color:var(--text-muted);"></i><span style="font-size:13px;font-weight:600;color:var(--text-primary);">Groups</span></div>' +
+            '<div style="display:flex;align-items:center;gap:8px;"><i data-lucide="users-round" style="width:16px;height:16px;color:var(--text-muted);"></i><span style="font-size:13px;font-weight:600;color:var(--text-primary);"><span data-i18n="s11">Groups</span></span></div>' +
             '<i data-lucide="chevron-down" class="collapse-icon" style="width:16px;height:16px;color:var(--text-muted);transition:transform 0.2s;"></i>' +
           '</div>' +
           '<div class="collapsible-body" style="display:none;">' +
@@ -1389,7 +1399,7 @@ window.SettingsModal = {
       };
 
       content.innerHTML =
-        '<h3 style="font-family:var(--font-display);font-size:24px;margin-bottom:24px;">Advanced</h3>' +
+        '<h3 style="font-family:var(--font-display);font-size:24px;margin-bottom:24px;"><span data-i18n="s7">Advanced</span></h3>' +
 
         // Warning banner
         '<div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);border-radius:10px;margin-bottom:16px;">' +
@@ -1675,14 +1685,14 @@ window.SettingsModal = {
                 title: 'Performance Mode',
                 message: 'Performance Mode disables animations, link previews, GIFs, and background tasks to reduce CPU usage. Some visual feedback will stop working while this is active.',
                 confirmText: 'Continue',
-                cancelText: 'Cancel',
+                cancelText: window.I18n.t('s28'),
                 onConfirm: function() {
                   // Step 2: Final confirmation
                   window.ConfirmModal.show({
                     title: 'Are you sure?',
                     message: 'This will kill all CSS animations, freeze animated GIFs, disable link preview fetching, and reduce background task frequency. The app will feel less responsive visually but may use less CPU. You can turn this off at any time.',
                     confirmText: 'Enable',
-                    cancelText: 'Cancel',
+                    cancelText: window.I18n.t('s28'),
                     danger: true,
                     onConfirm: function() {
                       updateSettings('experimentalPerformanceMode', true);
@@ -1724,7 +1734,7 @@ window.SettingsModal = {
       });
 
       content.innerHTML =
-        '<h3 style="font-family:var(--font-display);font-size:24px;margin-bottom:24px;">Data Manager</h3>' +
+        '<h3 style="font-family:var(--font-display);font-size:24px;margin-bottom:24px;"><span data-i18n="s5">Data Manager</span></h3>' +
         '<div style="display:flex;flex-direction:column;gap:16px;">' +
           '<div style="padding:20px;background:var(--bg-hover);border-radius:12px;border:1px solid var(--border-subtle);">' +
             '<div style="display:flex;align-items:flex-start;gap:16px;">' +
@@ -2053,7 +2063,7 @@ window.SettingsModal = {
           var totalMinutes = Math.min(1440, Math.max(1, timeVal * unitVal));
           content.querySelector('#custom-time-value').value = Math.floor(totalMinutes / unitVal);
           updateSettings('deleteAttachmentsAfter', totalMinutes);
-          btnCustomDone.textContent = 'Saved!';
+          btnCustomDone.textContent = window.I18n.t('s19');
           setTimeout(function() { btnCustomDone.textContent = 'Done'; }, 1500);
         });
       }
@@ -2209,7 +2219,7 @@ window.SettingsModal = {
     } else if (tabName === 'about') {
       const version = window.orbitAPI.getAppVersion();
       const license = "MIT License\n\nCopyright (c) 2026 D4niel-dev & Orbit Team\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n";
-      content.innerHTML = '<h3 style="font-size:24px;margin-bottom:24px">关于 LocalLink · 近连</h3><section style="padding:24px;border:1px solid var(--border-subtle);border-radius:12px;line-height:1.8"><h2>LocalLink 开发版</h2><p style="margin:12px 0">在个人设备之间传输文件、图片、文字与链接。</p><p>当前构建基于 Orbit ' + window.Sanitize.escapeHtml(version) + '。沿用并改造其界面，网络层将向 LocalSend 协议兼容方向重构。</p><p style="margin-top:12px">LocalSend 互通尚未实现，当前不能发现原版 LocalSend。开发版暂未提供独立更新渠道，已停用 Orbit 更新检查。</p></section><section style="margin-top:24px;line-height:1.8"><h4>来源与许可</h4><p>基于 Orbit 开发，灵感来自 LocalSend。LocalLink 是暂定名称，未核查商标；不是 Orbit 或 LocalSend 官方版本。</p><p>上游版权：D4niel-dev &amp; Orbit Team。保留 MIT 许可及第三方适用声明。</p><details style="margin-top:16px"><summary>查看上游 MIT 许可证</summary><pre style="white-space:pre-wrap;font-size:12px;margin-top:12px">' + window.Sanitize.escapeHtml(license) + '</pre></details></section>';
+      content.innerHTML = '<h3 style="font-size:24px;margin-bottom:24px"><span data-i18n="s50">关于 LocalLink · 近连</span></h3><section style="padding:24px;border:1px solid var(--border-subtle);border-radius:12px;line-height:1.8"><h2><span data-i18n="s51">LocalLink 开发版</span></h2><p style="margin:12px 0"><span data-i18n="about0">在个人设备之间传输文件、图片、文字与链接。</span></p><p>当前构建基于 Orbit ' + window.Sanitize.escapeHtml(version) + '。沿用并改造其界面，网络层将向 LocalSend 协议兼容方向重构。</p><p style="margin-top:12px"><span data-i18n="about1">LocalSend 互通尚未实现，当前不能发现原版 LocalSend。开发版暂未提供独立更新渠道，已停用 Orbit 更新检查。</span></p></section><section style="margin-top:24px;line-height:1.8"><h4><span data-i18n="s52">来源与许可</span></h4><p><span data-i18n="about2">基于 Orbit 开发，灵感来自 LocalSend。LocalLink 是暂定名称，未核查商标；不是 Orbit 或 LocalSend 官方版本。</span></p><p><span data-i18n="about3">上游版权：D4niel-dev &amp; Orbit Team。保留 MIT 许可及第三方适用声明。</span></p><details style="margin-top:16px"><summary><span data-i18n="s53">查看上游 MIT 许可证</span></summary><pre style="white-space:pre-wrap;font-size:12px;margin-top:12px">' + window.Sanitize.escapeHtml(license) + '</pre></details></section>';
     } else {
       content.innerHTML = '<h3 style="font-family:var(--font-display);font-size:24px;margin-bottom:24px;">' + tabName + '</h3><p style="color:var(--text-muted);">Coming soon...</p>';
     }
