@@ -229,6 +229,12 @@ window.SettingsModal = {
       language.style.cssText='margin:24px 0;display:flex;gap:16px;align-items:center';
       language.innerHTML='<label for="interface-language">Language / 語言 / 语言</label><select id="interface-language" style="padding:8px;background:var(--bg-base);color:var(--text-primary);border:1px solid var(--border-subtle);border-radius:8px"><option value="zh-Hant">繁體中文</option><option value="zh-Hans">简体中文</option><option value="en">English</option></select>';
       content.prepend(language);
+      const transport=document.createElement('div');transport.style.cssText='margin:16px 0;line-height:1.8';
+      transport.innerHTML='<label for="transport-mode">傳輸協定 / 传输协议 / Transport</label> <select id="transport-mode"><option value="localsend">LocalSend (preview)</option><option value="orbit">Orbit (legacy / calls)</option></select><p>變更後重新啟動 / 更改后重启 / Restart after changing.</p><p>LocalSend: HTTPS · 500 MB / session · Downloads/LocalLink</p>';
+      content.prepend(transport);
+      transport.querySelector('select').value=window.orbitAPI.dbGetSetting('locallink.transport','localsend');
+      transport.querySelector('select').onchange=event=>window.orbitAPI.dbSetSetting('locallink.transport',event.target.value);
+
       language.querySelector('select').value=window.I18n.locale;
       language.querySelector('select').onchange=event => {
         const draft=content.querySelector('#input-username').value;

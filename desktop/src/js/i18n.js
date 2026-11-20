@@ -222,9 +222,9 @@ window.I18n = {
     "zh-Hans": "点击设备旁的星标即可收藏。"
   },
   "s44": {
-    "en": "No devices found. Open LocalLink on another device. This development build does not support LocalSend yet.",
-    "zh-Hant": "尚未發現裝置，請在另一台裝置上開啟 LocalLink。目前開發版尚不支援 LocalSend。",
-    "zh-Hans": "暂未发现设备，请在另一台设备上打开 LocalLink。当前开发版尚不支持 LocalSend。"
+    "en": "No devices found. Open LocalLink or LocalSend on another device. LocalSend protocol preview is available; original-client interoperability testing is pending.",
+    "zh-Hant": "尚未發現裝置，請在另一台裝置上開啟 LocalLink 或 LocalSend。已接入 LocalSend 協定預覽版，原版客戶端互測待完成。",
+    "zh-Hans": "暂未发现设备，请在另一台设备上打开 LocalLink 或 LocalSend。已接入 LocalSend 协议预览版，原版客户端互测待完成。"
   },
   "s45": {
     "en": "Set the name other devices see. Renaming preserves your identity and local history.",
@@ -277,9 +277,9 @@ window.I18n = {
     "en": "Transfer files, images, text and links between your devices."
   },
   "about1": {
-    "zh-Hans": "LocalSend 互通尚未实现，当前不能发现原版 LocalSend。开发版暂未提供独立更新渠道，已停用 Orbit 更新检查。",
-    "zh-Hant": "LocalSend 互通尚未實現，目前無法發現原版 LocalSend。開發版暫未提供獨立更新管道，已停用 Orbit 更新檢查。",
-    "en": "LocalSend interoperability is not implemented yet. This build cannot discover LocalSend. Orbit update checks are disabled; no independent update channel is available."
+    "zh-Hans": "已接入 LocalSend 协议预览版；原版客户端互测尚未完成。开发版暂未提供独立更新渠道，已停用 Orbit 更新检查。",
+    "zh-Hant": "已接入 LocalSend 協定預覽版；原版客戶端互測尚未完成。開發版暫未提供獨立更新管道，已停用 Orbit 更新檢查。",
+    "en": "LocalSend protocol preview is implemented. Original-client interoperability testing is pending. Orbit update checks are disabled; no independent update channel is available."
   },
   "about2": {
     "zh-Hans": "基于 Orbit 开发，灵感来自 LocalSend。LocalLink 是暂定名称，未核查商标；不是 Orbit 或 LocalSend 官方版本。",

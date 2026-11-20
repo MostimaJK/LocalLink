@@ -50,6 +50,11 @@
     "license": "MIT"
   },
   {
+    "name": "selfsigned",
+    "version": "5.5.0",
+    "license": "MIT"
+  },
+  {
     "name": "sharp",
     "version": "0.34.5",
     "license": "Apache-2.0"

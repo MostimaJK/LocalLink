@@ -211,6 +211,8 @@ let discoveryInstance = null;
 let socketInstance = null;
 let transferInstance = null;
 let currentIdentity = null;
+let localSendInstance = null;
+let localSendStarting = null;
 let mainWindow = null;
 let tray = null;
 let tempDirPath = null;
@@ -1509,6 +1511,32 @@ app.whenReady().then(() => {
 
   ipcMain.on('network-start', (event, identity, reconnectEnabled, reconnectIntervalMs) => {
     currentIdentity = identity;
+    if (globalDb.getSetting('locallink.transport', 'localsend') === 'localsend') {
+      if (!localSendStarting) {
+        const {LocalSend} = require('./src/js/network/localsend');
+        const emit = (channel, value) => { if(mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel,value); };
+        localSendInstance = new LocalSend({
+          dataDir: app.getPath('userData'), receiveDir: path.join(app.getPath('downloads'),'LocalLink'),
+          maxBytes: 500 * 1024 * 1024,
+          alias: () => currentIdentity.username,
+          peer: peer => emit('locallink-lan-seen', peer),
+          error: error => emit('locallink-transfer-error', error),
+          accept: async offer => {
+            const result = await dialog.showMessageBox(mainWindow, {type:'question',title:'LocalLink',message:'接收檔案 / Receive files?',detail:offer.alias+' ('+offer.ip+')\n'+offer.files.map(f=>f.name+' · '+f.size+' bytes').join('\n')+'\n\n'+path.join(app.getPath('downloads'),'LocalLink'),buttons:['拒絕 / Reject','接收 / Receive'],defaultId:0,cancelId:0,noLink:true});
+            return result.response === 1;
+          },
+          result: record => {
+            const records=globalDb.getSetting('locallink.transfers',[]);records.push(record);
+            globalDb.setSetting('locallink.transfers',records);
+            emit('locallink-transfer-result',record);
+          }
+        });
+        localSendStarting=localSendInstance.start().then(()=>emit('locallink-transport-status',{ok:true})).catch(error=>{localSendInstance.stop();emit('locallink-transport-status',{ok:false,error:error.message});});
+      }
+      event.returnValue = true;
+      return; // Only one discovery/transfer stack is started.
+    }
+
     setupNetworkInstances();
 
     // Apply stored reconnect settings
@@ -1566,6 +1594,7 @@ app.whenReady().then(() => {
   });
 
   ipcMain.on('network-stop', () => {
+    if(localSendInstance){localSendInstance.stop();localSendInstance=null;localSendStarting=null;}
     if (_lanScanTimer) {
       clearInterval(_lanScanTimer);
       _lanScanTimer = null;
@@ -1588,6 +1617,30 @@ app.whenReady().then(() => {
     }
   });
 
+  ipcMain.handle('locallink-send-selected', async (event, peerId) => {
+    if(!localSendInstance) return {ok:false,error:'LocalSend transport is not running'};
+    const peer=localSendInstance.peers.get(peerId);
+    if(!peer) return {ok:false,error:'Device is not nearby'};
+    if(peer.protocol !== 'https') {
+      const choice=await dialog.showMessageBox(mainWindow,{type:'warning',message:'此裝置使用未加密 HTTP / This device uses unencrypted HTTP',buttons:['取消 / Cancel','繼續 / Continue'],defaultId:0,cancelId:0});
+      if(choice.response!==1)return {cancelled:true};
+    }
+    const pick=await dialog.showOpenDialog(mainWindow,{properties:['openFile']});
+    if(pick.canceled)return {cancelled:true};
+    try{return {ok:true,record:await localSendInstance.send(peerId,pick.filePaths[0])};}
+    catch(error){
+      const record={id:require('crypto').randomUUID(),peerId,name:path.basename(pick.filePaths[0]),size:0,path:pick.filePaths[0],status:'failed',error:error.message,time:Date.now()};
+      const records=globalDb.getSetting('locallink.transfers',[]);records.push(record);globalDb.setSetting('locallink.transfers',records);
+      if(mainWindow&&!mainWindow.isDestroyed())mainWindow.webContents.send('locallink-transfer-result',record);
+      return {ok:false,error:error.message};
+    }
+  });
+  ipcMain.handle('locallink-open-transfer' , async (event, request) => {
+    const record=globalDb.getSetting('locallink.transfers',[]).find(r=>r.id===request.id);
+    if(!record || !fs.existsSync(record.path))return {ok:false,error:'File is no longer available'};
+    if(request.folder)shell.showItemInFolder(record.path);else {const error=await shell.openPath(record.path);if(error)return {ok:false,error};}
+    return {ok:true};
+  });
   ipcMain.on('network-connect', (event, ip, port) => {
     if (socketInstance) {
       var localIp = getLocalIPv4();
@@ -2011,6 +2064,7 @@ app.whenReady().then(() => {
 });
 
 app.on('before-quit', () => {
+  if(localSendInstance)localSendInstance.stop();
   if (transferInstance) transferInstance.destroy();
   if (discoveryInstance) discoveryInstance.stop();
   if (socketInstance) socketInstance.stop();

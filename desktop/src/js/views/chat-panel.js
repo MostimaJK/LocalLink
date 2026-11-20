@@ -169,7 +169,10 @@ window.ChatPanel = {
         // listener, so only DMs take this path.
         var fState = window.store.getState();
         var inGroupChat = fState.groups.some(function(g) { return g.groupId === fState.activeChatId; });
-        if (!inGroupChat) this._refreshHeaderStrip(fState);
+        if (fState.activeChatId?.startsWith('localsend:')) {
+          const peer=fState.friends.find(p=>p.userId===fState.activeChatId);
+          if(peer && !window.LocalSendPanel.busy.has(peer.userId)) window.LocalSendPanel.render(peer,this.container);
+        } else if (!inGroupChat) this._refreshHeaderStrip(fState);
       }
     });
 
@@ -795,6 +798,10 @@ window.ChatPanel = {
     const isGroup = !!activeGroup;
     const activeName = isGroup ? activeGroup.groupName : (activeFriend ? window.LocalLinkDevices.name(activeFriend) : 'Chat');
     if (!activeFriend && !isGroup) return;
+    if (activeFriend && activeFriend.userId.startsWith('localsend:')) {
+      window.LocalSendPanel.render(activeFriend, this.container);
+      return;
+    }
 
     const messages = state.messages[state.activeChatId] || [];
     const myId = state.currentUser.userId;
