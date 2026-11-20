@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Tray, Menu, Notification, nativeImage, protocol, net, dialog, clipboard, shell } = require('electron');
+const { app, screen, BrowserWindow, ipcMain, Tray, Menu, Notification, nativeImage, protocol, net, dialog, clipboard, shell } = require('electron');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const fs = require('fs');
@@ -184,7 +184,10 @@ function startNetworkMonitor() {
           dlog('[AutoConnect] Peer gone:', peerId);
           if (mainWindow) mainWindow.webContents.send('peer-gone', peerId);
         };
-        discoveryInstance.onAnyBeacon = _tryAutoConnect;
+        discoveryInstance.onAnyBeacon = (peer) => {
+          if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('locallink-lan-seen', peer);
+          _tryAutoConnect(peer);
+        };
         discoveryInstance.start();
       }
     }
@@ -629,11 +632,16 @@ app.whenReady().then(() => {
     }
   }, 60000); // Check every minute
 
+  const workArea = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
+  const windowWidth = Math.min(1200, Math.floor(workArea.width * 0.9));
+  const windowHeight = Math.min(800, Math.floor(workArea.height * 0.9));
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    minWidth: 860,
-    minHeight: 600,
+    width: windowWidth,
+    height: windowHeight,
+    x: workArea.x + Math.floor((workArea.width - windowWidth) / 2),
+    y: workArea.y + Math.floor((workArea.height - windowHeight) / 2),
+    minWidth: Math.min(860, windowWidth),
+    minHeight: Math.min(600, windowHeight),
     frame: false,          // Custom titlebar
     transparent: true,
     backgroundColor: '#0E0F14',
@@ -646,7 +654,6 @@ app.whenReady().then(() => {
     titleBarStyle: 'hidden',
   });
   mainWindow.loadFile(path.join(__dirname, 'src/index.html'));
-  mainWindow.maximize();
 
   // Handle window controls
   ipcMain.on('window-controls', (event, action) => {
@@ -1539,7 +1546,10 @@ app.whenReady().then(() => {
         dlog('[AutoConnect] Peer gone:', peerId);
         mainWindow.webContents.send('peer-gone', peerId);
       };
-      discoveryInstance.onAnyBeacon = _tryAutoConnect;
+      discoveryInstance.onAnyBeacon = (peer) => {
+          if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('locallink-lan-seen', peer);
+          _tryAutoConnect(peer);
+        };
       discoveryInstance.start();
       tryAddFirewallRule();
       startLanScan(socketInstance);

@@ -1,5 +1,21 @@
 // Local-only presentation metadata. Never broadcast aliases or infer trust.
 window.LocalLinkDevices = {
+  nearby: new Map(),
+  observe(peer) {
+    if (!peer || !peer.userId || peer.userId === 'local-echo') return;
+    this.nearby.set(this.key(peer.userId), Date.now());
+    window.store.addOrUpdatePeer(peer);
+  },
+  isNearby(peer, now = Date.now()) {
+    const seen = this.nearby.get(this.key(peer.userId));
+    return seen != null && now - seen < 45000;
+  },
+  isFavorite(peer) { return this.get(peer).favorite === true; },
+  toggleFavorite(peer) {
+    const meta = this.get(peer);
+    window.orbitAPI.dbSetSetting(this.key(peer.userId), {...meta, favorite: !meta.favorite});
+    window.store.setState({friends: [...window.store.getState().friends]});
+  },
   key(id) { return 'locallink.device.' + window.store.getState().currentUser.userId + '.' + id; },
   get(peer) { return window.orbitAPI.dbGetSetting(this.key(peer.userId), {}) || {}; },
   name(peer) { if (peer.userId === 'local-echo') return 'Local demo (Echo)'; return this.get(peer).alias || peer.username || 'Unnamed device'; },
@@ -31,7 +47,7 @@ window.LocalLinkDevices = {
       try {
         const raw = dialog.querySelector('#device-alias').value;
         const alias = raw.trim() ? this.validateName(raw) : '';
-        window.orbitAPI.dbSetSetting(this.key(peer.userId), {alias, type:dialog.querySelector('#device-type').value});
+        window.orbitAPI.dbSetSetting(this.key(peer.userId), {...this.get(peer), alias, type:dialog.querySelector('#device-type').value});
         window.store.setState({friends: [...window.store.getState().friends]});
         dialog.close();
       } catch (error) { dialog.querySelector('#device-error').textContent = error.message; }
@@ -47,3 +63,15 @@ document.addEventListener('click', function(event) {
   const peer = state.friends.find(p => p.userId === state.activeChatId);
   if (peer) window.LocalLinkDevices.edit(peer);
 });
+
+// LAN sightings are session-only, distinct from persisted history and favorites.
+if (window.orbitAPI) window.orbitAPI.on('locallink-lan-seen', peer => window.LocalLinkDevices.observe(peer));
+setInterval(() => {
+  if (!window.store || !window.store.getState().currentUser) return;
+  let expired = false;
+  const now = Date.now();
+  window.LocalLinkDevices.nearby.forEach((seen, key) => {
+    if (now - seen >= 45000) { window.LocalLinkDevices.nearby.delete(key); expired = true; }
+  });
+  if (expired) window.store.setState({friends: [...window.store.getState().friends]});
+}, 5000);

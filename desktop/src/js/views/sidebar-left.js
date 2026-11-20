@@ -57,7 +57,7 @@ window.SidebarLeft = {
     this.container.innerHTML = `
       <div class="sidebar-top">
         <!-- Logo -->
-        <button class="icon-btn ${(!inGallery && !inFolders) ? 'active' : ''}" id="btn-nav-dms" title="Direct Messages">
+        <button class="icon-btn ${(!inGallery && !inFolders) ? 'active' : ''}" id="btn-nav-dms" title="设备与传输">
           <i data-lucide="message-circle"></i>
         </button>
         <div class="sidebar-separator" style="width:24px;height:1px;background:var(--border-subtle);margin-top:8px;margin-bottom:8px;margin-left:auto;margin-right:12px;"></div>
@@ -111,13 +111,8 @@ window.SidebarLeft = {
           if (btn.id === 'btn-nav-gallery') {
             window.store.setState({ activeTab: 'gallery' });
           } else {
-            // DM button: escape hatch out of the folders view
-            var st = window.store.getState();
-            if (st.activeView === 'folders') {
-              window.store.setState({ activeTab: 'dms', activeView: 'friends', activeFolder: null });
-            } else {
-              window.store.setState({ activeTab: 'dms' });
-            }
+            // Return to the transfer home without discarding per-device history.
+            window.store.setState({ activeTab: 'dms', activeView: 'friends', activeFolder: null, activeChatId: null });
           }
         }
       });

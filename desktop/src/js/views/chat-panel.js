@@ -689,9 +689,10 @@ window.ChatPanel = {
            honest place to explain what Orbit does. -->
       <div id="chat-welcome-host" style="flex:1; display:flex; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;"></div>
     `;
-    if (window.OrbitWelcome) {
-      window.OrbitWelcome.render(document.getElementById('chat-welcome-host'));
-    }
+    const host = document.getElementById('chat-welcome-host');
+    host.innerHTML = '<div style="max-width:480px;text-align:center"><i data-lucide="send" style="width:48px;height:48px;color:var(--accent-primary)"></i><h1 style="font-size:28px;margin:20px 0 12px">在你的设备之间传输</h1><p style="color:var(--text-muted);line-height:1.8">从左侧选择附近或收藏的设备，发送文件、图片、文字与链接。<br>每台设备的传输记录保存在本机。</p><button id="home-connect-device" style="margin:24px 0 12px;padding:12px 24px;border-radius:10px;background:var(--accent-primary);color:white">连接设备</button><p style="font-size:12px;color:var(--text-muted)">收藏仅保存常用目标，不代表信任或自动接收授权。</p><button id="home-local-demo" style="margin-top:20px;color:var(--text-muted)">本机演示</button></div>';
+    host.querySelector('#home-connect-device').onclick = () => window.SidebarMiddle.showAddFriendModal();
+    host.querySelector('#home-local-demo').onclick = () => window.store.setState({activeChatId:'local-echo'});
     lucide.createIcons({ root: this.container });
   },
 

@@ -488,6 +488,7 @@ window.TutorialModal = {
   },
 
   shouldShowOnStartup() {
+    if (window.LocalLinkDevices) return false; // Keep the Orbit tour available manually.
     var s = window.store.getState().settings;
     if (s.showTutorialOnStartup === false) return false;
     if (s.tutorialCompleted) return false;

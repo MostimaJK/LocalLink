@@ -50,12 +50,12 @@ window.SidebarMiddle = {
       '<div class="search-container" style="padding: 16px; padding-bottom: 8px;">' +
         '<div class="search-input-wrapper" data-debug="Search: query=\\"\\" results=0" style="position: relative; display: flex; align-items: center;">' +
           '<i data-lucide="search" style="position: absolute; left: 12px; width: 16px; color: var(--text-muted);"></i>' +
-          '<input type="text" class="search-input" placeholder="Search devices / messages" style="width: 100%; padding: 8px 12px 8px 36px; border-radius: 8px; border: 1px solid var(--border-subtle); background: var(--bg-surface); color: var(--text-primary); outline: none;">' +
+          '<input type="text" class="search-input" placeholder="搜索设备 / 消息" style="width: 100%; padding: 8px 12px 8px 36px; border-radius: 8px; border: 1px solid var(--border-subtle); background: var(--bg-surface); color: var(--text-primary); outline: none;">' +
           '<button id="btn-toggle-sidebar" title="Toggle Sidebar" style="background:transparent; border:none; cursor:pointer; color:var(--text-muted); padding:4px; margin-left:4px; flex-shrink:0;"><i data-lucide="chevrons-left" style="width:18px;height:18px;"></i></button>' +
         '</div>' +
       '</div>' +
       '<div class="tabs-container" style="display:flex; padding: 0 var(--spacing-md); margin-bottom: var(--spacing-md); gap: 16px;">' +
-        '<button class="tab active" data-view="friends" style="flex:1; text-align:center; padding: 12px 4px; border-bottom: 3px solid var(--accent-primary); border-top: none; border-left: none; border-right: none; font-weight: 600; color: var(--text-primary); background: transparent; transition: var(--transition); cursor:pointer;">Devices</button>' +
+        '<button class="tab active" data-view="friends" style="flex:1; text-align:center; padding: 12px 4px; border-bottom: 3px solid var(--accent-primary); border-top: none; border-left: none; border-right: none; font-weight: 600; color: var(--text-primary); background: transparent; transition: var(--transition); cursor:pointer;">设备</button>' +
         '<button class="tab" data-view="groups" style="flex:1; text-align:center; padding: 12px 4px; border-bottom: 3px solid transparent; border-top: none; border-left: none; border-right: none; color: var(--text-muted); font-weight: 500; background: transparent; transition: var(--transition); cursor:pointer;">Groups</button>' +
       '</div>' +
       '<div class="list-container" id="friends-list-container" style="flex:1; overflow-y:auto;">' +
@@ -773,47 +773,41 @@ window.SidebarMiddle = {
       return;
     }
 
-    var onlineFriends = friends.filter(function(f) { return f.userId !== 'local-echo' && f.status === 'online'; });
-
-    // The header renders in BOTH states, because the friends directory button has
-    // to be reachable when nobody is online — that is exactly when you need it, to
-    // reach an offline friend or reopen a DM you closed.
-    var headerHtml = '<div style="padding: 0 var(--spacing-md) var(--spacing-sm) var(--spacing-md); display:flex; justify-content:space-between; align-items:center;">' +
-      '<span style="font-size: 12px; font-weight:bold; color:var(--text-muted); text-transform:uppercase;">Online (' + onlineFriends.length + ')</span>' +
-      '<div style="display:flex;align-items:center;gap:12px;">' +
-        '<button id="btn-all-friends" title="All devices" style="color:var(--text-secondary);cursor:pointer;background:transparent;border:none;padding:0;display:flex;align-items:center;"><i data-lucide="users-round" style="width:16px;height:16px;"></i></button>' +
-        '<button id="btn-add-friend" title="Connect a device" style="color:var(--text-secondary);cursor:pointer;background:transparent;border:none;padding:0;display:flex;align-items:center;"><i data-lucide="plus" style="width:16px;height:16px;"></i></button>' +
-      '</div>' +
-    '</div>';
-
-    function wireHeader() {
-      var addBtn = listContainer.querySelector('#btn-add-friend');
-      if (addBtn) addBtn.addEventListener('click', function() { self.showAddFriendModal(); });
-      var allBtn = listContainer.querySelector('#btn-all-friends');
-      if (allBtn) allBtn.addEventListener('click', function() { self.showAllFriendsModal(); });
-    }
-
-    if (!friends || friends.length === 0) {
-      listContainer.innerHTML = headerHtml + window.OrbitEmpty.html({
-        icon: 'wifi-off',
-        title: 'No devices online',
-        hint: 'Waiting for peers on the local network\u2026',
-        compact: true,
-        muted: true
-      });
-      lucide.createIcons({ root: listContainer });
-      wireHeader();
-      return;
-    }
-
-    var html = headerHtml;
-    friends.forEach(function(friend) {
-      html += self._buildFriendRowHtml(friend, state);
+    const devices = window.LocalLinkDevices;
+    const scope = this.deviceScope || 'nearby';
+    // Reuse history objects, but never infer discovery or favorites from them.
+    const known = state.friends.filter(f => f.userId !== 'local-echo' &&
+      (!userChatIds || userChatIds.includes(f.userId)));
+    const sets = {
+      nearby: known.filter(f => devices.isNearby(f)),
+      favorites: known.filter(f => devices.isFavorite(f)),
+      history: known
+    };
+    let html = '<div style="padding:0 16px 12px;display:flex;gap:6px;flex-wrap:wrap">';
+    [['nearby','附近'],['favorites','收藏'],['history','记录']].forEach(([id, label]) => {
+      html += '<button data-device-scope="' + id + '" aria-pressed="' + (scope === id) + '" style="padding:7px 10px;border-radius:8px;border:1px solid var(--border-subtle);color:var(--text-primary);background:' + (scope === id ? 'var(--bg-hover)' : 'transparent') + '">' + label + ' ' + sets[id].length + '</button>';
     });
-
+    html += '</div><div style="padding:0 16px 12px;display:flex;justify-content:space-between;gap:8px"><button id="btn-add-friend" style="color:var(--accent-primary)">连接设备</button><button id="btn-all-friends" style="color:var(--text-muted)">全部记录</button></div>';
+    const hint = {nearby:'同一局域网中的兼容设备会自动出现在这里。', favorites:'收藏常用设备，离线时也能查阅记录。', history:'已知设备的本地记录，包含离线设备。'};
+    html += '<p style="padding:0 16px 12px;font-size:12px;color:var(--text-muted);line-height:1.6">' + hint[scope] + '</p>';
+    const query = (this.container.querySelector('.search-input').value || '').toLowerCase();
+    const rows = sets[scope].filter(f => (devices.name(f) + ' ' + f.username).toLowerCase().includes(query));
+    rows.forEach(friend => {
+      html += '<div style="display:flex;align-items:center"><div style="flex:1;min-width:0">' + self._buildFriendRowHtml(friend, state, {reopen:true}) + '</div><button data-favorite-id="' + window.Sanitize.escapeHtml(friend.userId) + '" aria-label="' + (devices.isFavorite(friend) ? '取消收藏' : '收藏设备') + '" aria-pressed="' + devices.isFavorite(friend) + '" style="padding:8px;color:var(--accent-primary)"><i data-lucide="star" style="width:18px;height:18px;' + (devices.isFavorite(friend) ? 'fill:currentColor;' : '') + '"></i></button></div>';
+    });
+    if (!rows.length) html += '<div style="padding:24px 16px;color:var(--text-muted);font-size:13px">' + (query ? '没有匹配的设备' : scope === 'nearby' ? '暂未发现设备，请在另一台设备上打开 LocalLink 或 Orbit。' : scope === 'favorites' ? '点击设备旁的星标即可收藏。' : '暂无设备记录') + '</div>';
     listContainer.innerHTML = html;
-    lucide.createIcons({ root: listContainer });
-    wireHeader();
+    lucide.createIcons({root:listContainer});
+    listContainer.querySelectorAll('[data-device-scope]').forEach(button => button.onclick = () => {
+      this.deviceScope = button.dataset.deviceScope;
+      this.renderList(window.store.getState());
+    });
+    listContainer.querySelectorAll('[data-favorite-id]').forEach(button => button.onclick = () => {
+      const peer = known.find(f => f.userId === button.dataset.favoriteId);
+      if (peer) devices.toggleFavorite(peer);
+    });
+    listContainer.querySelector('#btn-add-friend').onclick = () => this.showAddFriendModal();
+    listContainer.querySelector('#btn-all-friends').onclick = () => this.showAllFriendsModal();
   },
 
   _buildFriendRowHtml(friend, state, opts) {
@@ -1652,6 +1646,10 @@ window.SidebarMiddle = {
     var searchInput = this.container.querySelector('.search-input');
     if (searchInput) {
       searchInput.addEventListener('input', function(e) {
+        if (window.store.getState().activeView !== 'groups' && !window.store.getState().activeFolder) {
+          self.renderList(window.store.getState());
+          return;
+        }
         var query = e.target.value.toLowerCase();
         var rows = self.container.querySelectorAll('.list-row');
         rows.forEach(function(row) {
@@ -1711,7 +1709,7 @@ window.SidebarMiddle = {
         // to be dismissed before you could reach the list you asked for. The
         // header's "All devices" button is the discoverable way in; this is the
         // shortcut.
-        if (view === 'friends' && wasFriends) self.showAllFriendsModal();
+        // The Devices tab remains on the device browser; history has its own entry.
       });
     });
 
