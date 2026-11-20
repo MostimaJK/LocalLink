@@ -2,10 +2,10 @@
   "name": "orbit-workspace",
   "version": "1.0.0",
   "private": true,
-  "description": "Orbit P2P Chat — Workspace Root",
+  "description": "Orbit P2P Chat \u2014 Workspace Root",
   "scripts": {
-    "start": "cd desktop && electron .",
-    "desktop:start": "cd desktop && electron .",
+    "start": "npm --prefix desktop start",
+    "desktop:start": "npm --prefix desktop start",
     "desktop:build:win": "cd desktop && electron-builder --win",
     "desktop:build:mac": "cd desktop && electron-builder --mac",
     "desktop:build:linux": "cd desktop && electron-builder --linux",

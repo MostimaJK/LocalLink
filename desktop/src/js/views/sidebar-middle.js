@@ -50,12 +50,12 @@ window.SidebarMiddle = {
       '<div class="search-container" style="padding: 16px; padding-bottom: 8px;">' +
         '<div class="search-input-wrapper" data-debug="Search: query=\\"\\" results=0" style="position: relative; display: flex; align-items: center;">' +
           '<i data-lucide="search" style="position: absolute; left: 12px; width: 16px; color: var(--text-muted);"></i>' +
-          '<input type="text" class="search-input" placeholder="Search messages, people..." style="width: 100%; padding: 8px 12px 8px 36px; border-radius: 8px; border: 1px solid var(--border-subtle); background: var(--bg-surface); color: var(--text-primary); outline: none;">' +
+          '<input type="text" class="search-input" placeholder="Search devices / messages" style="width: 100%; padding: 8px 12px 8px 36px; border-radius: 8px; border: 1px solid var(--border-subtle); background: var(--bg-surface); color: var(--text-primary); outline: none;">' +
           '<button id="btn-toggle-sidebar" title="Toggle Sidebar" style="background:transparent; border:none; cursor:pointer; color:var(--text-muted); padding:4px; margin-left:4px; flex-shrink:0;"><i data-lucide="chevrons-left" style="width:18px;height:18px;"></i></button>' +
         '</div>' +
       '</div>' +
       '<div class="tabs-container" style="display:flex; padding: 0 var(--spacing-md); margin-bottom: var(--spacing-md); gap: 16px;">' +
-        '<button class="tab active" data-view="friends" style="flex:1; text-align:center; padding: 12px 4px; border-bottom: 3px solid var(--accent-primary); border-top: none; border-left: none; border-right: none; font-weight: 600; color: var(--text-primary); background: transparent; transition: var(--transition); cursor:pointer;">Friends</button>' +
+        '<button class="tab active" data-view="friends" style="flex:1; text-align:center; padding: 12px 4px; border-bottom: 3px solid var(--accent-primary); border-top: none; border-left: none; border-right: none; font-weight: 600; color: var(--text-primary); background: transparent; transition: var(--transition); cursor:pointer;">Devices</button>' +
         '<button class="tab" data-view="groups" style="flex:1; text-align:center; padding: 12px 4px; border-bottom: 3px solid transparent; border-top: none; border-left: none; border-right: none; color: var(--text-muted); font-weight: 500; background: transparent; transition: var(--transition); cursor:pointer;">Groups</button>' +
       '</div>' +
       '<div class="list-container" id="friends-list-container" style="flex:1; overflow-y:auto;">' +
@@ -250,7 +250,7 @@ window.SidebarMiddle = {
         friendOptions += '<label class="friend-picker-option" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;cursor:pointer;">' +
           '<input type="checkbox" class="group-member-cb" value="' + window.Sanitize.escapeHtml(f.userId) + '" style="width:18px;height:18px;accent-color:var(--accent-primary);cursor:pointer;">' +
           favatarContainer +
-          '<div><div style="font-weight:500;color:var(--text-primary);">' + window.Sanitize.escapeHtml(f.username) + '</div>' +
+          '<div><div style="font-weight:500;color:var(--text-primary);">' + window.Sanitize.escapeHtml(window.LocalLinkDevices.name(f)) + '</div>' +
           '<div style="font-size:12px;color:var(--text-muted);">' + window.Sanitize.escapeHtml(f.status || 'online') + '</div></div>' +
         '</label>';
       });
@@ -573,7 +573,7 @@ window.SidebarMiddle = {
       '<div style="width:460px;max-width:94vw;max-height:82vh;background:var(--bg-surface);border-radius:16px;overflow:hidden;box-shadow:var(--shadow-xl);border:1px solid var(--border-subtle);display:flex;flex-direction:column;">' +
         '<div style="display:flex;align-items:flex-start;gap:10px;padding:16px 16px 12px;">' +
           '<div style="flex:1;min-width:0;">' +
-            '<div style="font-weight:600;color:var(--text-primary);font-size:16px;">All Friends</div>' +
+            '<div style="font-weight:600;color:var(--text-primary);font-size:16px;">All Devices</div>' +
             '<div id="afm-count" style="font-size:12px;color:var(--text-muted);margin-top:2px;"></div>' +
           '</div>' +
           '<button id="afm-close" title="Close" style="background:transparent;border:none;cursor:pointer;color:var(--text-muted);padding:4px;border-radius:6px;flex-shrink:0;">' +
@@ -622,7 +622,7 @@ window.SidebarMiddle = {
         if (filter === 'offline' && f.status === 'online') return false;
         if (filter === 'closed' && !closedDMs[f.userId]) return false;
         if (query) {
-          var hay = ((f.username || '') + ' ' + (f.usertag || '') + ' ' + (f.userId || '')).toLowerCase();
+          var hay = (window.LocalLinkDevices.name(f) + ' ' + (f.username || '') + ' ' + (f.usertag || '') + ' ' + (f.userId || '')).toLowerCase();
           if (hay.indexOf(query) === -1) return false;
         }
         return true;
@@ -661,18 +661,18 @@ window.SidebarMiddle = {
       if (window.lucide) lucide.createIcons({ root: displayBtn });
 
       if (rows.length === 0) {
-        // ⚠⚠ THE FIRST-RUN MOMENT, AND IT USED TO SAY ONLY "No friends yet". A local-first
+        // ⚠⚠ THE FIRST-RUN MOMENT, AND IT USED TO SAY ONLY "No devices yet". A local-first
         // messenger cannot behave like WhatsApp on first launch — there is no directory, and
         // nobody appears until they are actually reachable. That reads as broken unless the
         // empty state says so and offers the one action that fixes it.
         var noFriends = friends.length === 0;
         listEl.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;padding:32px 20px;text-align:center;color:var(--text-muted);gap:10px;">' +
           '<i data-lucide="users-round" style="width:34px;height:34px;opacity:0.3;"></i>' +
-          '<div style="font-size:13px;">' + (noFriends ? 'No friends yet' : 'Nobody matches that') + '</div>' +
+          '<div style="font-size:13px;">' + (noFriends ? 'No devices yet' : 'No matching devices') + '</div>' +
           (noFriends
-            ? '<div style="font-size:11px;line-height:1.55;max-width:230px;">Add someone on the same Wi-Fi and they appear straight away. Across the internet, one of you needs a relay.</div>' +
+            ? '<div style="font-size:11px;line-height:1.55;max-width:230px;">Connect a device on the same local network. Discovery does not grant trust.</div>' +
               '<button id="btn-empty-add-friend" style="margin-top:2px;padding:7px 14px;border-radius:8px;border:none;' +
-                'background:var(--accent-primary);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">Add a friend</button>'
+                'background:var(--accent-primary);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">Connect a device</button>'
             : '') +
         '</div>';
         if (window.lucide) lucide.createIcons({ root: listEl });
@@ -689,11 +689,11 @@ window.SidebarMiddle = {
       if (display === 'grid') {
         listEl.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:10px;padding:4px;">' +
           rows.map(function(f) {
-            return '<div class="afm-tile" data-id="' + window.Sanitize.escapeHtml(f.userId) + '" title="' + window.Sanitize.escapeHtml(f.username) + '" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 6px;border-radius:12px;cursor:pointer;background:var(--bg-base);border:1px solid var(--border-subtle);">' +
+            return '<div class="afm-tile" data-id="' + window.Sanitize.escapeHtml(f.userId) + '" title="' + window.Sanitize.escapeHtml(window.LocalLinkDevices.name(f)) + '" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 6px;border-radius:12px;cursor:pointer;background:var(--bg-base);border:1px solid var(--border-subtle);">' +
               '<div style="position:relative;width:44px;height:44px;border-radius:50%;">' + avatarInner(f) +
                 window.OrbitPresence.badge(f.status || 'offline') +
               '</div>' +
-              '<div style="font-size:11px;color:var(--text-primary);text-align:center;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + window.Sanitize.escapeHtml(f.username) + '</div>' +
+              '<div style="font-size:11px;color:var(--text-primary);text-align:center;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + window.Sanitize.escapeHtml(window.LocalLinkDevices.name(f)) + '</div>' +
               (closedDMs[f.userId] ? '<div style="font-size:9px;color:var(--text-muted);">Closed</div>' : '') +
             '</div>';
           }).join('') +
@@ -773,7 +773,7 @@ window.SidebarMiddle = {
       return;
     }
 
-    var onlineFriends = friends.filter(function(f) { return f.status === 'online'; });
+    var onlineFriends = friends.filter(function(f) { return f.userId !== 'local-echo' && f.status === 'online'; });
 
     // The header renders in BOTH states, because the friends directory button has
     // to be reachable when nobody is online — that is exactly when you need it, to
@@ -781,8 +781,8 @@ window.SidebarMiddle = {
     var headerHtml = '<div style="padding: 0 var(--spacing-md) var(--spacing-sm) var(--spacing-md); display:flex; justify-content:space-between; align-items:center;">' +
       '<span style="font-size: 12px; font-weight:bold; color:var(--text-muted); text-transform:uppercase;">Online (' + onlineFriends.length + ')</span>' +
       '<div style="display:flex;align-items:center;gap:12px;">' +
-        '<button id="btn-all-friends" title="All friends" style="color:var(--text-secondary);cursor:pointer;background:transparent;border:none;padding:0;display:flex;align-items:center;"><i data-lucide="users-round" style="width:16px;height:16px;"></i></button>' +
-        '<button id="btn-add-friend" title="Add a friend" style="color:var(--text-secondary);cursor:pointer;background:transparent;border:none;padding:0;display:flex;align-items:center;"><i data-lucide="plus" style="width:16px;height:16px;"></i></button>' +
+        '<button id="btn-all-friends" title="All devices" style="color:var(--text-secondary);cursor:pointer;background:transparent;border:none;padding:0;display:flex;align-items:center;"><i data-lucide="users-round" style="width:16px;height:16px;"></i></button>' +
+        '<button id="btn-add-friend" title="Connect a device" style="color:var(--text-secondary);cursor:pointer;background:transparent;border:none;padding:0;display:flex;align-items:center;"><i data-lucide="plus" style="width:16px;height:16px;"></i></button>' +
       '</div>' +
     '</div>';
 
@@ -796,7 +796,7 @@ window.SidebarMiddle = {
     if (!friends || friends.length === 0) {
       listContainer.innerHTML = headerHtml + window.OrbitEmpty.html({
         icon: 'wifi-off',
-        title: 'No friends online',
+        title: 'No devices online',
         hint: 'Waiting for peers on the local network\u2026',
         compact: true,
         muted: true
@@ -845,7 +845,7 @@ window.SidebarMiddle = {
     var frame = window.Frames.getFrameForUser(friend.userId);
     var avatarImg = friend.avatar
       ? '<img src="' + window.Sanitize.escapeHtml(friend.avatar) + '" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">'
-      : '<i data-lucide="user-round"></i>';
+      : '<i data-lucide="' + window.LocalLinkDevices.icon(friend) + '"></i>';
     var avatarContainer = '<div style="position:relative;display:flex;align-items:center;justify-content:center;width:100%;height:100%;">' + avatarImg + (frame ? '<img src="icons/frames/pfp_frame_' + frame + '.png" style="position:absolute;top:-14%;left:-14%;width:122%;height:122%;pointer-events:none;object-fit:contain;" draggable="false" alt="">' : '') + '</div>';
 
     var unreadCount = unreadCounts[friend.userId] || 0;
@@ -863,13 +863,13 @@ window.SidebarMiddle = {
     var isPinned = pinnedDMs[friend.userId];
     var pinnedHtml = isPinned ? '<i data-lucide="pin" style="width:14px;height:14px;color:var(--accent-primary);flex-shrink:0;"></i>' : '';
 
-    return '<div class="list-row ' + (isActive ? 'active' : '') + '"' + (opts.reopen ? ' data-reopen="1"' : '') + ' data-id="' + window.Sanitize.escapeHtml(friend.userId) + '" data-debug="User: ' + window.Sanitize.escapeHtml(friend.username) + ' ID: ' + window.Sanitize.escapeHtml(friend.userId) + ' Status: ' + window.Sanitize.escapeHtml(friend.status || 'offline') + '">' +
+    return '<div class="list-row ' + (isActive ? 'active' : '') + '"' + (opts.reopen ? ' data-reopen="1"' : '') + ' data-id="' + window.Sanitize.escapeHtml(friend.userId) + '" data-debug="User: ' + window.Sanitize.escapeHtml(window.LocalLinkDevices.name(friend)) + ' ID: ' + window.Sanitize.escapeHtml(friend.userId) + ' Status: ' + window.Sanitize.escapeHtml(friend.status || 'offline') + '">' +
       '<div class="avatar avatar-md list-row-avatar" style="position:relative;">' +
         avatarContainer +
         window.OrbitPresence.badge(friend.status || 'offline') +
       '</div>' +
       '<div class="list-row-info">' +
-        '<div class="list-row-title">' + window.Sanitize.escapeHtml(friend.username) + '</div>' +
+        '<div class="list-row-title">' + window.Sanitize.escapeHtml(window.LocalLinkDevices.name(friend)) + '</div>' +
         '<div class="list-row-subtitle">' + subtitleHtml + '</div>' +
       '</div>' +
       (pinnedHtml || badgeHtml || mutedHtml ? '<div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">' + pinnedHtml + mutedHtml + badgeHtml + '</div>' : '') +
@@ -969,7 +969,7 @@ window.SidebarMiddle = {
     var friends = state.friends || [];
     html += '<div style="font-size:10px;color:var(--text-muted);margin:6px 0 4px;font-weight:600;">Friends</div>';
     if (friends.length === 0) {
-      html += '<div style="font-size:12px;color:var(--text-muted);padding:4px 0;">No friends yet</div>';
+      html += '<div style="font-size:12px;color:var(--text-muted);padding:4px 0;">No devices yet</div>';
     } else {
       friends.forEach(function(f) {
         html += chatRowHtml({ kind: 'friend', id: f.userId }, f.username, '@' + (f.usertag || '0000'), friendAvatarHtml(f));
@@ -1330,7 +1330,7 @@ window.SidebarMiddle = {
 
     var SUBTITLES = {
       ip: 'Enter the IP address of a peer on your local network to connect with them. Add :port after it if they use a custom one.',
-      qr: 'Paste, drop, or choose a QR code image from another Orbit device to connect instantly.'
+      qr: 'Paste, drop, or choose a QR code image from another LocalLink or Orbit device to connect instantly.'
     };
 
     var overlay = document.createElement('div');
@@ -1641,7 +1641,7 @@ window.SidebarMiddle = {
         var friend = state.friends.find(function(f) { return f.userId === id; });
         if (friend && window.ProfileSidebar) window.ProfileSidebar.open(friend);
       } else if (row.getAttribute('data-reopen')) {
-        // From All Friends: clear the closed flag too, or the DM would open and
+        // From All Devices: clear the closed flag too, or the DM would open and
         // then vanish from the list again on the next render.
         window.store.reopenDM(id);
       } else {
@@ -1699,7 +1699,7 @@ window.SidebarMiddle = {
         e.target.style.color = 'var(--text-primary)';
         e.target.style.fontWeight = '500';
         
-        // data-view, not the label — a label-derived name is a trap ("All Friends"
+        // data-view, not the label — a label-derived name is a trap ("All Devices"
         // would have become the view "all friends").
         var view = e.target.getAttribute('data-view') || e.target.innerText.toLowerCase();
         // Was Friends already the active view? Read BEFORE the setState below.
@@ -1709,7 +1709,7 @@ window.SidebarMiddle = {
         // tab lists who is online, the directory lists everyone. Deliberately not
         // on every click: switching Groups -> Friends used to pop a modal that had
         // to be dismissed before you could reach the list you asked for. The
-        // header's "All friends" button is the discoverable way in; this is the
+        // header's "All devices" button is the discoverable way in; this is the
         // shortcut.
         if (view === 'friends' && wasFriends) self.showAllFriendsModal();
       });

@@ -75,7 +75,7 @@ window.SettingsModal = {
     // ⚠ The inline styles are gone — the layer owns `.settings-tab` outright now, so
     // the active state is a class and there is no second writer left to fight it.
     var navItems = [
-      { tab: 'account', icon: 'user', label: 'Account' },
+      { tab: 'account', icon: 'monitor-smartphone', label: 'This Device' },
       { tab: 'appearance', icon: 'palette', label: 'Appearance' },
       { tab: 'network', icon: 'wifi', label: 'Network' },
       { tab: 'notifications', icon: 'bell', label: 'Notifications' },
@@ -242,7 +242,7 @@ window.SettingsModal = {
         : 'background:' + DEFAULT_BANNER;
 
       content.innerHTML =
-        '<h3 style="font-family:var(--font-display);font-size:24px;margin-bottom:24px;">My Account</h3>' +
+        '<h3 style="font-family:var(--font-display);font-size:24px;margin-bottom:24px;">This Device</h3>' +
 
         // Preview Card
         '<div style="margin-bottom:24px;border-radius:12px;overflow:hidden;border:1px solid var(--border-subtle);">' +
@@ -258,12 +258,12 @@ window.SettingsModal = {
         // Collapsible: Profile
         '<div class="settings-collapsible" style="margin-bottom:12px;border-radius:10px;border:1px solid var(--border-subtle);overflow:hidden;">' +
           '<div class="collapsible-header" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg-base);cursor:pointer;user-select:none;" onclick="var b=this.nextElementSibling;var i=this.querySelector(\'.collapse-icon\');if(b.style.display===\'none\'){b.style.display=\'block\';i.style.transform=\'rotate(0deg)\'}else{b.style.display=\'none\';i.style.transform=\'rotate(-90deg)\'}">' +
-            '<span style="font-size:13px;font-weight:600;color:var(--text-primary);">Profile</span>' +
+            '<span style="font-size:13px;font-weight:600;color:var(--text-primary);">Device identity</span>' +
             '<i data-lucide="chevron-down" class="collapse-icon" style="width:16px;height:16px;color:var(--text-muted);transition:transform 0.2s;"></i>' +
           '</div>' +
           '<div class="collapsible-body" style="padding:16px;display:block;">' +
-            '<div style="margin-bottom:16px;"><label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px;">Username</label>' +
-            '<div style="display:flex;gap:8px;"><input type="text" id="input-username" value="' + window.Sanitize.escapeHtml(user.username) + '" style="flex:1;padding:10px 12px;border-radius:8px;border:1px solid var(--border-subtle);background:var(--bg-surface);color:var(--text-primary);font-size:14px;outline:none;">' +
+            '<div style="margin-bottom:16px;"><label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px;">Device name</label>' +
+            '<div style="display:flex;gap:8px;"><input type="text" id="input-username" aria-label="Device name" value="' + window.Sanitize.escapeHtml(user.username) + '" style="flex:1;padding:10px 12px;border-radius:8px;border:1px solid var(--border-subtle);background:var(--bg-surface);color:var(--text-primary);font-size:14px;outline:none;">' +
             '<div style="padding:10px 12px;border-radius:8px;background:var(--bg-surface);color:var(--text-muted);font-family:var(--font-mono);font-size:14px;border:1px solid var(--border-subtle);">#' + window.Sanitize.escapeHtml(user.usertag || '') + '</div></div></div>' +
             '<div><label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px;">Bio</label>' +
             '<textarea id="input-bio" rows="3" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border-subtle);background:var(--bg-base);color:var(--text-primary);font-size:14px;outline:none;resize:none;">' + window.Sanitize.escapeHtml(user.bio || '') + '</textarea></div>' +

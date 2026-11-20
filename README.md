@@ -1,3 +1,13 @@
+# LocalLink（近连）开发版
+
+基于 [Orbit](https://github.com/D4niel-dev/Orbit) 开发，灵感来自 [LocalSend](https://github.com/localsend/localsend)。面向个人多设备的聊天式互联工具。LocalLink 是暂定名称，未核查商标；本项目不是 Orbit 或 LocalSend 官方版本。
+
+当前为 Windows 首轮改造，保留上游通信、通话和存储实现。启动：在项目根目录执行 `npm start`。安装、架构调查、验证范围和分阶段计划见 [开发说明](docs/DEVELOPMENT.md)。
+
+下方保留上游 README 作为来源参考，其中功能与发布声明属于上游，并不代表 LocalLink 已实测通过。
+
+---
+
 <p align="center">
   <img src="desktop/src/icons/app/orbit_banner.png" alt="Orbit" width="30%">
 </p>

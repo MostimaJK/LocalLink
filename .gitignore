@@ -54,3 +54,9 @@ docs/
 
 # Screenshots written by mobile/tests (the harness saves them next to the specs)
 mobile/tests/.shots/
+
+# LocalLink development evidence
+!docs/
+!docs/**
+/test-results/
+/desktop/test-results/

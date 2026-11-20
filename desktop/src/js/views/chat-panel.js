@@ -751,7 +751,7 @@ window.ChatPanel = {
     var headerFrame = window.Frames ? window.Frames.getFrameForUser(activeFriend.userId) : 0;
     var headerAvatarInner = activeFriend.avatar
       ? '<img src="' + window.Sanitize.escapeHtml(activeFriend.avatar) + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">'
-      : '<i data-lucide="user-round"></i>';
+      : '<i data-lucide="' + window.LocalLinkDevices.icon(activeFriend) + '"></i>';
     var headerAvatarContainer = '<div style="position:relative;display:flex;align-items:center;justify-content:center;width:100%;height:100%;">' +
       headerAvatarInner +
       (headerFrame ? '<img src="icons/frames/pfp_frame_' + headerFrame + '.png" style="position:absolute;top:-14%;left:-14%;width:122%;height:122%;pointer-events:none;object-fit:contain;" draggable="false" alt="">' : '') +
@@ -762,11 +762,11 @@ window.ChatPanel = {
         window.OrbitPresence.badge(friendStatus) +
       '</div>' +
       '<div style="flex:1;">' +
-        '<div style="font-weight: 600; font-family: var(--font-display); font-size: 16px;">' + window.Sanitize.escapeHtml(activeFriend.username) + '</div>' +
+        '<div style="font-weight: 600; font-family: var(--font-display); font-size: 16px;">' + window.Sanitize.escapeHtml(window.LocalLinkDevices.name(activeFriend)) + '</div>' +
         '<div style="font-size: 12px; color: ' + statusColor + '; display:flex; align-items:center; gap:4px;">' +
           window.OrbitPresence.glyph(friendStatus, 11) + ' ' + window.Sanitize.escapeHtml(statusLabel) + window.Sanitize.escapeHtml(lastSeenText) +
         '</div>' +
-      '</div>';
+      '</div>' + (activeFriend.userId === 'local-echo' ? '' : '<button id="btn-device-details" title="Local device details" aria-label="Local device details" style="color:var(--text-primary);padding:8px"><i data-lucide="settings-2"></i></button>');
   },
 
   // Repaint only #chat-header-strip, leaving the header's action buttons (and
@@ -775,7 +775,11 @@ window.ChatPanel = {
   _refreshHeaderStrip(state) {
     var strip = document.getElementById('chat-header-strip');
     if (!strip) return;
-    strip.innerHTML = this._buildHeaderStrip(state || window.store.getState());
+    state = state || window.store.getState();
+    strip.innerHTML = this._buildHeaderStrip(state);
+    var peer = state.friends.find(function(p) { return p.userId === state.activeChatId; });
+    var input = document.getElementById('chat-input');
+    if (peer && input) input.placeholder = 'Message ' + window.LocalLinkDevices.name(peer) + '...';
     if (window.lucide && window.lucide.createIcons) {
       try { window.lucide.createIcons({ root: strip }); } catch (e) { /* non-fatal */ }
     }
@@ -795,7 +799,7 @@ window.ChatPanel = {
     const activeFriend = state.friends.find(f => f.userId === state.activeChatId);
     const activeGroup = state.groups.find(g => g.groupId === state.activeChatId);
     const isGroup = !!activeGroup;
-    const activeName = isGroup ? activeGroup.groupName : (activeFriend ? activeFriend.username : 'Chat');
+    const activeName = isGroup ? activeGroup.groupName : (activeFriend ? window.LocalLinkDevices.name(activeFriend) : 'Chat');
     if (!activeFriend && !isGroup) return;
 
     const messages = state.messages[state.activeChatId] || [];
@@ -944,7 +948,7 @@ window.ChatPanel = {
           if (origMsg.sender === myId) {
             replyUser = 'You';
           } else if (activeFriend) {
-            replyUser = window.Sanitize.escapeHtml(activeFriend.username);
+            replyUser = window.Sanitize.escapeHtml(window.LocalLinkDevices.name(activeFriend));
           } else if (isGroup && activeGroup && activeGroup.members) {
             var senderMem = activeGroup.members.find(function(m) { return m.userId === origMsg.sender; });
             replyUser = senderMem && senderMem.username ? window.Sanitize.escapeHtml(senderMem.username) : 'Unknown';
@@ -1161,7 +1165,7 @@ window.ChatPanel = {
         '</div>';
       } else {
         const sender = msg.sender === state.currentUser.userId ? state.currentUser : (isGroup ? null : activeFriend);
-        let senderName = isGroup ? 'Unknown' : window.Sanitize.escapeHtml(activeFriend.username);
+        let senderName = isGroup ? 'Unknown' : window.Sanitize.escapeHtml(window.LocalLinkDevices.name(activeFriend));
         let senderAvatar = isGroup ? null : (activeFriend.avatar || null);
 
         if (isGroup) {
@@ -1215,8 +1219,7 @@ window.ChatPanel = {
         messagesHtml = window.OrbitEmpty.html({
           icon: 'message-circle',
           title: 'No messages yet',
-          hint: 'Send a message to start the conversation' +
-            (activeFriend.username ? ' with ' + window.Sanitize.escapeHtml(activeFriend.username) : '') + '.',
+          hint: 'Send text, images or files to this device.',
           fill: true
         });
       } else if (isGroup) {

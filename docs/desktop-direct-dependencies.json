@@ -1,0 +1,92 @@
+[
+  {
+    "name": "@capacitor/android",
+    "version": "8.3.4",
+    "license": "MIT"
+  },
+  {
+    "name": "@capacitor/core",
+    "version": "8.3.4",
+    "license": "MIT"
+  },
+  {
+    "name": "archiver",
+    "version": "8.0.0",
+    "license": "MIT"
+  },
+  {
+    "name": "bad-words",
+    "version": "4.0.0",
+    "license": "MIT"
+  },
+  {
+    "name": "better-sqlite3",
+    "version": "12.10.0",
+    "license": "MIT"
+  },
+  {
+    "name": "electron-store",
+    "version": "8.2.0",
+    "license": "MIT"
+  },
+  {
+    "name": "emoji-picker-element",
+    "version": "1.29.1",
+    "license": "Apache-2.0"
+  },
+  {
+    "name": "jsqr",
+    "version": "1.4.0",
+    "license": "Apache-2.0"
+  },
+  {
+    "name": "lucide",
+    "version": "1.17.0",
+    "license": "ISC"
+  },
+  {
+    "name": "qrcode-generator",
+    "version": "2.0.4",
+    "license": "MIT"
+  },
+  {
+    "name": "sharp",
+    "version": "0.34.5",
+    "license": "Apache-2.0"
+  },
+  {
+    "name": "sqlite3",
+    "version": "6.0.1",
+    "license": "BSD-3-Clause"
+  },
+  {
+    "name": "uuid",
+    "version": "14.0.0",
+    "license": "MIT"
+  },
+  {
+    "name": "ws",
+    "version": "8.21.0",
+    "license": "MIT"
+  },
+  {
+    "name": "@capacitor/cli",
+    "version": "8.3.4",
+    "license": "MIT"
+  },
+  {
+    "name": "@playwright/test",
+    "version": "1.62.1",
+    "license": "Apache-2.0"
+  },
+  {
+    "name": "electron",
+    "version": "32.3.3",
+    "license": "MIT"
+  },
+  {
+    "name": "electron-builder",
+    "version": "26.8.1",
+    "license": "MIT"
+  }
+]

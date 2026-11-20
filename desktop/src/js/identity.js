@@ -94,11 +94,8 @@ window.Identity = {
     const currentState = window.store.getState().currentUser;
     const newState = { ...currentState, ...updates };
 
-    if (updates.username) {
-      const validation = window.Profanity.validateUsername(updates.username);
-      if (!validation.isValid) {
-        throw new Error(validation.error);
-      }
+    if (Object.prototype.hasOwnProperty.call(updates, 'username')) {
+      newState.username = window.LocalLinkDevices.validateName(updates.username);
     }
 
     if (updates.bio) {
@@ -127,7 +124,7 @@ window.Identity = {
         // Re-render account tab if open
         if (window.SettingsModal) {
           var ct = document.querySelector('#settings-content');
-          if (ct && ct.innerHTML.indexOf('My Account') > -1) window.SettingsModal.renderTab('account');
+          if (ct && ct.innerHTML.indexOf('This Device') > -1) window.SettingsModal.renderTab('account');
         }
       }, function() {
         // Redo: re-apply new user data
@@ -135,7 +132,7 @@ window.Identity = {
         window.store.setState({ currentUser: _newUser });
         if (window.SettingsModal) {
           var ct = document.querySelector('#settings-content');
-          if (ct && ct.innerHTML.indexOf('My Account') > -1) window.SettingsModal.renderTab('account');
+          if (ct && ct.innerHTML.indexOf('This Device') > -1) window.SettingsModal.renderTab('account');
         }
       });
     }

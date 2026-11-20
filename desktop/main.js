@@ -996,7 +996,7 @@ app.whenReady().then(() => {
       : '';
 
     const template = [
-      { label: 'Open Orbit', click: showMainWindow },
+      { label: 'Open LocalLink', click: showMainWindow },
       { type: 'separator' },
       {
         label: handle ? ('Copy My Orbit ID  —  ' + handle) : 'Copy My Orbit ID',
@@ -1033,10 +1033,10 @@ app.whenReady().then(() => {
     ];
 
     if (pinEnabled) {
-      template.push({ label: 'Lock Orbit', click: () => traySend('lock') });
+      template.push({ label: 'Lock LocalLink', click: () => traySend('lock') });
     }
 
-    template.push({ type: 'separator' }, { label: 'Quit Orbit', click: () => app.quit() });
+    template.push({ type: 'separator' }, { label: 'Quit LocalLink', click: () => app.quit() });
 
     return Menu.buildFromTemplate(template);
   }
@@ -1061,7 +1061,7 @@ app.whenReady().then(() => {
     refreshTrayMenu();
   });
 
-  tray.setToolTip('Orbit');
+  tray.setToolTip('LocalLink · 近连');
   refreshTrayMenu();
   tray.on('click', () => {
     if (mainWindow.isVisible()) {
