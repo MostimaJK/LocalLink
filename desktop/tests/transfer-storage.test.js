@@ -17,6 +17,8 @@ try{
  assert.equal(db.db.prepare('SELECT value FROM settings WHERE key=?').get('locallink.transfers'),undefined);
  assert.equal(db.transfers.list({query:'100%'}).length,1);
  assert.equal(db.transfers.list({query:'_'}).length,0);
+ assert.equal(db.transfers.list({statuses:['received'],filesOnly:true}).length,1);
+ assert.equal(db.transfers.list({statuses:['failed','cancelled']}).length,0);
  db.transfers.save({id:'photo',peerId:'laptop',name:'PHOTO.JPG',status:'delivered',direction:'outgoing',startedAt:100});
  db.transfers.save({id:'zip',peerId:'phone',name:'folder.zip',status:'failed',direction:'outgoing',startedAt:200});
  assert.deepEqual(db.transfers.list({from:100,to:200}).map(r=>r.id),['photo']);

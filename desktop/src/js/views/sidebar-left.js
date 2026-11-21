@@ -14,7 +14,7 @@ window.SidebarLeft = {
         this.renderAvatar(state.currentUser);
         return;
       }
-      if ('settings' in changedState) {
+      if ('settings' in changedState || 'activeChatId' in changedState) {
         // Folders rail button is gated on enableExperimental — re-render so it
         // appears/disappears when the experimental toggle flips.
         this.render();
@@ -50,20 +50,22 @@ window.SidebarLeft = {
     // (including the gallery). Any re-render then stole the gallery's highlight and
     // handed it back to DMs, which is why changing the gallery display style reset the
     // sidebar to DMs.
-    var inGallery = activeTab === 'gallery';
+    var center=window.store.getState().activeChatId;
+    var inGallery = activeTab === 'gallery'||center==='locallink-view:tasks';
+    var inReceived=center==='locallink-view:received';
     var inFolders = activeView === 'folders';
 
     this.container.innerHTML = `
       <div class="sidebar-top">
         <!-- Logo -->
-        <button class="icon-btn ${(!inGallery && !inFolders) ? 'active' : ''}" id="btn-nav-dms" title="设备与传输">
+        <button class="icon-btn ${(!inGallery && !inFolders && !inReceived) ? 'active' : ''}" id="btn-nav-dms" title="设备与传输">
           <i data-lucide="monitor-smartphone"></i>
         </button>
         <div class="sidebar-separator" style="width:24px;height:1px;background:var(--border-subtle);margin-top:8px;margin-bottom:8px;margin-left:auto;margin-right:12px;"></div>
         ${showFolders ? '<button class="icon-btn' + (inFolders ? ' active' : '') + '" id="btn-nav-folders" title="Folders"><i data-lucide="folder"></i></button>' : ''}
         ${showActivity ? '<button class="icon-btn" id="btn-nav-activity" title="Activity Center"><i data-lucide="bell"></i></button>' : ''}
-        ${showGallery ? '<button class="icon-btn' + (inGallery ? ' active' : '') + '" id="btn-nav-gallery" title="Gallery"><i data-lucide="archive"></i></button>' : ''}
-        ${showStorage ? '<button class="icon-btn" id="btn-nav-storage" title="Storage"><i data-lucide="hard-drive"></i></button>' : ''}
+        ${showGallery ? '<button class="icon-btn' + (inGallery ? ' active' : '') + '" id="btn-nav-gallery" title="Gallery"><i data-lucide="arrow-left-right"></i></button>' : ''}
+        ${showStorage ? '<button class="icon-btn'+(inReceived?' active':'')+'" id="btn-nav-storage" title="Storage"><i data-lucide="folder-down"></i></button>' : ''}
       </div>
       
       <div class="sidebar-spacer" style="flex: 1;"></div>
@@ -76,8 +78,9 @@ window.SidebarLeft = {
       </div>
     `;
     const lang=window.I18n?.locale||'zh-Hant',t=(tw,cn,en)=>lang==='en'?en:lang==='zh-Hans'?cn:tw;
-    const labels={'btn-nav-dms':t('裝置與傳輸','设备与传输','Devices and transfers'),'btn-nav-gallery':localSend?t('傳輸記錄','传输记录','Transfer history'):t('媒體庫','媒体库','Gallery'),'btn-nav-storage':t('記錄與備份','记录与备份','History and backup'),'btn-nav-settings':t('設定','设置','Settings'),'btn-profile':t('本裝置','本设备','This device')};
+    const labels={'btn-nav-dms':t('裝置與傳輸','设备与传输','Devices and transfers'),'btn-nav-gallery':localSend?t('傳輸任務','传输任务','Transfers'):t('媒體庫','媒体库','Gallery'),'btn-nav-storage':localSend?t('已接收檔案','已接收文件','Received files'):t('記錄與備份','记录与备份','History and backup'),'btn-nav-settings':t('設定','设置','Settings'),'btn-profile':t('本裝置','本设备','This device')};
     for(const [id,label] of Object.entries(labels)){const b=this.container.querySelector('#'+id);if(b){b.title=label;b.setAttribute('aria-label',label);}}
+    window.TransferCenter?.badge();
     // Re-initialize icons for newly added HTML
     lucide.createIcons({ root: this.container });
   },
@@ -98,7 +101,7 @@ window.SidebarLeft = {
           return;
         }
         if (btn.id === 'btn-nav-storage') {
-          if (window.SettingsModal) window.SettingsModal.open('data');
+          if(window.orbitAPI.dbGetSetting('locallink.transport','localsend')==='localsend')window.TransferCenter.open('received');else if (window.SettingsModal) window.SettingsModal.open('data');
           return;
         }
         if(btn.id !== 'btn-profile' && btn.id !== 'btn-nav-settings') {
@@ -106,7 +109,7 @@ window.SidebarLeft = {
           btn.classList.add('active');
           
           if (btn.id === 'btn-nav-gallery' && window.orbitAPI.dbGetSetting('locallink.transport','localsend')==='localsend') {
-            window.LocalSendPanel.history();btn.classList.remove('active');this.container.querySelector('#btn-nav-dms')?.classList.add('active');
+            window.TransferCenter.open('tasks');
           } else if (btn.id === 'btn-nav-gallery') {
             window.store.setState({ activeTab: 'gallery' });
           } else {

@@ -783,6 +783,7 @@ window.ChatPanel = {
   },
 
   renderChat(state) {
+    if(state.activeChatId?.startsWith('locallink-view:')){window.TransferCenter.render(this.container,state.activeChatId.split(':')[1]);return;}
     if (state.activeTab !== 'dms') {
       this.container.style.display = 'none';
       return;

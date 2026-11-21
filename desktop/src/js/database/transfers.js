@@ -23,11 +23,13 @@ class TransferStore {
   this.put.run({id:r.id,peerId:r.peerId,startedAt:r.startedAt||r.time||0,name:r.name||'',status:r.status||'failed',direction:r.direction||(r.status==='received'?'incoming':'outgoing'),payload:JSON.stringify(r)});
  }
  get(id){const row=this.db.prepare('SELECT payload FROM locallink_transfers WHERE id=?').get(id);return row?JSON.parse(row.payload):null;}
- list({peerId,query='',status,direction,from,to,kind,limit=200,offset=0,all=false}={}){
+ list({peerId,query='',status,direction,from,to,kind,statuses,filesOnly,limit=200,offset=0,all=false}={}){
   const where=[],params=[];
   if(peerId){where.push('peerId=?');params.push(peerId);}
   if(query){where.push("name LIKE ? ESCAPE '\\'");params.push('%'+String(query).replace(/[\\%_]/g,'\\$&')+'%');}
   if(status){where.push('status=?');params.push(status);}
+  if(Array.isArray(statuses)&&statuses.length){where.push('status IN ('+statuses.map(()=>'?').join(',')+')');params.push(...statuses);}
+  if(filesOnly)where.push("(json_extract(payload,'$.path') IS NOT NULL OR json_extract(payload,'$.fileRemoved')=1)");
   if(direction){where.push('direction=?');params.push(direction);}
   if(from){where.push('startedAt>=?');params.push(Number(from));}
   if(to){where.push('startedAt<?');params.push(Number(to));}
