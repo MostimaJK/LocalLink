@@ -679,6 +679,7 @@ app.whenReady().then(() => {
     icon: iconPath,
     titleBarStyle: 'hidden',
   });
+  if (process.platform === 'win32') mainWindow.center();
   require('./lib/update-restart').acknowledge(app,mainWindow);
   mainWindow.webContents.on('did-navigate', stopBrowserShare);
   mainWindow.webContents.on('render-process-gone', stopBrowserShare);
@@ -833,8 +834,24 @@ app.whenReady().then(() => {
     } catch (e) {
       base = app.getPath('userData');
     }
-    return path.join(base, 'LocalLink Updates');
+    return path.join(globalDb.getSetting('locallink.updateParent','') || base, 'LocalLink Updates');
   }
+  ipcMain.handle('locallink-update-folder',async(event,action)=>{
+    if(event.sender!==mainWindow?.webContents || event.senderFrame!==event.sender.mainFrame)return;
+    if(action==='choose' || typeof action?.path==='string'){
+      const picked=action==='choose'?await dialog.showOpenDialog(mainWindow,{properties:['openDirectory','createDirectory']}):{filePaths:[action.path]};
+      if(!picked.canceled && picked.filePaths.length){
+        const selected=absoluteFolder(picked.filePaths[0]);
+        const leaf=path.basename(selected);
+        const parent=(process.platform==='win32'?leaf.toLowerCase()==='locallink updates':leaf==='LocalLink Updates')?path.dirname(selected):selected;
+        const dir=path.join(parent,'LocalLink Updates');
+        await fs.promises.mkdir(dir,{recursive:true});
+        await fs.promises.access(dir,fs.constants.W_OK);
+        globalDb.setSetting('locallink.updateParent',parent);
+      }
+    }else if(action==='reset')globalDb.setSetting('locallink.updateParent','');
+    return _updateDownloadDir();
+  });
 
   function _sha256File(file) {
     return new Promise((resolve, reject) => {
@@ -959,6 +976,25 @@ app.whenReady().then(() => {
       controller.signal.throwIfAborted();
       if (sha256 !== expected) throw new Error('checksum mismatch');
       fs.renameSync(part, dest);
+      try {
+        const key='locallink.verifiedPackages.'+dir;
+        const known=globalDb.getSetting(key,{});
+        // Older releases kept the original package digest in their Windows update jobs.
+        const jobs=path.join(app.getPath('userData'),'locallink-updates');
+        for(const job of await fs.promises.readdir(jobs,{withFileTypes:true}).catch(()=>[])){
+          if(!job.isDirectory())continue;
+          try{
+            const cfg=JSON.parse(await fs.promises.readFile(path.join(jobs,job.name,'config.json'),'utf8'));
+            if(/^\d+\.\d+\.\d+$/.test(cfg.version) && /^[a-f0-9]{64}$/.test(cfg.sha256)){
+              const old=cfg.portable?'LocalLink-'+cfg.version+'-Portable.exe':'LocalLink-Setup-'+cfg.version+'.exe';
+              known[old]=cfg.sha256;
+            }
+          }catch{}
+        }
+        known[name]=sha256;
+        await require('./lib/update-cache').prune(dir,name,known);
+        globalDb.setSetting(key,known);
+      }catch(error){console.warn('Update package cleanup:',error.message);}
       send({ received, total, percent: 100, done: true });
       _downloadedFiles.set(dest,sha256);
       return { ok: true, path: dest, name, size: received, sha256, verified:true };
@@ -1601,6 +1637,7 @@ app.whenReady().then(() => {
           dataDir: app.getPath('userData'), receiveDir: globalDb.getSetting('locallink.receiveDir',path.join(app.getPath('downloads'),'LocalLink')),
           // No product capacity cap; transport validates safe integer byte counts.
           bandwidth: globalDb.getSetting('locallink.bandwidth', {}),
+          canTestSpeed:id=>globalDb.getSetting('locallink.trust.'+id,{}).paired===true,
           alias: () => currentIdentity.username,
           peer: peer => emit('locallink-lan-seen', peer),
           error: error => emit('locallink-transfer-error', error),
@@ -1909,11 +1946,11 @@ app.whenReady().then(() => {
     const pick=await dialog.showOpenDialog(mainWindow,{properties:['openDirectory']});if(pick.canceled)return {cancelled:true};
     return sendPaths(peerId,pick.filePaths);
   });
-  ipcMain.handle('locallink-clean-sent-cache',async()=>{
+  async function deliveredCacheFiles(){
     const root=path.resolve(app.getPath('userData'),'locallink-outbox');
     // Windows may expose the same directory as an 8.3 alias and a long path.
     const realRoot=await fs.promises.realpath(root).catch(()=>null);
-    if(!realRoot)return {ok:true,count:0};
+    if(!realRoot)return [];
     const rows=globalDb.transfers.list({all:true});const groups=new Map();
     for(const row of rows)if(row.path){const file=path.resolve(row.path);if(!groups.has(file))groups.set(file,[]);groups.get(file).push(row);}
     const candidates=[];
@@ -1922,6 +1959,14 @@ app.whenReady().then(() => {
       if(!relative||relative.startsWith('..')||path.isAbsolute(relative)||records.some(r=>r.direction!=='outgoing'||r.status!=='delivered'))continue;
       try{const real=await fs.promises.realpath(file),inside=path.relative(realRoot,real);if(inside.startsWith('..')||path.isAbsolute(inside))continue;const stat=await fs.promises.lstat(file);if(stat.isFile()&&!stat.isSymbolicLink())candidates.push({file,records,size:stat.size});}catch{}
     }
+    return candidates;
+  }
+  ipcMain.handle('locallink-sent-cache-size',async()=>{
+    const files=await deliveredCacheFiles();
+    return {bytes:files.reduce((total,file)=>total+file.size,0),count:files.length};
+  });
+  ipcMain.handle('locallink-clean-sent-cache',async()=>{
+    const candidates=await deliveredCacheFiles();
     if(!candidates.length)return {ok:true,count:0};
     const choice=await dialog.showMessageBox(mainWindow,{type:'question',title:'LocalLink',message:llText('清理已送達的傳送快取？','清理已送达的发送缓存？','Clean delivered send cache?'),detail:candidates.map(c=>c.file).join('\n'),buttons:[llText('取消','取消','Cancel'),llText('移到資源回收筒','移到回收站','Move to Recycle Bin')],defaultId:0,cancelId:0});
     if(choice.response!==1)return {cancelled:true};let count=0;const errors=[];
@@ -1999,14 +2044,26 @@ app.whenReady().then(() => {
     catch(error){return {ok:false,error:error.message};}
   });
   const readAdapters = require('./src/js/network/adapters').createAdapterReader();
+  ipcMain.handle('locallink-speed-test',async(event,id)=>{
+    if(event.sender!==mainWindow?.webContents || event.senderFrame!==event.sender.mainFrame)return;
+    if(!id)return (localSendInstance?.speedPeers()||[]).map(({id,alias,ip})=>({id,alias,ip}));
+    return localSendInstance.measureSpeed(id);
+  });
   ipcMain.handle('locallink-network-adapters', () => readAdapters());
   ipcMain.handle('locallink-diagnostics',async()=>({running:!!localSendInstance?.port&&!localSendInstance.closed,error:localSendError,discoveryError:localSendInstance?.discoveryError||null,port:localSendInstance?.port||null,addresses:Object.values(os.networkInterfaces()).flat().filter(a=>a?.family==='IPv4'&&!a.internal).map(a=>a.address)}));
   ipcMain.handle('locallink-storage',async()=>({ok:true,path:receiveDir()}));
-  ipcMain.handle('locallink-choose-directory',async()=>{
-    const pick=await dialog.showOpenDialog(mainWindow,{defaultPath:receiveDir(),properties:['openDirectory','createDirectory']});
+  function absoluteFolder(value){
+    const dir=String(value??'').trim().replace(/^"(.*)"$/,'$1');
+    if(!path.isAbsolute(dir))throw Error('Enter an absolute folder path');
+    return path.normalize(dir);
+  }
+  ipcMain.handle('locallink-choose-directory',async(event,value)=>{
+    if(event.sender!==mainWindow?.webContents || event.senderFrame!==event.sender.mainFrame)return {ok:false};
+    const pick=value===undefined?await dialog.showOpenDialog(mainWindow,{defaultPath:receiveDir(),properties:['openDirectory','createDirectory']}):{filePaths:[value]};
     if(pick.canceled)return {cancelled:true};
     try{
-      const dir=pick.filePaths[0],probe=path.join(dir,'.locallink-'+require('crypto').randomUUID());
+      const dir=absoluteFolder(pick.filePaths[0]);await fs.promises.mkdir(dir,{recursive:true});
+      const probe=path.join(dir,'.locallink-'+require('crypto').randomUUID());
       fs.writeFileSync(probe,'',{flag:'wx'});fs.unlinkSync(probe);
       globalDb.setSetting('locallink.receiveDir',dir);if(localSendInstance)localSendInstance.opts.receiveDir=dir;
       return {ok:true,path:dir};

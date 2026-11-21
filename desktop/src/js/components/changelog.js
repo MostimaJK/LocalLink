@@ -14,7 +14,10 @@ window.Changelog = {
         '<button id="changelog-close" style="background:transparent;border:none;cursor:pointer;color:var(--text-secondary);padding:4px;"><i data-lucide="x" style="width:20px;height:20px;"></i></button>' +
       '</div>' +
       '<div style="display:flex;flex-direction:column;gap:20px;">' +
-        versionBlock('1.0.5', 'Latest', [
+        versionBlock('1.0.6', 'Latest', [
+          ['New', ['Measure LAN throughput between paired computers and choose where update packages are stored.']]
+        ]) +
+        versionBlock('1.0.5', '', [
           ['New', ['Share a QR code with multiple phones, chat in the room and accept or decline each file.']],
           ['Improved', ['Preview images before accepting, drop files into a room and reopen sharing from the end screen.']]
         ]) +

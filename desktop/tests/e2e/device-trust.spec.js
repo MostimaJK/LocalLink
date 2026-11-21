@@ -24,6 +24,7 @@ test('trust shield, receiver permission, persistence and offline revocation',asy
   await expect(page.locator('#ll-trust-shield')).toHaveClass(/ll-trusted/);
   expect(await page.evaluate(id=>window.orbitAPI.dbGetSetting('locallink.trust.'+id).autoReceive,peer.userId)).toBe(true);
   await page.evaluate(()=>window.SettingsModal.open('account'));
+  await page.locator('.ll-folder-tools summary').click();
   await page.locator('#ll-manage-trusted').click();
   await expect(page.locator('#ll-trusted-dialog')).toContainText('My laptop');
   const toggle=page.locator('#ll-trusted-dialog [data-auto-receive]');

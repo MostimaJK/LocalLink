@@ -18,7 +18,7 @@ async function prepare({file,sha256,target,userData,portable,pid=process.pid,ver
 }
 async function start(job){
  const log=fs.openSync(path.join(job.job,'helper.log'),'a');
- const child=spawn(path.join(process.env.SystemRoot||'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe'),['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',path.join(job.job,'update.ps1'),'-ConfigPath',path.join(job.job,'config.json')],{windowsHide:true,stdio:['ignore',log,log]});
+ const child=spawn(path.join(process.env.SystemRoot||'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe'),['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',path.join(job.job,'update.ps1'),'-ConfigPath',path.join(job.job,'config.json')],{windowsHide:true,detached:true,stdio:['ignore',log,log]});
  try{await new Promise((resolve,reject)=>{child.once('spawn',resolve);child.once('error',reject);});}finally{fs.closeSync(log);}child.unref();
  // Do not exit the app until the helper has loaded its configuration.
  for(let i=0;i<100;i++){if(fs.existsSync(path.join(job.job,'helper-ready')))return;await new Promise(r=>setTimeout(r,100));}

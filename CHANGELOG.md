@@ -1,5 +1,9 @@
 # LocalLink Changelog
 
+## v1.0.6 — Desktop release
+
+LAN throughput diagnostics, customizable update folders and simpler desktop controls. [Release notes](docs/RELEASE-NOTES-1.0.6.md)
+
 ## v1.0.5 — Desktop release
 
 Multi-phone browser rooms, inline transfer consent and image previews. [Release notes](docs/RELEASE-NOTES-1.0.5.md)

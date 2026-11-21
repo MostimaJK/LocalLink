@@ -33,5 +33,14 @@ class Fixture { public static void Main(string[] args) {
    assert.equal(await updater.hashFile(target),rollback?oldHash:sha256);
   }finally{parent.kill();child.kill();}
  }
+ // A Setup process may exit successfully without replacing the installed binary.
+ const data=path.join(root,'unchanged install');
+ fs.mkdirSync(data);
+ const target=path.join(data,'LocalLink.exe');fs.copyFileSync(fixture,target);
+ const job=await updater.prepare({file:fixture,sha256:await updater.hashFile(fixture),target,userData:data,portable:false,pid:2147483647,version:'1.0.5'});
+ execFileSync(ps,['-NoProfile','-ExecutionPolicy','Bypass','-File',path.join(job.job,'update.ps1'),'-ConfigPath',path.join(job.job,'config.json'),'-NoErrorDialog'],{windowsHide:true});
+ const failed=JSON.parse(fs.readFileSync(path.join(job.job,'result.json'),'utf8').replace(/^\uFEFF/,''));
+ assert.equal(failed.status,'failed');assert.match(failed.message,/Expected LocalLink 1\.0\.5/);
+ assert.ok(!fs.existsSync(path.join(job.job,'app-ready')));
  console.log('PASS: helper waits for exit, verifies checksum, preserves Unicode paths, replaces/relaunches and rolls back startup failure');
 })().catch(e=>{console.error(e);process.exitCode=1;});

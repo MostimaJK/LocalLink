@@ -255,7 +255,7 @@ test('real file conversation: manual discovery, text, batch, paste, folder and h
   const receiveDir=path.join(dir,'custom-received');fs.mkdirSync(receiveDir);
   await app.evaluate(({dialog},folder)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[folder]});dialog.showMessageBox=async()=>({response:1});},receiveDir);
   await page.evaluate(()=>window.SettingsModal.open('network'));await page.locator('#ll-choose-directory').click();
-  await expect(page.locator('#ll-receive-path')).toHaveText(receiveDir);
+  await expect(page.locator('#ll-receive-path')).toHaveValue(receiveDir);
   await expect(page.locator('#ll-open-after-receive')).not.toBeChecked();await page.locator('#ll-open-after-receive').check();
   await app.evaluate(({shell})=>{globalThis.__llShown=[];shell.showItemInFolder=file=>globalThis.__llShown.push(file);});
   await expect.poll(()=>page.locator('#ll-open-after-receive').evaluate(el=>getComputedStyle(el,'::after').transform)).toBe('matrix(1, 0, 0, 1, 16, 0)');

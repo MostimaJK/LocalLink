@@ -22,10 +22,11 @@ async function jsonBody(req) {
 function safeName(name) {
  return typeof name==='string' && name.length>0 && name.length<=180 && !/[<>:"/\\|?*\x00-\x1f]/.test(name) && !/[. ]$/.test(name) && !/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(name) && name!=='.' && name!=='..';
 }
+const probeBytes=8*1024*1024;
 class LocalSend {
  constructor(opts){this.uploadBudget=new Budget();this.downloadBudget=new Budget();this.setBandwidth(opts.bandwidth);this.opts={...opts,maxBytes:opts.maxBytes ?? Number.MAX_SAFE_INTEGER};this.peers=new Map();this.sessions=new Map();this.pending=false;this.sockets=new Set();this.closed=false;this.outgoing=new Map();this.requests=new Set();this.idleMs=opts.idleTimeoutMs||120000;}
  setBandwidth(value){const limits=normalizeLimits(value);this.uploadBudget.set(limits.upload);this.downloadBudget.set(limits.download);}
- info(){return {alias:this.opts.alias(),version:'2.2',deviceModel:process.platform,deviceType:'desktop',fingerprint:this.fingerprint,port:this.port,protocol:'https',download:false,locallink:{messages:1}};}
+ info(){return {alias:this.opts.alias(),version:'2.2',deviceModel:process.platform,deviceType:'desktop',fingerprint:this.fingerprint,port:this.port,protocol:'https',download:false,locallink:{messages:1,speedTest:1}};}
  async start(){
   const certFile=path.join(this.opts.dataDir,'locallink-tls.json');
   let pem;
@@ -115,6 +116,22 @@ class LocalSend {
   const authenticatedPeerId=clientCert?.raw?'localsend:'+hash(clientCert.raw):null;
   if(action==='info'&&req.method==='GET')return reply(200,this.info());
   if(req.method!=='POST')return reply(405);
+  if(action==='speed-upload' || action==='speed-download'){
+   if(!authenticatedPeerId || !this.opts.canTestSpeed?.(authenticatedPeerId))return reply(403);
+   if(this.probeServing)return reply(409);
+   this.probeServing=true;
+   const deadline=setTimeout(()=>req.socket.destroy(),30000);
+   try{
+    if(action==='speed-upload'){
+     if(Number(req.headers['content-length'])!==probeBytes)return reply(400);
+     let bytes=0;for await(const chunk of req){bytes+=chunk.length;if(bytes>probeBytes)return reply(400);}
+     return reply(bytes===probeBytes?200:400,{bytes});
+    }
+    res.writeHead(200,{'Content-Type':'application/octet-stream','Content-Length':probeBytes});
+    await new Promise(resolve=>{res.once('close',resolve);res.end(Buffer.alloc(probeBytes),resolve);});
+    return;
+   }finally{clearTimeout(deadline);this.probeServing=false;}
+  }
   if(action==='register'){const p=await jsonBody(req);this.observe(p,ip);return reply(200,this.info());}
   if(action==='locallink-pair'){
    if(this.pending)return reply(409);
@@ -243,11 +260,34 @@ class LocalSend {
   const peer=this.observe({...data,...endpoint,fingerprint:endpoint.fingerprint||data.fingerprint},ip);
   if(!peer)throw new Error('Not a compatible nearby device');return peer;
  }
+ speedPeers(){
+  return [...this.peers.values()].filter(p=>p.protocol==='https' && p.locallink?.speedTest===1 && Date.now()-p.seen<120000 && this.opts.canTestSpeed?.(p.id));
+ }
+ async measureSpeed(id){
+  const peer=this.speedPeers().find(p=>p.id===id);
+  if(!peer || this.probeRunning)throw Error('Device unavailable or busy');
+  this.probeRunning=true;
+  try{
+   const speeds={};
+   for(const direction of ['upload','download']){
+    const body=direction==='upload'?Buffer.alloc(probeBytes):{};
+    const start=performance.now();
+    const result=await this.request(peer,'speed-'+direction,body,null,{probeDownload:direction==='download',signal:AbortSignal.timeout(30000)});
+    if(result.bytes!==probeBytes)throw Error('Incomplete speed test');
+    speeds[direction]=probeBytes*8/(performance.now()-start)/1000;
+   }
+   return speeds;
+  }finally{this.probeRunning=false;}
+ }
  async request(peer,action,body,file,options={}){
-  const raw=file?null:Buffer.from(JSON.stringify(body||{}));
+  const raw=file?null:Buffer.isBuffer(body)?body:Buffer.from(JSON.stringify(body||{}));
   return new Promise((resolve,reject)=>{
    const client=peer.protocol==='https'?https:http;
    const req=client.request({host:peer.ip,port:peer.port,path:PREFIX+action,method:'POST',agent:false,rejectUnauthorized:false,cert:this.pem?.cert,key:this.pem?.private,signal:options.signal,headers:{'Content-Type':file?'application/octet-stream':'application/json','Content-Length':file?file.size:raw.length}},res=>{
+    if(options.probeDownload && res.statusCode===200){
+     let bytes=0;res.on('data',chunk=>{bytes+=chunk.length;if(bytes>probeBytes)res.destroy(new Error('Invalid speed response'));});
+     res.on('error',reject);res.on('end',()=>resolve({bytes}));return;
+    }
     const chunks=[];let size=0;res.on('data',chunk=>{size+=chunk.length;if(size>1024*1024)res.destroy(new Error('Response too large'));else chunks.push(chunk);});res.on('error',reject);res.on('end',()=>{if(![200,204].includes(res.statusCode)){const e=new Error(({401:'PIN required or incorrect',403:'Receiver declined the transfer',409:'Receiver is busy',422:'File integrity check failed',429:'Too many attempts'}[res.statusCode]||'LocalSend error')+' (HTTP '+res.statusCode+')');e.statusCode=res.statusCode;return reject(e);}try{resolve(res.statusCode===204?{finished:true}:chunks.length?JSON.parse(Buffer.concat(chunks).toString()):{});}catch(error){reject(error);}});
    });
    this.requests.add(req);req.once('close',()=>this.requests.delete(req));

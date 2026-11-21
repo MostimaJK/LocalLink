@@ -2,17 +2,17 @@
 
 [English](README.md)
 
-LocalLink 透過區域網路分享檔案、資料夾和文字。**桌面版 1.0.5** 支援 Windows x64、Apple Silicon Mac 與 Intel Mac。
+LocalLink 透過區域網路分享檔案、資料夾和文字。**桌面版 1.0.6** 支援 Windows x64、Apple Silicon Mac 與 Intel Mac。
 
 ## 下載
 
-請從 [1.0.5 發行頁](https://github.com/MostimaJK/LocalLink/releases/tag/v1.0.5) 選擇套件。Windows 可選 Setup 安裝版或 Portable 免安裝版。Apple Silicon Mac 請選 arm64.dmg，Intel Mac 請選 x64.dmg，開啟後將 LocalLink 拖入「應用程式」。
+請從 [1.0.6 發行頁](https://github.com/MostimaJK/LocalLink/releases/tag/v1.0.6) 選擇套件。Windows 可選 Setup 安裝版或 Portable 免安裝版。Apple Silicon Mac 請選 arm64.dmg，Intel Mac 請選 x64.dmg，開啟後將 LocalLink 拖入「應用程式」。
 
 SHA256SUMS.txt 列出四個套件的校驗值。Windows 版本尚未簽章，Mac 版本採臨時簽章，尚未經 Apple 公證。
 
 ## 功能
 
-傳送資料夾時可查看掃描與打包進度，並在上傳前取消。附近裝置探索暫時無法使用時，可在「連接裝置」複製本機位址與連接埠，改用手動連線。詳見[發行說明](docs/RELEASE-NOTES-1.0.5.md)。
+傳送資料夾時可查看掃描與打包進度，並在上傳前取消。附近裝置探索暫時無法使用時，可在「連接裝置」複製本機位址與連接埠，改用手動連線。詳見[發行說明](docs/RELEASE-NOTES-1.0.6.md)。
 
 附近裝置探索、收藏與備註；檔案、圖片、資料夾 ZIP 與文字；進度、取消、重試、歷史、備份、接收目錄、配對授權、收發限速及網卡資訊。
 

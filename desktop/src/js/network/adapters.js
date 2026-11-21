@@ -4,15 +4,22 @@ const path=require('node:path');
 const {promisify}=require('node:util');
 const execute=promisify(execFile);
 // Fixed read-only command: no renderer input is interpolated into PowerShell.
-const command="[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new(); Get-NetAdapter -ErrorAction Stop | Select-Object Name,InterfaceDescription,Status,MediaType,PhysicalMediaType,HardwareInterface,TransmitLinkSpeed,ReceiveLinkSpeed | ConvertTo-Json -Compress";
+const radioSource=require("node:fs").readFileSync(path.join(__dirname,"bluetooth-radio.cs"),"utf8");
+const command=`[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new(); $version = -1; try { Add-Type -TypeDefinition @'
+${radioSource}
+'@ -ErrorAction Stop; $version = [BluetoothRadio]::SingleRadioVersion() } catch {}
+ Get-NetAdapter -ErrorAction Stop | Select-Object Name,InterfaceDescription,Status,MediaType,PhysicalMediaType,HardwareInterface,TransmitLinkSpeed,ReceiveLinkSpeed,@{Name='LmpVersion';Expression={$version}} | ConvertTo-Json -Compress`;
+const kindOrder = ["ethernet","wifi","bluetooth","other","virtual"];
+const bluetoothVersions = ["1.0b","1.1","1.2","2.0","2.1","3.0","4.0","4.1","4.2","5.0","5.1","5.2","5.3","5.4","6.0","6.1","6.2"];
 function normalizeAdapters(rows){
  return (Array.isArray(rows)?rows:rows?[rows]:[]).map(row=>{
   const connected=row.Status==='Up';
   const speed=n=>connected&&Number.isFinite(Number(n))&&Number(n)>0?Number(n):null;
   const media=String(row.PhysicalMediaType||'')+' '+String(row.MediaType||'');
-  const kind=row.HardwareInterface===false?'virtual':/802\.11|wireless/i.test(media)?'wifi':/802\.3|ethernet/i.test(media)?'ethernet':'other';
-  return {name:String(row.Name||''),description:String(row.InterfaceDescription||''),connected,kind,sendBps:speed(row.TransmitLinkSpeed),receiveBps:speed(row.ReceiveLinkSpeed)};
- }).sort((a,b)=>Number(b.connected)-Number(a.connected)||a.name.localeCompare(b.name));
+  const bluetooth=/bluetooth|Л{СА|А¶СА/i.test([row.InterfaceDescription,media].join(' '));
+  const kind=bluetooth?'bluetooth':row.HardwareInterface===false?'virtual':/802\.11|wireless/i.test(media)?'wifi':/802\.3|ethernet/i.test(media)?'ethernet':'other';
+  return {name:String(row.Name||''),description:String(row.InterfaceDescription||''),connected,kind,bluetoothVersion:bluetooth?bluetoothVersions[row.LmpVersion]||null:null,sendBps:speed(row.TransmitLinkSpeed),receiveBps:speed(row.ReceiveLinkSpeed)};
+ }).sort((a,b)=>kindOrder.indexOf(a.kind)-kindOrder.indexOf(b.kind)||Number(b.connected)-Number(a.connected)||a.name.localeCompare(b.name));
 }
 function createAdapterReader({platform=process.platform,run=execute,now=Date.now,interfaces=require("node:os").networkInterfaces}={}){
  let cached=null,inflight=null;

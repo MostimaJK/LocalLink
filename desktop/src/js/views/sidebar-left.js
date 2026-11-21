@@ -70,7 +70,7 @@ window.SidebarLeft = {
       
       <div class="sidebar-spacer" style="flex: 1;"></div>
       
-      <div class="sidebar-bottom" style="padding-bottom:30px;">
+      <div class="sidebar-bottom">
         <button class="icon-btn" id="btn-nav-settings" title="Settings">
           <i data-lucide="settings"></i>
         </button>

@@ -75,6 +75,11 @@ async function boot(server, seed) {
     hasTouch: true
   });
   const page = await ctx.newPage();
+  // Keep live releases from opening update dialogs during unrelated UI tests.
+  // Update-specific tests install their own GitHub fixtures on this page.
+  await page.route('**/api.github.com/**', route => route.fulfill({
+    contentType: 'application/json', body: '[]'
+  }));
   const errors = [];
   page.on('pageerror', e => errors.push(e.message.slice(0, 200)));
   await page.addInitScript((s) => {

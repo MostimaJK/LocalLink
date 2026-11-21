@@ -220,8 +220,6 @@ window.SettingsModal = {
     // Protocol switching is infrequent: keep it after everyday controls and backups.
     const transport = content.querySelector('#transport-mode')?.closest('section');
     if (transport) content.appendChild(transport);
-    const savePath = content.querySelector('#ll-receive-path');
-    if (savePath) savePath.closest('dl').prepend(savePath.parentElement);
     const first = content.querySelector('[data-general-section="network"] .ll-settings-card-head');
     if (first && window.orbitAPI.dbGetSetting('locallink.transport', 'localsend') === 'localsend') {
       first.innerHTML = '<i data-lucide="folder-down"></i>' + window.LocalSendPanel.text('接收與儲存', '接收与保存', 'Receiving and saving');
@@ -231,7 +229,6 @@ window.SettingsModal = {
     const receivingCard = content.querySelector('#ll-receive-path')?.closest('section');
     const accountSection = content.querySelector('[data-general-section="account"]');
     const networkSection = content.querySelector('[data-general-section="network"]');
-    const adapterCard = content.querySelector('#ll-check-adapters')?.closest('section');
     const heading = content.querySelector(':scope > h3');
     if (languageCard) heading.after(languageCard);
     if (receivingCard) languageCard.after(receivingCard);
@@ -245,7 +242,8 @@ window.SettingsModal = {
     background.onchange = () => window.orbitAPI.dbSetSetting('locallink.runInBackground', background.checked);
     const historyCard = content.querySelector('#ll-show-history')?.closest('section');
     if (historyCard) historyCard.after(behavior); else content.appendChild(behavior);
-    if (adapterCard) content.appendChild(adapterCard);
+    const cacheRow=content.querySelector('.ll-cache-row');
+    if(cacheRow)content.appendChild(cacheRow);
     window.lucide.createIcons({root: content});
     content.scrollTop = 0;
     this._syncNetworkMapTimer();
@@ -886,11 +884,32 @@ window.SettingsModal = {
       
     } else if (tabName === 'data' && window.orbitAPI.dbGetSetting('locallink.transport','localsend') === 'localsend') {
       content.innerHTML=`<h3 class="ll-settings-title">${t('傳輸記錄與備份','传输记录与备份','History and backup')}</h3>
-        <section class="ll-settings-card"><div class="ll-settings-card-head"><i data-lucide="history"></i>${t('傳輸記錄','传输记录','Transfer history')}</div><div class="ll-settings-card-body"><button class="ll-primary-button" id="ll-show-history">${t('查看全部記錄','查看全部记录','View all records')}</button></div></section>
-        <section class="ll-settings-card"><div class="ll-settings-card-head"><i data-lucide="archive"></i>${t('檔案備份','文件备份','File backup')}</div><div class="ll-settings-card-body"><p class="ll-settings-copy">${t('備份記錄，或連同原檔案一起匯出。不包含本裝置身分。','备份记录，或连同原文件一起导出。不包含本设备身份。','Export records, optionally with original files. Device identity is excluded.')}</p><div class="ll-file-actions"><button id="ll-export-records">${t('僅記錄','仅记录','Records only')}</button><button id="ll-export-files">${t('記錄與原檔案','记录与原文件','Records and files')}</button><button id="ll-import-records">${t('匯入備份','导入备份','Import backup')}</button></div><p id="ll-backup-result" role="status"></p></div></section>`;
+
+        <section class="ll-settings-card"><div class="ll-settings-card-head"><i data-lucide="archive"></i>${t('檔案備份','文件备份','File backup')}</div><div class="ll-settings-card-body"><div class="ll-setting-row"><span>${t('傳輸記錄','传输记录','Transfer history')}</span><button id="ll-show-history">${t('查看全部記錄','查看全部记录','View all records')}</button></div><p class="ll-settings-copy">${t('備份記錄，或連同原檔案一起匯出。不包含本裝置身分。','备份记录，或连同原文件一起导出。不包含本设备身份。','Export records, optionally with original files. Device identity is excluded.')}</p><div class="ll-file-actions"><button id="ll-export-records">${t('僅記錄','仅记录','Records only')}</button><button id="ll-export-files">${t('記錄與原檔案','记录与原文件','Records and files')}</button><button id="ll-import-records">${t('匯入備份','导入备份','Import backup')}</button></div><p id="ll-backup-result" role="status"></p></div></section>`;
       content.querySelector('#ll-show-history').onclick=()=>window.LocalSendPanel.history();
-      const clean=document.createElement('button');clean.className='ll-primary-button';clean.textContent=t('清理已送達的傳送快取','清理已送达的发送缓存','Clean delivered send cache');content.appendChild(clean);
-      clean.onclick=async()=>{clean.disabled=true;try{const result=await window.orbitAPI.invoke('locallink-clean-sent-cache');if(!result.cancelled)window.Toast?.show('LocalLink',result.error||(t('已清理：','已清理：','Cleaned: ')+result.count),result.ok?'success':'error');}finally{clean.disabled=false;}};
+      const cacheRow=document.createElement('div');
+      cacheRow.className='ll-setting-row ll-cache-row';
+      cacheRow.innerHTML=`<span>${t('可清理的傳送快取','可清理的发送缓存','Reclaimable send cache')} · <output>…</output></span><button class="ll-primary-button">${t('清理快取','清理缓存','Clear cache')}</button>`;
+      content.appendChild(cacheRow);
+      const clean=cacheRow.querySelector('button'),size=cacheRow.querySelector('output');
+      async function refreshCacheSize(){
+        clean.disabled=true;
+        try{
+          const {bytes,count}=await window.orbitAPI.invoke('locallink-sent-cache-size');
+          const units=['B','KiB','MiB','GiB','TiB'];
+          const index=Math.min(units.length-1,Math.floor(Math.log2(Math.max(1,bytes))/10));
+          size.textContent=(bytes/1024**index).toLocaleString(undefined,{maximumFractionDigits:1})+' '+units[index];
+          clean.disabled=count===0;
+        }catch{size.textContent=t('無法讀取','无法读取','Unavailable');clean.disabled=false;}
+      }
+      refreshCacheSize();
+      clean.onclick=async()=>{
+        clean.disabled=true;
+        try{
+          const result=await window.orbitAPI.invoke('locallink-clean-sent-cache');
+          if(!result.cancelled)window.Toast?.show('LocalLink',result.error||(t('已清理：','已清理：','Cleaned: ')+result.count),result.ok?'success':'error');
+        }finally{await refreshCacheSize();}
+      };
 
       const backup=async(channel,arg)=>{
         const buttons=[...content.querySelectorAll('.ll-file-actions button')];buttons.forEach(b=>b.disabled=true);
@@ -906,10 +925,10 @@ window.SettingsModal = {
         <section class="ll-settings-card"><div class="ll-settings-card-head"><i data-lucide="wifi"></i>${t('區域網路傳輸','局域网传输','Local network transfer')}</div>
         <div class="ll-settings-card-body"><dl class="ll-about-facts">
           <div><dt>${t('接收方式','接收方式','Receiving')}</dt><dd>${t('配對授權自動接收，其餘逐次確認','配对授权自动接收，其余逐次确认','Authorized paired devices receive automatically; otherwise ask')}</dd></div>
-          <div><dt>${t('儲存位置','保存位置','Save location')}</dt><dd id="ll-receive-path">…</dd></div>
-        </dl><div class="ll-file-actions"><button id="ll-choose-directory">${t('變更資料夾','更改目录','Change folder')}</button><button id="ll-open-directory">${t('開啟資料夾','打开目录','Open folder')}</button><button id="ll-rediscover">${t('重新搜尋','重新搜索','Discover again')}</button></div><p id="ll-network-result" role="status"></p></div></section>`;
+        </dl>${[['ll-receive',t('儲存位置','保存位置','Save location'),'ll-choose-directory'],['ll-update',t('更新套件資料夾','更新包文件夹','Update package folder'),'ll-update-choose']].map(([id,label,choose])=>`<form class="ll-path-form"><label for="${id}-path">${label}</label><input id="${id}-path" required spellcheck="false">${id==='ll-update'?'<small>'+t('自動使用 LocalLink Updates 子資料夾','自动使用 LocalLink Updates 子文件夹','Uses the LocalLink Updates subfolder')+'</small>':''}<div class="ll-file-actions"><button type="button" id="${choose}">${t('變更資料夾','更改目录','Change folder')}</button><button type="submit" hidden>${t('儲存','保存','Save')}</button></div></form>`).join('')}
+        <details class="ll-folder-tools"><summary>${t('更多操作','更多操作','More actions')}</summary><div class="ll-file-actions"><button id="ll-update-reset">${t('還原更新資料夾','恢复默认更新目录','Reset update folder')}</button><button id="ll-open-directory">${t('開啟資料夾','打开目录','Open folder')}</button><button id="ll-rediscover">${t('重新搜尋','重新搜索','Discover again')}</button></div></details><p id="ll-network-result" role="status"></p></div></section>`;
       const receivingCard=content.querySelector('#ll-receive-path').closest('section');
-      const showResult=result=>{if(!receivingCard.isConnected)return;if(result.path)receivingCard.querySelector('#ll-receive-path').textContent=result.path;receivingCard.querySelector('#ll-network-result').textContent=result.error||'';};
+      const showResult=result=>{if(!receivingCard.isConnected)return;if(result.path)setPath(receivingCard.querySelector('#ll-receive-path'),result.path);receivingCard.querySelector('#ll-network-result').textContent=result.error||'';};
       const receiveOptions=document.createElement('section');receiveOptions.className='ll-settings-card';receiveOptions.innerHTML=`<div class="ll-settings-card-head"><i data-lucide="folder-check"></i>${t('接收後','接收后','After receiving')}</div><div class="ll-settings-card-body"><p class="ll-settings-copy">${t('接收成功後，檔案會自動儲存在上方資料夾內。','接收成功后，文件会自动保存在上方文件夹内。','Accepted files are saved automatically inside the folder above.')}</p><label class="ll-setting-row" for="ll-open-after-receive">${t('完成後開啟所在資料夾','完成后打开所在文件夹','Open containing folder when complete')}<input id="ll-open-after-receive" type="checkbox" role="switch" class="ll-switch"></label></div>`;content.appendChild(receiveOptions);
       const bandwidth = window.orbitAPI.dbGetSetting('locallink.bandwidth', {upload:0,download:0});
       const speedCard = document.createElement('section');
@@ -929,34 +948,28 @@ window.SettingsModal = {
       });
       content.querySelector('#ll-upload-limit').onchange = saveBandwidth;
       content.querySelector('#ll-download-limit').onchange = saveBandwidth;
-      const adapterCard=document.createElement('section');adapterCard.className='ll-settings-card';
-      const macInterfaces=window.orbitAPI.platform==='darwin';
-      adapterCard.innerHTML=`<div class="ll-settings-card-head"><i data-lucide="network"></i>${macInterfaces?t('本機網路位址','本机网络地址','Local network addresses'):t('網卡與鏈路速度','网卡与链路速度','Network adapters and link speed')}</div><div class="ll-settings-card-body">
-        <p class="ll-settings-copy">${macInterfaces?t('手動連線時，在另一部裝置輸入這台 Mac 的區域網路位址。','手动连接时，在另一台设备输入这台 Mac 的局域网地址。','To connect manually, enter this Mac’s LAN address on the other device.'):t('查看目前連線的理論上限；不是實際傳輸速度。虛擬網卡不代表物理頻寬；多張網卡的速度不會相加。','查看当前连接的理论上限；不是实际传输速度。虚拟网卡不代表物理带宽；多张网卡的速度不会相加。','Current link ceilings, not measured transfer speed. Virtual links do not represent physical bandwidth; adapter speeds do not add up.')}</p>
-        <div id="ll-adapters-result" role="status">${t('按下檢測以讀取本機網卡資訊。','点击检测读取本机网卡信息。','Check to read this computer’s adapter information.')}</div>
-        <div class="ll-file-actions"><button id="ll-check-adapters">${t('檢測網卡','检测网卡','Check adapters')}</button></div></div>`;
-      speedCard.after(adapterCard);
-      adapterCard.querySelector('button').onclick=async()=>{
-        const button=adapterCard.querySelector('button'),result=adapterCard.querySelector('#ll-adapters-result');
-        button.disabled=true;result.textContent=t('正在檢測…','正在检测…','Checking…');
-        try{
-          const info=await window.orbitAPI.invoke('locallink-network-adapters');
-          if(!info.ok){result.textContent=info.reason==='unsupported'?t('此平台暫不支援網卡檢測。','此平台暂不支持网卡检测。','Adapter detection is unavailable on this platform.'):t('無法讀取網卡，請稍後重試。','无法读取网卡，请稍后重试。','Unable to read adapters. Please try again.');return;}
-          const speed=bps=>bps?`${(bps/1000000).toLocaleString()} Mbps ≈ ${(bps/8000000).toLocaleString(undefined,{maximumFractionDigits:2})} MB/s`:t('未知','未知','Unknown');
-          result.innerHTML=info.adapters.map(adapter=>{
-            if(info.addressesOnly)return `<div><strong>${esc(adapter.name)}</strong><p class="ll-settings-copy selectable">${esc(adapter.description)}</p></div>`;
-            const kind=adapter.kind==='wifi'?t('無線','无线','Wi-Fi'):adapter.kind==='ethernet'?t('有線','有线','Ethernet'):adapter.kind==='virtual'?t('虛擬網卡','虚拟网卡','Virtual adapter'):t('其他','其他','Other');
-            return `<div style="padding:12px 0;border-bottom:1px solid var(--border-subtle)"><strong>${esc(adapter.name)}</strong> · ${kind} · ${adapter.connected?t('已連線','已连接','Connected'):t('未連線','未连接','Disconnected')}<p class="ll-settings-copy">${esc(adapter.description)}</p>${adapter.connected?`<div>${t('傳送','发送','Send')}: ${speed(adapter.sendBps)}</div><div>${t('接收','接收','Receive')}: ${speed(adapter.receiveBps)}</div>`:''}</div>`;
-          }).join('')||t('未找到網卡。','未找到网卡。','No adapters found.');
-          if(adapterCard.isConnected)adapterCard.scrollIntoView({block:'start'});
-        }catch{result.textContent=t('檢測失敗，請重試。','检测失败，请重试。','Detection failed. Please retry.');}
-        finally{button.disabled=false;}
-      };
       const openAfter=content.querySelector('#ll-open-after-receive');openAfter.checked=window.orbitAPI.dbGetSetting('locallink.openAfterReceive',false);openAfter.onchange=()=>window.orbitAPI.dbSetSetting('locallink.openAfterReceive',openAfter.checked);
       window.orbitAPI.invoke('locallink-storage').then(showResult);
+      const receiveInput=receivingCard.querySelector('#ll-receive-path'),updateInput=receivingCard.querySelector('#ll-update-path');
+      function setPath(input,path){
+        input.value=input.defaultValue=path;
+        input.form.querySelector('[type=submit]').hidden=true;
+      }
+      for(const input of [receiveInput,updateInput]){
+        input.oninput=()=>{input.form.querySelector('[type=submit]').hidden=input.value===input.defaultValue;};
+      }
+      receiveInput.form.onsubmit=async e=>{e.preventDefault();showResult(await window.orbitAPI.invoke('locallink-choose-directory',receiveInput.value));};
+      async function updateFolder(action){
+        try{setPath(updateInput,await window.orbitAPI.invoke('locallink-update-folder',action));showResult({});}
+        catch{showResult({error:t('請輸入可寫入的完整路徑。','请输入可写入的完整路径。','Enter a writable absolute folder path.')});}
+      }
+      updateInput.form.onsubmit=e=>{e.preventDefault();updateFolder({path:updateInput.value});};
+      receivingCard.querySelector('#ll-update-choose').onclick=()=>updateFolder('choose');
+      receivingCard.querySelector('#ll-update-reset').onclick=()=>updateFolder('reset');
+      updateFolder('get');
       content.querySelector('#ll-choose-directory').onclick=()=>window.orbitAPI.invoke('locallink-choose-directory').then(showResult);
       content.querySelector('#ll-open-directory').onclick=()=>window.orbitAPI.invoke('locallink-open-directory').then(showResult);
-      const manageTrust=document.createElement('button');manageTrust.type='button';manageTrust.id='ll-manage-trusted';manageTrust.textContent=t('管理可信裝置','管理可信设备','Manage trusted devices');manageTrust.onclick=()=>window.LocalLinkDevices.manageTrusted();receivingCard.querySelector('.ll-file-actions').appendChild(manageTrust);
+      const manageTrust=document.createElement('button');manageTrust.type='button';manageTrust.id='ll-manage-trusted';manageTrust.textContent=t('管理可信裝置','管理可信设备','Manage trusted devices');manageTrust.onclick=()=>window.LocalLinkDevices.manageTrusted();receivingCard.querySelector('#ll-rediscover').parentElement.appendChild(manageTrust);
       content.querySelector('#ll-rediscover').onclick=async()=>{
         window.orbitAPI.networkStart(window.store.getState().currentUser);
         const result=await window.orbitAPI.invoke('locallink-rediscover');showResult(result);
@@ -1536,6 +1549,58 @@ window.SettingsModal = {
 
     } else if (tabName === 'advanced' && window.orbitAPI.dbGetSetting('locallink.transport','localsend') === 'localsend') {
       content.innerHTML=`<h3 class="ll-settings-title">${t('診斷','诊断','Diagnostics')}</h3><section class="ll-settings-card"><div class="ll-settings-card-head"><i data-lucide="network"></i>LocalSend</div><div class="ll-settings-card-body"><dl class="ll-about-facts"><div><dt>${t('服務狀態','服务状态','Service status')}</dt><dd id="ll-diagnostic-status"></dd></div><div><dt>IP</dt><dd id="ll-diagnostic-addresses"></dd></div><div><dt>${t('接收埠','接收端口','Receive port')}</dt><dd id="ll-diagnostic-port"></dd></div></dl><button class="ll-primary-button" id="ll-diagnostic-retry">${t('重試連線','重试连接','Retry connection')}</button></div></section>`;
+      const adapterCard=document.createElement('section');adapterCard.className='ll-settings-card';
+      const macInterfaces=window.orbitAPI.platform==='darwin';
+      adapterCard.innerHTML=`<div class="ll-settings-card-head"><i data-lucide="network"></i>${macInterfaces?t('本機網路位址','本机网络地址','Local network addresses'):t('網路介面卡檢測','网络适配器检测','Network adapter diagnostics')}</div><div class="ll-settings-card-body">
+        <p class="ll-settings-copy">${macInterfaces?t('手動連線時，在另一部裝置輸入這台 Mac 的區域網路位址。','手动连接时，在另一台设备输入这台 Mac 的局域网地址。','To connect manually, enter this Mac’s LAN address on the other device.'):t('查看目前連線的理論上限；不是實際傳輸速度。虛擬網卡不代表物理頻寬；多張網卡的速度不會相加。','查看当前连接的理论上限；不是实际传输速度。虚拟网卡不代表物理带宽；多张网卡的速度不会相加。','Current link ceilings, not measured transfer speed. Virtual links do not represent physical bandwidth; adapter speeds do not add up.')}</p>
+        <div id="ll-adapters-result" role="status">${t('按下檢測以讀取本機網卡資訊。','点击检测读取本机网卡信息。','Check to read this computer’s adapter information.')}</div>
+        <div class="ll-file-actions"><button id="ll-check-adapters">${t('檢測網卡','检测网卡','Check adapters')}</button></div></div>`;
+      const probe=document.createElement('div');probe.className='ll-settings-card-body';
+      const testCard=document.createElement('section');testCard.className='ll-settings-card';
+      testCard.innerHTML=`<div class="ll-settings-card-head"><i data-lucide="network"></i>${t('區域網路傳輸速率測試','局域网传输速率测试','LAN throughput test')}</div>`;
+      probe.innerHTML=`<label class="ll-setting-row">${t('目標裝置','目标设备','Target device')} <select></select></label><p class="ll-settings-copy">${t('選擇已配對的附近電腦，每個方向傳輸 8 MiB。','选择已配对的附近电脑，每个方向传输 8 MiB。','Select a nearby paired computer. Transfers 8 MiB each way.')}</p><div class="ll-file-actions"><button>${t('重新整理','刷新设备','Refresh devices')}</button><button disabled>${t('開始測速','开始测速','Run test')}</button></div><p role="status"></p>`;
+      testCard.append(probe);
+      const selectPeer=probe.querySelector('select'),[refreshPeers,testSpeed]=probe.querySelectorAll('button'),report=probe.querySelector('[role=status]');
+      async function loadPeers(){
+        refreshPeers.disabled=true;testSpeed.disabled=true;
+        try{
+          const peers=await window.orbitAPI.invoke('locallink-speed-test');
+          const last=selectPeer.value;selectPeer.replaceChildren(...peers.map(p=>new Option(p.alias+' · '+p.ip,p.id)));
+          if(peers.some(p=>p.id===last))selectPeer.value=last;
+          if(!peers.length)selectPeer.add(new Option(t('無','无','None'),''));
+          testSpeed.disabled=!peers.length;
+        }catch{report.textContent=t('無法讀取裝置','无法读取设备','Cannot list devices');}
+        finally{refreshPeers.disabled=false;}
+      }
+      refreshPeers.onclick=loadPeers;loadPeers();
+      selectPeer.onchange=()=>{report.textContent='';};
+      testSpeed.onclick=async()=>{
+        refreshPeers.disabled=testSpeed.disabled=selectPeer.disabled=true;
+        report.textContent=t('測速中…','测速中…','Testing…');
+        try{
+          const r=await window.orbitAPI.invoke('locallink-speed-test',selectPeer.value);
+          const fmt=n=>n.toFixed(1)+' Mbps ('+(n/8).toFixed(1)+' MB/s)';
+          report.textContent=t('傳送','发送','Send')+' '+fmt(r.upload)+' · '+t('接收','接收','Receive')+' '+fmt(r.download);
+        }catch{report.textContent=t('測速失敗，請確認雙方已配對且在線。','测速失败，请确认双方已配对且在线。','Test failed. Check that both devices are paired and online.');}
+        finally{refreshPeers.disabled=testSpeed.disabled=selectPeer.disabled=false;}
+      };
+      content.append(adapterCard,testCard);
+      adapterCard.querySelector('button').onclick=async()=>{
+        const button=adapterCard.querySelector('button'),result=adapterCard.querySelector('#ll-adapters-result');
+        button.disabled=true;result.textContent=t('正在檢測…','正在检测…','Checking…');
+        try{
+          const info=await window.orbitAPI.invoke('locallink-network-adapters');
+          if(!info.ok){result.textContent=info.reason==='unsupported'?t('此平台暫不支援網卡檢測。','此平台暂不支持网卡检测。','Adapter detection is unavailable on this platform.'):t('無法讀取網卡，請稍後重試。','无法读取网卡，请稍后重试。','Unable to read adapters. Please try again.');return;}
+          const speed=bps=>bps?`${(bps/1000000).toLocaleString()} Mbps ≈ ${(bps/8000000).toLocaleString(undefined,{maximumFractionDigits:2})} MB/s`:t('未知','未知','Unknown');
+          result.innerHTML=info.adapters.map(adapter=>{
+            if(info.addressesOnly)return `<div><strong>${esc(adapter.name)}</strong><p class="ll-settings-copy selectable">${esc(adapter.description)}</p></div>`;
+            const kind=adapter.kind==='bluetooth'?t('藍牙','蓝牙','Bluetooth')+(adapter.bluetoothVersion?' '+esc(adapter.bluetoothVersion):''):adapter.kind==='wifi'?'WLAN':adapter.kind==='ethernet'?t('有線','有线','Ethernet'):adapter.kind==='virtual'?t('虛擬網卡','虚拟网卡','Virtual adapter'):t('其他','其他','Other');
+            return `<div style="padding:12px 0;border-bottom:1px solid var(--border-subtle)"><strong>${esc(adapter.name)}</strong> · ${kind} · ${adapter.connected?t('已連線','已连接','Connected'):t('未連線','未连接','Disconnected')}<p class="ll-settings-copy">${esc(adapter.description)}</p>${adapter.connected?`<div>${t('傳送','发送','Send')}: ${speed(adapter.sendBps)}</div><div>${t('接收','接收','Receive')}: ${speed(adapter.receiveBps)}</div>`:''}</div>`;
+          }).join('')||t('未找到網卡。','未找到网卡。','No adapters found.');
+          if(adapterCard.isConnected)adapterCard.scrollIntoView({block:'start'});
+        }catch{result.textContent=t('檢測失敗，請重試。','检测失败，请重试。','Detection failed. Please retry.');}
+        finally{button.disabled=false;}
+      };
       const load=()=>window.orbitAPI.invoke('locallink-diagnostics').then(result=>{
         if(!content.querySelector('#ll-diagnostic-status'))return;
         content.querySelector('#ll-diagnostic-status').textContent=result.discoveryError?t('可手動連線，附近裝置探索暫不可用。','可手动连接，附近设备发现暂不可用。','Manual connections available. Nearby discovery is unavailable.'):result.running?t('運作中','运行中','Running'):result.error||t('尚未啟動','尚未启动','Not running');

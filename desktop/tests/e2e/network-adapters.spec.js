@@ -4,7 +4,7 @@ const path=require('path');
 test('network adapters are detected on demand and safely displayed in settings',async()=>{
  const {app,page}=await launchApp(tmpUserDataDir('adapters'),[],{keepBootState:true});
  try{
-  await page.evaluate(()=>window.SettingsModal.open('general'));
+  await page.evaluate(()=>window.SettingsModal.open('advanced'));
   await page.locator('#ll-check-adapters').click();
   await expect(page.locator('#ll-check-adapters')).toBeEnabled({timeout:15000});
   const info=await page.evaluate(()=>window.orbitAPI.invoke('locallink-network-adapters'));
@@ -15,6 +15,6 @@ test('network adapters are detected on demand and safely displayed in settings',
   await expect(page.locator('#ll-adapters-result')).toContainText('125 MB/s');
   await expect(page.locator('#ll-adapters-result img')).toHaveCount(0);
   await page.screenshot({path:path.resolve('../artifacts/network-adapters-settings.png')});
-  for(const locale of ['en','zh-Hans']){await chooseSetting(page,'interface-language',locale);await page.locator('#ll-check-adapters').click();await expect(page.locator('#ll-adapters-result')).toContainText('125 MB/s');}
+  for(const locale of ['en','zh-Hans']){await page.evaluate(()=>window.SettingsModal.renderTab('general'));await chooseSetting(page,'interface-language',locale);await page.evaluate(()=>window.SettingsModal.renderTab('advanced'));await page.locator('#ll-check-adapters').click();await expect(page.locator('#ll-adapters-result')).toContainText('125 MB/s');}
  }finally{await app.close();}
 });

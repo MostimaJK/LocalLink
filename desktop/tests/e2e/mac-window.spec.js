@@ -18,7 +18,7 @@ test('Mac window controls, background close and Dock activation', async () => {
     await app.evaluate(({ app }) => app.emit('activate'));
     await expect.poll(() => app.evaluate(({ BrowserWindow }, id) =>
       BrowserWindow.fromId(id)?.isVisible(), id)).toBe(true);
-    await page.evaluate(() => window.SettingsModal.open('general'));
+    await page.evaluate(() => window.SettingsModal.open('advanced'));
     await page.locator('#ll-check-adapters').click();
     const info = await page.evaluate(() => window.orbitAPI.invoke('locallink-network-adapters'));
     expect(info.addressesOnly).toBe(true);
