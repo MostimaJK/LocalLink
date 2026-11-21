@@ -53,6 +53,8 @@ async function launchApp(userDataDir, extraArgs = [], opts = {}) {
   // chat open — the chat panel shows the welcome slides — so #chat-input is not
   // on screen yet, and waiting for it timed out for every spec.
   await page.waitForSelector('#middle-sidebar-container', { timeout: 30000 });
+  // UI fixtures explicitly choose Traditional Chinese; default-language tests opt out.
+  if (opts.fixtureLocale !== false) await page.evaluate(() => window.I18n.set('zh-Hant'));
   // The startup tutorial overlay can appear ~1s after boot and blocks pointer
   // events over the whole window. Dismiss it deterministically: mark it
   // completed in the store (identical to pressing "Skip") and click Skip if the

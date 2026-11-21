@@ -1010,7 +1010,7 @@ app.whenReady().then(() => {
 
   function buildTrayMenu() {
     if(globalDb.getSetting('locallink.transport','localsend')==='localsend'){
-      const lang=globalDb.getSetting('locallink.language','zh-Hant'),t=(tw,cn,en)=>lang==='en'?en:lang==='zh-Hans'?cn:tw;
+      const lang=globalDb.getSetting('locallink.language','en'),t=(tw,cn,en)=>lang==='en'?en:lang==='zh-Hans'?cn:tw;
       return Menu.buildFromTemplate([
         {label:t('開啟 LocalLink','打开 LocalLink','Open LocalLink'),click:showMainWindow},
         {label:t('開啟接收資料夾','打开接收目录','Open receive folder'),click:()=>{const dir=globalDb.getSetting('locallink.receiveDir',path.join(app.getPath('downloads'),'LocalLink'));fs.mkdirSync(dir,{recursive:true});shell.openPath(dir);}},
@@ -1651,7 +1651,7 @@ app.whenReady().then(() => {
     }
   });
 
-  const llText=(tw,cn,en)=>{const lang=globalDb.getSetting('locallink.language','zh-Hant');return lang==='en'?en:lang==='zh-Hans'?cn:tw;};
+  const llText=(tw,cn,en)=>{const lang=globalDb.getSetting('locallink.language','en');return lang==='en'?en:lang==='zh-Hans'?cn:tw;};
   const receiveDir=()=>globalDb.getSetting('locallink.receiveDir',path.join(app.getPath('downloads'),'LocalLink'));
   const sendPaths=async(peerId,paths,pin,text)=>{
     if(!localSendInstance)return {ok:false,error:llText('傳輸服務尚未啟動','传输服务尚未启动','Transport is not running')};

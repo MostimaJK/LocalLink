@@ -2,10 +2,11 @@ const {chooseSetting}=require('./helpers');
 const {test,expect}=require('@playwright/test');
 const {tmpUserDataDir,launchApp}=require('./helpers');
 const path=require('path');
-test('language defaults to Traditional Chinese, switches and survives restart', async()=>{
- const dir=tmpUserDataDir('language');let {app,page}=await launchApp(dir,[],{keepBootState:true});
+test('language defaults to English, switches and survives restart', async()=>{
+ const dir=tmpUserDataDir('language');let {app,page}=await launchApp(dir,[],{keepBootState:true,fixtureLocale:false});
  try{
-  await expect(page.locator('html')).toHaveAttribute('lang','zh-Hant');
+  await expect(page.locator('html')).toHaveAttribute('lang','en');
+  await page.evaluate(()=>window.I18n.set('zh-Hant'));
   await page.locator('#btn-nav-settings').click();
   await expect(page.locator('#settings-content')).toContainText('裝置名稱');
   await page.locator('#input-username').fill('未保存的设备名');
@@ -17,7 +18,7 @@ test('language defaults to Traditional Chinese, switches and survives restart', 
   await chooseSetting(page,'interface-language','zh-Hant');
   await page.screenshot({path:path.resolve('../artifacts/language-settings.png')});
   await chooseSetting(page,'interface-language','en');
-  await app.close();({app,page}=await launchApp(dir,[],{keepBootState:true}));
+  await app.close();({app,page}=await launchApp(dir,[],{keepBootState:true,fixtureLocale:false}));
   await page.locator('#btn-nav-settings').click();
   await expect(page.locator('#interface-language')).toHaveValue('en');
   await expect(page.locator('#settings-content')).toContainText('Device name');

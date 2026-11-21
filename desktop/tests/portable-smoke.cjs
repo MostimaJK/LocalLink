@@ -5,7 +5,7 @@ const {chromium}=require('@playwright/test');const {spawn,execFileSync}=require(
  try{
   let ready=false;for(let i=0;i<180;i++){try{const result=await fetch('http://127.0.0.1:'+port+'/json/version');if(result.ok){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,500));}assert.ok(ready,'Portable application started');
   browser=await chromium.connectOverCDP('http://127.0.0.1:'+port);const page=browser.contexts()[0].pages()[0];await page.waitForSelector('#middle-sidebar-container');
-  assert.equal(await page.evaluate(()=>window.orbitAPI.getAppVersion()),'1.0.0');assert.equal(await page.evaluate(()=>window.I18n.locale),'zh-Hant');
+  assert.equal(await page.evaluate(()=>window.orbitAPI.getAppVersion()),'1.0.0');assert.equal(await page.evaluate(()=>window.I18n.locale),'en');
   await page.evaluate(()=>window.SettingsModal.open('account'));await page.locator('#input-username').fill('Portable test');await page.locator('#btn-save-account').click();
   assert.equal(await page.evaluate(()=>window.store.getState().currentUser.username),'Portable test');assert.ok(fs.existsSync(path.join(data,'orbit.db')));
   console.log('PASS: single portable EXE self-extracts, launches 1.0.0, renders UI, writes isolated SQLite');

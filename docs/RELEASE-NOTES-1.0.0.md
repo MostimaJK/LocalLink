@@ -1,26 +1,24 @@
-# LocalLink v1.0.0 — Windows 预览版
+# LocalLink v1.0.0 — Windows Preview
 
-建议标签：v1.0.0；发布类型：Pre-release；平台：Windows x64。
+Device-centered LAN sharing with a conversation-style timeline.
 
-## 功能
+- Files, images, folders as ZIP, native text, history and backups.
+- No fixed capacity cap; disk and system limits apply.
+- Receive-folder selection, pairing, bandwidth limits and adapter information.
+- English default for new profiles; Traditional Chinese and Simplified Chinese available. Existing preferences are preserved.
 
-- 局域网设备发现、收藏、备注与聊天式传输时间线。
-- 文件、图片、批量文件、文件夹 ZIP 与 LocalLink 原生文字传输。
-- 不设固定文件/批次容量上限，受磁盘、文件系统及安全数值范围限制。
-- 自定义接收目录、配对授权、自动接收、历史与备份。
-- 发送/接收限速、Windows 网卡链路速率检测。
-- 繁体中文、简体中文、英文及深浅色主题。
+## Downloads
 
-## 拟提供附件（尚未重新构建）
+Portable.exe runs without installation and retains local user data. Setup.exe installs the Windows x64 app. SHA256SUMS.txt provides SHA-256 checksums. Binaries are unsigned.
 
-- LocalLink-1.0.0-Portable.exe：免安装，设置和历史仍保存在本机用户数据目录。
-- LocalLink-Setup-1.0.0.exe：安装版。
-- SHA256SUMS.txt：以上实际构建产物的校验值。
+## Known limitations
 
-## 已知限制与验证范围
+100 files per batch, 10,000 folder entries; ZIP requires extra disk space. No resume in the default protocol; calls remain legacy-only. Tested with 600 MiB loopback transfer, not 50 GB or full physical cross-platform validation. No mobile binaries. This is a preview, not a claim of completed installation/upgrade certification.
 
-- 每批最多 100 个文件，文件夹最多 10000 条目，文件夹先生成 ZIP，需要额外空间。
-- 重试从头发送，尚无断点续传；默认连接未统一语音视频。
-- 已通过 600 MiB 本机 HTTPS 收发与完整性校验、600 MiB 文件夹归档验证，未执行 50 GB 实测，不承诺所有设备上的任意大文件均可成功。
-- 真实双机和原版 LocalSend 跨平台互测、安装升级验收尚未完成。
-- 当前 Windows 程序未签名；不提供 Android/iOS/macOS/Linux 发行包。
+## 繁體中文
+
+Windows 預覽版：裝置探索、聊天式傳輸時間軸、檔案、資料夾 ZIP、文字、歷史與備份。不設固定容量上限，保留限速與配對授權。
+
+新使用者預設英文，可在 Settings → General 切換繁體中文。已有偏好保留。Portable 為免安裝版，Setup 為安裝版，皆尚未簽章。
+
+每批 100 個檔案、資料夾 10000 個項目。ZIP 需要額外空間，尚無預設協定斷點續傳，通話仍在舊協定。已完成 600 MiB 本機測試，未完成 50 GB 或完整跨平台實機驗收。

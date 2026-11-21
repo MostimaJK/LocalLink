@@ -272,7 +272,7 @@ window.I18n = {
     "zh-Hans": "查看上游 MIT 许可证"
   }
 },
- locale: window.orbitAPI.dbGetSetting('locallink.language', 'zh-Hant'),
+ locale: window.orbitAPI.dbGetSetting('locallink.language', 'en'),
  t(key) { const row=this.catalog[key]; return row ? (row[this.locale] || row['zh-Hant']) : key; },
  apply() {
   document.documentElement.lang=this.locale;
@@ -294,7 +294,7 @@ window.I18n = {
   this.apply();
  }
 };
-if(!['en','zh-Hant','zh-Hans'].includes(window.I18n.locale)) window.I18n.locale='zh-Hant';
+if(!['en','zh-Hant','zh-Hans'].includes(window.I18n.locale)) window.I18n.locale='en';
 document.addEventListener('DOMContentLoaded', () => {
  window.I18n.apply();
  new MutationObserver(() => window.I18n.apply()).observe(document.body,{childList:true,subtree:true});
