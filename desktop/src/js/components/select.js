@@ -53,7 +53,7 @@ window.LocalLinkSelect = {
   const paint=(scroll=true)=>{
    [...popup.children].forEach((row,i)=>row.classList.toggle('active',i===index));
    trigger.setAttribute('aria-activedescendant',popup.children[index].id);
-   if(scroll)popup.children[index].scrollIntoView({block:'nearest'});
+   if(scroll){const row=popup.children[index];if(row.offsetTop<popup.scrollTop)popup.scrollTop=row.offsetTop;else if(row.offsetTop+row.offsetHeight>popup.scrollTop+popup.clientHeight)popup.scrollTop=row.offsetTop+row.offsetHeight-popup.clientHeight;}
   };
   const position=()=>{
    if(!trigger.isConnected){this.close();return;}
@@ -72,7 +72,7 @@ window.LocalLinkSelect = {
    sync();(document.getElementById(trigger.id)||trigger).focus({preventScroll:true});
   };
   const outside=e=>{if(!trigger.contains(e.target)&&!popup.contains(e.target))this.close();};
-  const scroll=e=>{if(!popup.contains(e.target))this.close();};
+  const scroll=e=>{if(!popup.contains(e.target))position();};
   const observer=new MutationObserver(()=>{if(!trigger.isConnected)this.close();});observer.observe(document.body,{childList:true,subtree:true});
   document.addEventListener('pointerdown',outside,true);document.addEventListener('scroll',scroll,true);window.addEventListener('resize',position);
   this.active={trigger,popup,move:step=>{const i=enabled.indexOf(index);index=step==='first'?enabled[0]:step==='last'?enabled.at(-1):enabled[(i+step+enabled.length)%enabled.length];paint();},commit,
