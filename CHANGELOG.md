@@ -1,5 +1,9 @@
 # LocalLink Changelog
 
+## v1.0.8 — Desktop release
+
+Direct folder transfers, verified delivery receipts, phone sharing cancellation, safer transfer backups and a Windows update restart fix. [Release notes](docs/RELEASE-NOTES-1.0.8.md)
+
 ## v1.0.7 — Desktop release
 
 Large folder transfers, configurable receive confirmation and Windows Setup recovery. [Release notes](docs/RELEASE-NOTES-1.0.7.md)
