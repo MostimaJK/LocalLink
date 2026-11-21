@@ -14,7 +14,14 @@ window.Changelog = {
         '<button id="changelog-close" style="background:transparent;border:none;cursor:pointer;color:var(--text-secondary);padding:4px;"><i data-lucide="x" style="width:20px;height:20px;"></i></button>' +
       '</div>' +
       '<div style="display:flex;flex-direction:column;gap:20px;">' +
-        versionBlock('1.0.1', 'Latest', [
+        versionBlock('1.0.2', 'Latest', [
+          ['New', [
+            'Mac users can download a disk image for Apple Silicon or Intel.',
+            'Folder sends show scanning and packing progress and can be cancelled before upload.',
+            'Copy a local connection address to connect manually when nearby discovery is unavailable.'
+          ]]
+        ]) +
+        versionBlock('1.0.1', '', [
           ['New', [
             'Manage paired devices and automatic receiving in Settings.',
             'Receive files directly in your chosen folder. Duplicate names get a numbered suffix.',

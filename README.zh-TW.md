@@ -2,18 +2,17 @@
 
 [English](README.md)
 
-以裝置為中心的區域網路傳輸工具，透過聊天式時間軸查看收發內容。**1.0.1 為 Windows x64 預覽版。**
+LocalLink 透過區域網路分享檔案、資料夾和文字。**桌面預覽版 1.0.2** 支援 Windows x64、Apple Silicon Mac 與 Intel Mac。
 
 ## 下載
 
-前往 [Releases](https://github.com/MostimaJK/LocalLink/releases)。Portable.exe 為免安裝版，設定與歷史仍保存在本機使用者資料目錄；Setup.exe 為安裝版。SHA256SUMS.txt 提供校驗值。Windows 程式尚未簽章，請確認來源可信。
+請從 [1.0.2 發行頁](https://github.com/MostimaJK/LocalLink/releases/tag/v1.0.2) 選擇套件。Windows 可選 Setup 安裝版或 Portable 免安裝版。Apple Silicon Mac 請選 arm64.dmg，Intel Mac 請選 x64.dmg，開啟後將 LocalLink 拖入「應用程式」。
+
+SHA256SUMS.txt 列出四個套件的校驗值。Windows 版本尚未簽章，Mac 版本採臨時簽章，尚未經 Apple 公證。
 
 ## 功能
 
-1.0.1 新增已信任裝置的藍色盾牌、自動接收開關及可信裝置管理。
-詳見[發行說明](docs/RELEASE-NOTES-1.0.1.md)。「設定 → 關於」支援 GitHub 更新檢查與校驗下載；
-啟動檢查可自行開啟。安裝版與免安裝版均可在校驗下載後選擇「更新並重新啟動」。
-接收檔案直接儲存到指定資料夾；同名檔案自動編號，不覆蓋既有內容。
+傳送資料夾時可查看掃描與打包進度，並在上傳前取消。附近裝置探索暫時無法使用時，可在「連接裝置」複製本機位址與連接埠，改用手動連線。詳見[發行說明](docs/RELEASE-NOTES-1.0.2.md)。
 
 附近裝置探索、收藏與備註；檔案、圖片、資料夾 ZIP 與文字；進度、取消、重試、歷史、備份、接收目錄、配對授權、收發限速及網卡資訊。
 
@@ -45,6 +44,6 @@ Windows 亦可執行 Start-LocalLink.bat。
 
 ## 限制
 
-每批 100 個檔案、資料夾 10000 個項目；ZIP 需要額外空間。重試從頭傳送，預設協定尚無斷點續傳，通話仍在舊協定。已驗證 600 MiB 本機傳輸，未做 50 GB 或完整跨平台實機驗收。本次僅提供 Windows x64 程式。
+每批 100 個檔案、資料夾 10000 個項目；ZIP 需要額外空間。重試從頭傳送，預設協定尚無斷點續傳，通話仍在舊協定。已驗證 600 MiB 本機傳輸，未做 50 GB 或完整跨平台實機驗收。本次提供 Windows x64 與兩種 Mac 架構的桌面程式。
 
 基於 Orbit 開發，靈感來自 LocalSend，無官方關聯。保留 [MIT 授權](LICENSE) 與 [第三方聲明](desktop/THIRD-PARTY-NOTICES.txt)。

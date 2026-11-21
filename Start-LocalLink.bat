@@ -28,7 +28,7 @@ if errorlevel 1 goto failed
 rem Clear an inherited Electron Node-mode flag before starting the GUI.
 set "ELECTRON_RUN_AS_NODE="
 if /i "%~1"=="--check" goto check
-echo Starting LocalLink. Close the app from its tray menu to exit completely.
+echo Starting LocalLink. Closing the window exits by default. Background mode is optional in Settings.
 "node_modules\electron\dist\electron.exe" .
 if errorlevel 1 goto failed
 popd

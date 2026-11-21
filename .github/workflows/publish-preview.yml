@@ -1,0 +1,77 @@
+name: Publish desktop preview
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify release tag and notes
+        run: |
+          version=$(node -p "require('./desktop/package.json').version")
+          test "$GITHUB_REF" = "refs/tags/v$version"
+          test -s "docs/RELEASE-NOTES-$version.md"
+          npm run test:unit
+          node mobile/tests/changelog.test.js
+  mac:
+    needs: validate
+    uses: ./.github/workflows/macos.yml
+  windows:
+    needs: validate
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci
+      - run: npm run test:transfers
+      - name: Build Setup and Portable
+        shell: bash
+        run: |
+          npm exec -- electron-builder --win nsis portable --x64 --publish never
+      - name: Exercise packaged Windows application
+        shell: pwsh
+        run: |
+          $env:LOCALLINK_TEST_EXECUTABLE=(Resolve-Path 'dist/win-unpacked/LocalLink.exe').Path
+          npx playwright test tests/e2e/transfer-workflow.spec.js tests/e2e/update-notice.spec.js --workers=1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LocalLink-Windows-x64
+          if-no-files-found: error
+          path: desktop/dist/*.exe
+  publish:
+    needs: [mac, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: packages
+      - name: Verify packages and publish preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          mkdir upload
+          for arch in arm64 x64; do
+            (cd "packages/LocalLink-macOS-$arch" && sha256sum --check SHA256SUMS.txt)
+            cp "packages/LocalLink-macOS-$arch/LocalLink-$version-$arch.dmg" upload/
+          done
+          cp "packages/LocalLink-Windows-x64/LocalLink-Setup-$version.exe" upload/
+          cp "packages/LocalLink-Windows-x64/LocalLink-$version-Portable.exe" upload/
+          (cd upload && sha256sum *.dmg *.exe > SHA256SUMS.txt && sha256sum --check SHA256SUMS.txt)
+          gh release create "$GITHUB_REF_NAME" --verify-tag --prerelease --title "LocalLink $version · Windows and macOS" --notes-file "docs/RELEASE-NOTES-$version.md" upload/*

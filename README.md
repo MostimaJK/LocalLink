@@ -2,29 +2,27 @@
 
 [繁體中文](README.zh-TW.md)
 
-Device-centered LAN sharing with a conversation-style timeline. **1.0.1 is a Windows x64 preview release.**
+LocalLink shares files, folders and text across a local network. **Desktop preview 1.0.2** is available for Windows x64 and macOS.
 
 ## Download
 
-[Releases](https://github.com/MostimaJK/LocalLink/releases)
+Choose a package from the [1.0.2 release](https://github.com/MostimaJK/LocalLink/releases/tag/v1.0.2).
 
-- **LocalLink-1.0.1-Portable.exe**: no installation; settings and history remain in the local user-data directory.
-- **LocalLink-Setup-1.0.1.exe**: installer with shortcuts.
-- **SHA256SUMS.txt**: SHA-256 checksums.
+| Computer | Package |
+| --- | --- |
+| Windows x64 | `LocalLink-Setup-1.0.2.exe` or `LocalLink-1.0.2-Portable.exe` |
+| Mac with Apple silicon | `LocalLink-1.0.2-arm64.dmg` |
+| Intel Mac | `LocalLink-1.0.2-x64.dmg` |
 
-Windows binaries are unsigned. Only run downloads from a source you trust.
+The release includes SHA256SUMS.txt for all four packages. Windows builds are unsigned. Mac builds use ad-hoc signatures and have not been notarized by Apple. On Mac, open the matching DMG and drag LocalLink to Applications.
 
-Version 1.0.1 adds a blue trusted-device shield, receive-permission switches and
-a trusted-device manager. See the [release notes](docs/RELEASE-NOTES-1.0.1.md).
-Settings → About now offers GitHub update checks and checksum-verified downloads.
-Startup checks are opt-in. Both Windows packages offer **Update and restart** after a verified download.
-Received files save directly into your chosen folder, with numbered names when files already exist. See [update details](docs/GITHUB-UPDATES.md).
+Folder transfers now show scan and packing progress and support cancellation. If nearby discovery is unavailable, open **Connect device** to copy the address and port for a manual connection. [Release notes](docs/RELEASE-NOTES-1.0.2.md)
 
 ## Features
 
 Nearby discovery, favorites, aliases, files, images, folders as ZIP and native LocalLink text. Includes progress, cancellation, retry, history, backups, receive-folder selection, pairing, authorized auto-receive, bandwidth limits and Windows adapter information.
 
-No fixed file/batch capacity cap; disk and system limits apply. English is the default for new profiles. Traditional Chinese and Simplified Chinese are available in Settings → General. Existing preferences are preserved.
+File sizes are limited by available storage and system limits. English is the default for new profiles. Traditional Chinese and Simplified Chinese are available in Settings → General. Existing preferences are preserved.
 
 ## Screenshots
 
@@ -57,4 +55,4 @@ The manual **Build and test macOS candidates** workflow builds on both architect
 
 ## Licensing
 
-Based on Orbit, inspired by LocalSend; no official affiliation. Retained [MIT license](LICENSE), [dependency notices](desktop/THIRD-PARTY-NOTICES.txt) and [security policy](SECURITY.md). See [release readiness](docs/RELEASE-READINESS.md).
+Based on Orbit, inspired by LocalSend; no official affiliation. Retained [MIT license](LICENSE), [dependency notices](desktop/THIRD-PARTY-NOTICES.txt) and [security policy](SECURITY.md). See the [1.0.2 release notes](docs/RELEASE-NOTES-1.0.2.md).

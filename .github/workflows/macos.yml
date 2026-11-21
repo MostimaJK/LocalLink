@@ -2,6 +2,7 @@ name: Build and test macOS candidates
 on:
   push:
     branches: ['codex/macos-candidate-*']
+  workflow_call:
   workflow_dispatch:
 permissions:
   contents: read

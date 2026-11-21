@@ -1,4 +1,12 @@
-# Orbit Changelog
+# LocalLink Changelog
+
+## v1.0.2 — Desktop preview
+
+Apple Silicon and Intel Mac disk images, cancellable folder packing, integrity checks, and manual connections when multicast discovery is unavailable. [Release notes](docs/RELEASE-NOTES-1.0.2.md)
+
+## v1.0.1 — Windows preview
+
+Trusted-device management, direct file saving and verified Windows updates. [Release notes](docs/RELEASE-NOTES-1.0.1.md)
 
 ## v1.0.0 — **Stable Release**
 

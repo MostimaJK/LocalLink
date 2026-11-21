@@ -7,10 +7,11 @@ failed checks, never as “up to date”.
 - Startup checks are opt-in, delayed 10 seconds and throttled to once per six hours.
 - Published prereleases are labelled; drafts are excluded. Versions are compared numerically.
 - Publish both `LocalLink-Setup-VERSION.exe` and `LocalLink-VERSION-Portable.exe`,
-  plus `SHA256SUMS.txt` for those exact filenames.
+  both macOS disk images (`LocalLink-VERSION-arm64.dmg` and `LocalLink-VERSION-x64.dmg`), and a single `SHA256SUMS.txt` for all four files.
 - Downloads stream to Downloads/LocalLink Updates. Cancellation is supported.
   Missing or incorrect checksums block installation; the staged file is checked again.
-- Choose **Update and restart** after downloading. Active transfers or calls block
+- macOS selects the disk image for the current CPU. After verification, open the download folder and install the update manually.
+- On Windows, choose **Update and restart** after downloading. Active transfers or calls block
   this action so they are not interrupted.
 - Setup: a helper waits for the app to quit, runs the installer silently into the
   current installation directory, then launches the updated app with the same data path.

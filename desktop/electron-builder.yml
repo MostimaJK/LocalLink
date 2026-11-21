@@ -47,7 +47,12 @@ win:
   icon: src/icons/app/locallink.ico
   requestedExecutionLevel: asInvoker
 
+portable:
+  artifactName: "LocalLink-${version}-Portable.exe"
+  useZip: true
+
 nsis:
+  artifactName: "LocalLink-Setup-${version}.exe"
   oneClick: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
