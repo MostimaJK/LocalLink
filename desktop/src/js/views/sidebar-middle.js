@@ -798,7 +798,7 @@ window.SidebarMiddle = {
     const matchedPeers=new Set(query?window.orbitAPI.sendSync('locallink-list-transfers',{query,limit:1000}).map(r=>r.peerId):[]);
     const rows = sets[scope].filter(f => (devices.name(f) + ' ' + f.username).toLowerCase().includes(query)||matchedPeers.has(f.userId));
     rows.forEach(friend => {
-      html += '<div style="display:flex;align-items:center"><div style="flex:1;min-width:0">' + self._buildFriendRowHtml(friend, state, {reopen:true}) + '</div><button data-favorite-id="' + window.Sanitize.escapeHtml(friend.userId) + '" aria-label="' + (devices.isFavorite(friend) ? '取消收藏' : '收藏设备') + '" aria-pressed="' + devices.isFavorite(friend) + '" style="padding:8px;color:var(--accent-primary)"><i data-lucide="star" style="width:18px;height:18px;' + (devices.isFavorite(friend) ? 'fill:currentColor;' : '') + '"></i></button></div>';
+      html += '<div class="ll-device-row '+(state.activeChatId===friend.userId?'is-selected':'')+'"><div style="flex:1;min-width:0">' + self._buildFriendRowHtml(friend, state, {reopen:true}) + '</div><button data-favorite-id="' + window.Sanitize.escapeHtml(friend.userId) + '" aria-label="' + (devices.isFavorite(friend) ? '取消收藏' : '收藏设备') + '" aria-pressed="' + devices.isFavorite(friend) + '" style="padding:8px;color:var(--accent-primary)"><i data-lucide="star" style="width:18px;height:18px;' + (devices.isFavorite(friend) ? 'fill:currentColor;' : '') + '"></i></button></div>';
     });
     if (!rows.length) html += '<div style="padding:24px 16px;color:var(--text-muted);font-size:13px">' + (query ? window.I18n.t('s41') : scope === 'nearby' ? window.I18n.t('s44') : scope === 'favorites' ? window.I18n.t('s43') : window.I18n.t('s42')) + '</div>';
     listContainer.innerHTML = html;

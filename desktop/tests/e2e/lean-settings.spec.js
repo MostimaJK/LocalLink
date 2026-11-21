@@ -4,7 +4,7 @@ const path = require('path');
 test('lean device settings and About do not expose Orbit social features or updates', async () => {
  const {app,page} = await launchApp(tmpUserDataDir('lean-settings'), [], {keepBootState:true});
  try {
-  await page.locator('#btn-profile').click();
+  await page.locator('#btn-nav-settings').click();
   await expect(page.locator('#input-username')).toBeVisible();
   await expect(page.locator('#input-avatar, #input-banner, #input-bio, .frame-option')).toHaveCount(0);
   await page.screenshot({path:path.resolve('../artifacts/simplified-settings.png')});

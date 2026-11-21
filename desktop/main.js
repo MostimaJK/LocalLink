@@ -1556,6 +1556,7 @@ app.whenReady().then(() => {
           result: record => {
             globalDb.transfers.save(record);
             emit('locallink-transfer-result',record);
+            if(record.status==='received'&&record.path&&globalDb.getSetting('locallink.openAfterReceive',false)){try{shell.showItemInFolder(record.path);}catch(error){emit('locallink-transfer-error',error.message);}}
           }
         });
         const transport=localSendInstance;

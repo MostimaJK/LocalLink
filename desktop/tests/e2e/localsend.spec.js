@@ -98,7 +98,7 @@ test('file conversation preserves order, direction, status, history and scroll',
 test('settings localize controls, show retained content directly, and use LocalLink branding',async()=>{
  const {app,page}=await launchApp(tmpUserDataDir('settings-polish'),[],{keepBootState:true});
  try{
-  await page.locator('#btn-profile').click();
+  await page.locator('#btn-nav-settings').click();
   await expect(page.locator('#settings-content')).toContainText('裝置名稱');
   await expect(page.locator('#transport-mode')).toHaveCount(0);
   await expect(page.locator('#settings-content')).not.toContainText('Language /');

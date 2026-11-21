@@ -57,7 +57,7 @@ window.SidebarLeft = {
       <div class="sidebar-top">
         <!-- Logo -->
         <button class="icon-btn ${(!inGallery && !inFolders) ? 'active' : ''}" id="btn-nav-dms" title="设备与传输">
-          <i data-lucide="message-circle"></i>
+          <i data-lucide="monitor-smartphone"></i>
         </button>
         <div class="sidebar-separator" style="width:24px;height:1px;background:var(--border-subtle);margin-top:8px;margin-bottom:8px;margin-left:auto;margin-right:12px;"></div>
         ${showFolders ? '<button class="icon-btn' + (inFolders ? ' active' : '') + '" id="btn-nav-folders" title="Folders"><i data-lucide="folder"></i></button>' : ''}
@@ -72,12 +72,7 @@ window.SidebarLeft = {
         <button class="icon-btn" id="btn-nav-settings" title="Settings">
           <i data-lucide="settings"></i>
         </button>
-        <button class="icon-btn" id="btn-profile" title="Profile">
-          <div class="avatar avatar-md">
-            <i data-lucide="user-round"></i>
-          </div>
-          ${window.OrbitPresence.badge('online')}
-        </button>
+
       </div>
     `;
     const lang=window.I18n?.locale||'zh-Hant',t=(tw,cn,en)=>lang==='en'?en:lang==='zh-Hans'?cn:tw;

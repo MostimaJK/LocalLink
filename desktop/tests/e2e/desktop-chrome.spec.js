@@ -5,7 +5,7 @@ const path=require('path');
 test('rounded menus support keyboard, dismissal, short windows and modal close',async()=>{
  const {app,page}=await launchApp(tmpUserDataDir('chrome-menu'),[],{keepBootState:true});
  try {
-  await page.locator('#btn-profile').click();
+  await page.locator('#btn-nav-settings').click();
   const trigger=page.locator('#interface-language-trigger');
   await expect(trigger).toHaveAttribute('role','combobox');
   await trigger.click();
@@ -34,8 +34,8 @@ test('rounded menus support keyboard, dismissal, short windows and modal close',
   expect(close.x).toBeGreaterThan(box.x+box.width-60);expect(close.y).toBeLessThan(box.y+40);
   await page.locator('#btn-close-settings').click();
   await expect(page.locator('#settings-overlay')).not.toBeVisible();
-  await expect(page.locator('#btn-profile')).toBeFocused();
-  await page.locator('#btn-profile').click();
+  await expect(page.locator('#btn-nav-settings')).toBeFocused();
+  await page.locator('#btn-nav-settings').click();
   await expect(page.locator('#input-username')).toHaveValue('名稱草稿');
   await page.locator('.settings-tab[data-tab="appearance"]').click();
   const bodies=page.locator('#settings-content .collapsible-body');

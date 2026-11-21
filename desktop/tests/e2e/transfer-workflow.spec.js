@@ -46,11 +46,19 @@ test('real file conversation: manual discovery, text, batch, paste, folder and h
   const receiveDir=path.join(dir,'custom-received');fs.mkdirSync(receiveDir);
   await app.evaluate(({dialog},folder)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[folder]});dialog.showMessageBox=async()=>({response:1});},receiveDir);
   await page.evaluate(()=>window.SettingsModal.open('network'));await page.locator('#ll-choose-directory').click();
-  await expect(page.locator('#ll-receive-path')).toHaveText(receiveDir);await page.locator('#btn-close-settings').click();
+  await expect(page.locator('#ll-receive-path')).toHaveText(receiveDir);
+  await expect(page.locator('#ll-open-after-receive')).not.toBeChecked();await page.locator('#ll-open-after-receive').check();
+  await app.evaluate(({shell})=>{globalThis.__llShown=[];shell.showItemInFolder=file=>globalThis.__llShown.push(file);});
+  await expect.poll(()=>page.locator('#ll-open-after-receive').evaluate(el=>getComputedStyle(el,'::after').transform)).toBe('matrix(1, 0, 0, 1, 16, 0)');
+  await page.screenshot({path:path.resolve('../artifacts/receive-settings-refined.png')});
+  await page.locator('#btn-close-settings').click();
   // register supplied the app endpoint to this independent receiver.
   const peer=[...receiver.peers.values()][0];await receiver.send(peer.id,files[0]);
   await expect(page.locator('[data-status="received"]')).toHaveCount(1);
   expect(fs.readdirSync(receiveDir).length).toBe(1);
+  const shown=await app.evaluate(()=>globalThis.__llShown);expect(shown).toHaveLength(1);expect(shown[0].startsWith(receiveDir+path.sep)).toBe(true);expect(fs.readFileSync(shown[0])).toEqual(fs.readFileSync(files[0]));
+  await expect(page.locator('#btn-profile')).toHaveCount(0);await expect(page.locator('#btn-nav-dms svg')).toHaveAttribute('data-lucide','monitor-smartphone');
+  await expect(page.locator('.ll-device-row.is-selected [data-favorite-id]')).toBeVisible();
   await page.screenshot({path:path.resolve('../artifacts/transfer-workflow-dark.png')});
   await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1000,680));
   await expect(page.locator('#ll-send-text')).toBeInViewport();await expect(page.locator('#ll-message-input')).toBeInViewport();

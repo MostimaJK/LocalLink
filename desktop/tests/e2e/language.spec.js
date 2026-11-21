@@ -6,7 +6,7 @@ test('language defaults to Traditional Chinese, switches and survives restart', 
  const dir=tmpUserDataDir('language');let {app,page}=await launchApp(dir,[],{keepBootState:true});
  try{
   await expect(page.locator('html')).toHaveAttribute('lang','zh-Hant');
-  await page.locator('#btn-profile').click();
+  await page.locator('#btn-nav-settings').click();
   await expect(page.locator('#settings-content')).toContainText('裝置名稱');
   await page.locator('#input-username').fill('未保存的设备名');
   await chooseSetting(page,'interface-language','en');
@@ -18,7 +18,7 @@ test('language defaults to Traditional Chinese, switches and survives restart', 
   await page.screenshot({path:path.resolve('../artifacts/language-settings.png')});
   await chooseSetting(page,'interface-language','en');
   await app.close();({app,page}=await launchApp(dir,[],{keepBootState:true}));
-  await page.locator('#btn-profile').click();
+  await page.locator('#btn-nav-settings').click();
   await expect(page.locator('#interface-language')).toHaveValue('en');
   await expect(page.locator('#settings-content')).toContainText('Device name');
  }finally{await app.close();}

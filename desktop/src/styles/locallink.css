@@ -156,3 +156,23 @@ select[data-ll-select][hidden] { display:none !important; }
 .ll-history-date input { color-scheme:dark; }
 html[data-theme="light"] .ll-history-date input { color-scheme:light; }
 .ll-history-dialog .ll-load-more:disabled { opacity:.4;cursor:default; }
+
+/* Solid actions, shared selected device surface, and native keyboard switches. */
+.ll-file-actions { gap:8px; }
+.ll-file-actions button { min-height:36px;padding:8px 13px;border-radius:9px;background:var(--bg-hover,var(--bg-surface));border:1px solid var(--border-subtle);color:var(--text-primary);font-weight:600;justify-content:center; }
+.ll-file-actions button:hover { text-decoration:none;background:var(--bg-active,var(--bg-base));border-color:var(--accent-primary); }
+.ll-file-actions button:disabled { opacity:.45;cursor:default; }
+.ll-device-row { display:flex;align-items:center;border-radius:10px;overflow:hidden;margin-bottom:4px; }
+.ll-device-row.is-selected { background:var(--bg-active,rgba(128,128,128,.18)); }
+.ll-device-row:hover { background:var(--bg-hover,rgba(128,128,128,.12)); }
+.ll-device-row .list-row,.ll-device-row .list-row.active { margin:0;background:transparent;box-shadow:none;border-radius:0; }
+.ll-device-row [data-favorite-id] { flex:0 0 44px;align-self:stretch;display:grid;place-items:center;border-left:1px solid var(--border-subtle); }
+.ll-switch { appearance:none;position:relative;width:40px;height:24px;min-width:40px;border:1px solid var(--border-subtle);border-radius:999px;background:var(--text-muted);cursor:pointer;transition:background .15s; }
+.ll-switch::after { content:'';position:absolute;width:18px;height:18px;left:2px;top:2px;border-radius:50%;background:white;transition:transform .15s; }
+.ll-switch:checked { background:var(--accent-primary); }
+.ll-switch:checked::after { transform:translateX(16px); }
+.ll-switch:focus-visible { outline:2px solid var(--accent-primary);outline-offset:3px; }
+@media (prefers-reduced-motion:reduce) { .ll-switch,.ll-switch::after { transition:none; } }
+
+#btn-nav-dms svg { fill:none; }
+.ll-device-row { margin-left:8px;margin-right:8px; }
