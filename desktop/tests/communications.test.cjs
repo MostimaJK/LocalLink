@@ -13,7 +13,7 @@ const {LocalSend}=require('../src/js/network/localsend');
   await assert.rejects(attacker.request(peer,'locallink-pair',{info:a.info()}),/403/);
   await assert.rejects(attacker.request(peer,'locallink-message',{info:a.info(),text:'spoof'}),/403/);
   trusted.clear();await assert.rejects(a.sendMessage(peer.id,'revoked'),/403/);
-  await assert.rejects(a.sendMessage(peer.id,'x'.repeat(65537)),/64 KiB/);
+  await assert.rejects(a.sendMessage(peer.id,'x'.repeat(65537)),/65\.536 KB/);
   console.log('PASS: native text ack/refusal, TLS identity pairing, spoof rejected, revocation, size bound');
  }finally{a.stop();b.stop();attacker.stop();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

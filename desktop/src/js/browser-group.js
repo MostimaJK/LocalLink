@@ -92,8 +92,18 @@
     const items=[...session.messages,...session.sharedFiles,...session.files.map(f=>({...f,sender:0}))].sort((a,b)=>a.time-b.time);
     for(const msg of items){
       const row=element(feed,'article','');element(row,'small',member(msg.sender));element(row,'p',msg.text??msg.name);
-      if(msg.text===undefined){const status=msg.saveFailed?t('儲存失敗','保存失败','Save failed'):msg.sender && msg.host===false?t('本機已拒絕','本机已拒绝','Declined on this computer'):'';
-        element(row,'small',[window.LocalSendPanel.size(msg.size),status].filter(Boolean).join(' · '));continue;}
+      if(msg.text===undefined){const status=msg.saveFailed?t('已上傳 · 電腦儲存失敗','已上传 · 电脑保存失败','Uploaded · Could not save on computer'):msg.saved?t('已儲存至電腦','已保存到电脑','Saved on computer'):msg.sender && msg.host===false?t('本機已拒絕','本机已拒绝','Declined on this computer'):msg.sender?(msg.ready?t('已上傳','已上传','Uploaded'):t('等待上傳','等待上传','Waiting for upload')):'';
+        element(row,'small',[window.LocalSendPanel.size(msg.size),status].filter(Boolean).join(' · '));
+        if(msg.saveFailed){
+          const retry=element(row,'button',t('重新儲存','重新保存','Retry save'));
+          const glyph=document.createElement('i');glyph.dataset.lucide='rotate-ccw';glyph.setAttribute('aria-hidden','true');retry.prepend(glyph);
+          window.lucide.createIcons({root:retry});
+          retry.onclick=async()=>{retry.disabled=true;try{
+            const result=await window.orbitAPI.invoke('locallink-web-share',{action:'retry-save',roomId:session.roomId,id:msg.id});
+            if(!result.ok)window.Toast?.show('LocalLink',t('請檢查接收目錄與剩餘空間','请检查接收目录与剩余空间','Check the receive folder and available space'),'error');
+          }finally{retry.disabled=false;}};
+        }
+        continue;}
       const copy=element(row,'button',t('複製','复制','Copy'));
       copy.onclick=()=>{window.orbitAPI.writeClipboard(msg.text);copy.textContent=t('已複製','已复制','Copied');};
     }

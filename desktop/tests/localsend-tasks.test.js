@@ -11,9 +11,28 @@ const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   const peer=await a.discover('127.0.0.1:'+b.port);assert.equal(peer.fingerprint,b.fingerprint);
   a.observe({...b.info(),deviceType:'mobile'},'127.0.0.1');assert.equal(peers.at(-1).deviceType,'mobile');
   const files=['中文.txt','empty.bin'].map((name,i)=>{const p=path.join(root,name);fs.writeFileSync(p,i?'':'hello');return p;});
+  let secured=0;
+  const countConnection=()=>secured++;
+  b.server.on('secureConnection',countConnection);
+  await assert.rejects(a.request(peer,'prepare-upload',Buffer.alloc(32*1024*1024+1)),/File list too large/);
+  assert.equal(secured,0);
   const sent=await a.sendBatch(peer.id,files);assert.equal(sent.length,2);assert.ok(sent.every(r=>r.status==='delivered'));
+  b.server.off('secureConnection',countConnection);assert.equal(secured,1);
   assert.ok(incoming.filter(r=>r.status==='received').every(r=>incoming.some(q=>q.id===r.id&&q.status==='queued')));
   assert.equal(fs.readFileSync(incoming.find(r=>r.status==='received'&&r.name==='中文.txt').path,'utf8'),'hello');
+  const receipts=new Map();
+  b.opts.lookupReceipt=(peerId,id)=>receipts.get(peerId+id);
+  const collect=b.opts.result;
+  b.opts.result=r=>{collect(r);if(r.status==='received')receipts.set(r.peerId+r.receiptId,{...r,diskIdentity:require('../lib/transfer-staging').identity(r.path,true)});};
+  const sendRequest=a.request.bind(a);
+  a.request=async(...args)=>{const response=await sendRequest(...args);if(args[1].startsWith('upload?'))throw Error('Lost receipt');return response;};
+  await assert.rejects(a.send(peer.id,files[0]),/Lost receipt/);
+  a.request=sendRequest;
+  const failed=outgoing.at(-1),before=incoming.filter(r=>r.status==='received').length;
+  assert.equal((await a.send(peer.id,files[0],{retryMap:new Map([[files[0],failed]])})).status,'delivered');
+  assert.equal(incoming.filter(r=>r.status==='received').length,before);
+  a.peers.get(peer.id).seen-=46000;
+  assert.equal((await a.send(peer.id,files[0])).status,'delivered');
   // Continuously active request survives longer than the configured idle deadline.
   const prep=await a.request(peer,'prepare-upload',{info:a.info(),files:{slow:{fileName:'slow.bin',size:10}}});
   const answer=new Promise((resolve,reject)=>{

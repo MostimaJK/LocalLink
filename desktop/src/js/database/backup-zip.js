@@ -2,7 +2,7 @@
 const fs=require('fs'),zlib=require('zlib');
 // Read only backup.json; never extract archive paths or invoke a shell.
 module.exports=function readBackup(filePath){
- if(fs.statSync(filePath).size>512*1024*1024)throw new Error('Backup ZIP exceeds 512 MiB');
+ if(fs.statSync(filePath).size>512*1024*1024)throw new Error('Backup ZIP exceeds 536.87 MB');
  const data=fs.readFileSync(filePath);let end=-1;
  for(let i=data.length-22;i>=Math.max(0,data.length-65557);i--)if(data.readUInt32LE(i)===0x06054b50){end=i;break;}
  if(end<0)throw new Error('Invalid ZIP directory');

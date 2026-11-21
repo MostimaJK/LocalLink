@@ -81,7 +81,7 @@ test('authenticated pairing enables receive consent once; revocation restores pr
   const offer={info:sender.info(),files:{fixture:{id:'fixture',fileName:'项目资料.zip',fileType:'application/zip',size:12*1024**3}}};
   const declined=sender.request(receiver,'prepare-upload',offer).then(()=>false,e=>e.statusCode===403);
   const card=page.locator('.ll-timeline .ll-large-receipt');
-  await expect(card).toContainText('10 GiB');
+  await expect(card).toContainText('10 GB');
   await card.screenshot({path:path.resolve('../artifacts/large-transfer-confirmation.png')});
   await card.locator('.ll-receipt-reject').click();
   expect(await declined).toBe(true);

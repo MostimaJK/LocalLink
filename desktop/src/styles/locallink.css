@@ -415,3 +415,13 @@ label:has(> input[type="checkbox"]:not(.ll-switch, .orbit-switch input, #profile
 .ll-bubble:has(.ll-text-content) .ll-file-state,.ll-bubble:has(.ll-text-content) .ll-file-actions { display:inline-flex; vertical-align:middle; margin:8px 0 0; }
 .ll-bubble:has(.ll-text-content) .ll-file-actions { border:0; padding:0; margin-inline-start:10px; }
 .ll-timeline .ll-receipt-card { align-self:flex-start; width:fit-content; max-width:min(90%,34rem); box-sizing:border-box; }
+
+.ll-receive-options .ll-setting-row { min-height:46px; padding-block:5px; }
+.ll-receive-options .ll-setting-row + .ll-setting-row { border-top:1px solid var(--border-subtle); }
+.ll-receive-options .ll-size-field,.ll-receive-options .ll-select { width:9.5rem; max-width:48%; box-sizing:border-box; }
+.ll-size-field { display:flex; align-items:center; gap:8px; padding:0 12px; min-height:36px; border:1px solid var(--border-subtle); border-radius:10px; background:var(--bg-base); color:var(--text-secondary); font-size:13px; }
+.ll-size-field:focus-within { outline:2px solid var(--accent-primary); outline-offset:1px; }
+.ll-size-field input { flex:1; width:0; min-width:0; background:transparent; border:0; outline:0; color:var(--text-primary); font:inherit; font-variant-numeric:tabular-nums; }
+
+.ll-skipped-folders {max-height:8rem;overflow:auto;color:var(--text-secondary);overflow-wrap:anywhere}
+.ll-skipped-folders summary {cursor:pointer}

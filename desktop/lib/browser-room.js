@@ -7,8 +7,10 @@ const os = require('node:os');
 const { publishFile } = require('../src/js/network/receive-file');
 
 class BrowserRoom {
-  constructor({record, receiveDir, changed}) {
+  constructor({record, receiveDir, changed, receiptMinutes=()=>0, staging}) {
     this.id = randomUUID();
+    this.receiptMinutes=receiptMinutes;
+    this.staging=staging;
     this.files = new Map();
     this.messages = [];
     this.localFiles = [];
@@ -26,20 +28,27 @@ class BrowserRoom {
     return true;
   }
   summary() {
-    return [...this.localFiles,...Array.from(this.files.values(), f=>({id:f.id,name:f.name,sender:f.sender,size:f.size,time:f.time,ready:!!f.path,saveFailed:!!f.saveFailed,host:f.hostApproved}))];
+    return [...this.localFiles,...Array.from(this.files.values(), f=>({id:f.id,name:f.name,sender:f.sender,size:f.size,time:f.time,ready:!!f.path,saved:!!f.saved,saveFailed:!!f.saveFailed,host:f.hostApproved}))];
   }
   received(file) {
     this.localFiles.push(file);
     this.changed?.();
   }
   async directory() {
-    this.temp ??= fs.mkdtemp(path.join(os.tmpdir(),'locallink-room-'));
+    this.temp ??= fs.mkdtemp(path.join(os.tmpdir(),'locallink-room-')).then(dir=>{this.tracked=this.staging?.track(dir,'room');return dir;});
     return this.temp;
   }
   list(number) {
     return Array.from(this.files.values()).filter(f => f.sender === number || f.recipients.has(number)).map(f => ({
       id:f.id, name:f.name, size:f.size, sender:f.sender,time:f.time,ready:!!f.path,hasPreview:!!f.preview,decision:f.sender===number?'sent':f.recipients.get(number)
     }));
+  }
+  depart(number){
+    for(const f of this.files.values()){
+      if(f.recipients.get(number)==='pending'){
+        f.recipients.set(number,'reject');f.notify?.();
+      }
+    }
   }
   decide(id, number, answer) {
     const f = this.files.get(id);
@@ -76,11 +85,12 @@ class BrowserRoom {
       lifecycle.emit('close');
       finish([]);
     };
-    const timer = setTimeout(() => {
+    const minutes=Number(this.receiptMinutes());
+    const timer = minutes>0 ? setTimeout(() => {
       for (const f of items) for (const [n,v] of f.recipients) if(v==='pending') f.recipients.set(n,'reject');
       if(host==='pending') { host='reject'; lifecycle.emit('close'); }
       check();
-    },90000);
+    },Math.min(minutes,1440)*60000) : null;
     this.pending.add(cancel);
     let hostDone=false;
     response.once('close',cancel);
@@ -102,18 +112,22 @@ class BrowserRoom {
     return result;
   }
   async save(f) {
+    if(this.closed || !f.hostApproved || !f.path)return false;
+    if(f.saved)return true;
     if (f.saving) return f.saving;
     f.saving = (async()=>{
       const dir=this.receiveDir();
       await fs.mkdir(dir,{recursive:true});
-      const dest=await publishFile(f.path,dir,f.name);
-      this.record({id:randomUUID(),peerId:'web:browser',sender:f.sender,roomId:this.id,name:f.name,size:f.size,bytes:f.size,path:dest,direction:'incoming',status:'received',startedAt:Date.now()});
-    })();
-    try {return await f.saving;}
-    catch(error){
+      const dest=f.savedPath??=await publishFile(f.path,dir,f.name,{staging:this.staging});
+      this.record({id:f.id,peerId:'web:browser',sender:f.sender,roomId:this.id,name:f.name,size:f.size,bytes:f.size,path:dest,direction:'incoming',status:'received',startedAt:f.time||Date.now()});
+      f.saved=true;f.saveFailed=false;
+      return true;
+    })().catch(error=>{
       f.saveFailed=true;
-      this.record({id:randomUUID(),peerId:'web:browser',roomId:this.id,name:f.name,size:f.size,direction:'incoming',status:'failed',error:error.message,startedAt:Date.now()});
-    }finally{this.changed?.();}
+      this.record({id:f.id,peerId:'web:browser',sender:f.sender,roomId:this.id,name:f.name,size:f.size,direction:'incoming',status:'failed',error:error.message,startedAt:Date.now()});
+      return false;
+    }).finally(()=>{f.saving=null;this.changed?.();});
+    return f.saving;
   }
   async ready(f, temp) {
     const finalPath=path.join(await this.directory(),f.id);
@@ -134,6 +148,7 @@ class BrowserRoom {
     this.messages.length=0;
     this.localFiles.length=0;
     if(this.temp) await fs.rm(await this.temp,{recursive:true,force:true,maxRetries:4,retryDelay:150});
+    this.staging?.forgetIfGone(this.tracked);
   }
 }
 module.exports={BrowserRoom};

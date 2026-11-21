@@ -5,7 +5,7 @@ window.TransferCenter={
  open(mode){window.store.setState({activeTab:'dms',activeView:'friends',activeChatId:'locallink-view:'+mode});},
  badge(){
   const button=document.getElementById('btn-nav-gallery');if(!button||window.orbitAPI.dbGetSetting('locallink.transport','localsend')!=='localsend')return;
-  const count=window.orbitAPI.sendSync('locallink-list-transfers',{statuses:this.active,limit:1000}).length;
+  const count=window.orbitAPI.sendSync('locallink-active-count');
   let badge=button.querySelector('.ll-task-badge');if(!badge){badge=document.createElement('span');badge.className='ll-task-badge';button.append(badge);}badge.textContent=count>=1000?'999+':String(count);badge.hidden=!count;
  },
  render(host,mode){
@@ -49,6 +49,7 @@ window.TransferCenter={
  }
 };
 const refreshTransferCenter=()=>{if(window.TransferCenter.timer)return;window.TransferCenter.timer=setTimeout(()=>{window.TransferCenter.timer=null;window.TransferCenter.badge();window.TransferCenter.rows();},200);};
+window.orbitAPI.on('locallink-batch-progress',refreshTransferCenter);
 window.orbitAPI.on('locallink-transfer-result',refreshTransferCenter);
 window.orbitAPI.on('locallink-history-changed',refreshTransferCenter);
 window.addEventListener('locallink-language-change',()=>{const mode=window.store.getState().activeChatId?.split(':')[1];if(window.store.getState().activeChatId?.startsWith('locallink-view:'))window.TransferCenter.render(window.ChatPanel.container,mode);});

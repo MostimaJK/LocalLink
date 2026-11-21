@@ -8,7 +8,7 @@ const {exportArchive,importArchive}=require('../src/js/database/transfer-archive
  const db=new NativeDb(':memory:');db.exec('CREATE TABLE settings(key TEXT PRIMARY KEY,value TEXT)');
  const store=new TransferStore(db);const original=path.join(root,'原始资料.txt');fs.writeFileSync(original,'original bytes 原文');
  try{
-  store.save({id:'one',peerId:'localsend:phone',name:'原始资料.txt',status:'received',direction:'incoming',size:fs.statSync(original).size,path:original,time:100});
+  store.save({id:'one',peerId:'localsend:phone',name:'原始资料.txt',status:'received',direction:'incoming',diskIdentity:require('../lib/transfer-staging').identity(original,true),size:fs.statSync(original).size,path:original,time:100});
   const backup=await exportArchive(store,root,true);assert.equal(backup.missing,0);
   const manifest=path.join(backup.path,'locallink-backup.json');const parsed=JSON.parse(fs.readFileSync(manifest));
   assert.equal(parsed.records[0].path,undefined);assert.equal(parsed.fingerprint,undefined);
@@ -23,6 +23,13 @@ const {exportArchive,importArchive}=require('../src/js/database/transfer-archive
   const metadata=await exportArchive(store,root,false);store.replace([]);
   await importArchive(store,path.join(metadata.path,'locallink-backup.json'),path.join(root,'restored'));
   assert.equal(store.get('one').path,undefined);
+  const fileRow={...good,peerId:'web:browser',name:'Course/Week1/notes.txt'};
+  store.replace([fileRow]);
+  const mixed=await exportArchive(store,root,true);
+  const restored=await importArchive(store,path.join(mixed.path,'locallink-backup.json'),path.join(root,'received'));
+  assert.equal(store.get('one').path,path.join(restored.path,'Course','Week1','notes.txt'));
+  fs.renameSync(fileRow.path,fileRow.path+'.old');fs.writeFileSync(fileRow.path,'replacement');
+  store.replace([fileRow]);assert.deepEqual((await exportArchive(store,root,true)).skipped,[fileRow.name]);
   // Bounded pages still reach records beyond the first thousand.
   const start=performance.now();db.transaction(()=>{for(let i=0;i<10000;i++)store.save({id:'r'+i,peerId:'localsend:phone',name:'file-'+i+'.txt',status:'delivered',direction:'outgoing',time:i});})();
   const queryStart=performance.now();const page=store.list({peerId:'localsend:phone',limit:100,offset:9000});

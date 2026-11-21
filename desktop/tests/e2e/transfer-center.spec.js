@@ -22,3 +22,30 @@ test('task and received navigation filters real store records and keeps device h
   await page.locator('#btn-nav-dms').click();await expect(page.locator('.ll-center')).toHaveCount(0);
  }finally{await app.close();}
 });
+
+test('restart restores failed batch details and outbox cleanup protects retry files',async()=>{
+ const fs=require('node:fs');
+ const root=tmpUserDataDir('recovery'),outbox=path.join(root,'locallink-outbox');
+ fs.mkdirSync(outbox);
+ const retained=path.join(outbox,'Image-1000000000000-1234abcd.png');
+ const orphan=path.join(outbox,'Image-1000000000000-1234abce.png');
+ for(const file of [retained,orphan])fs.writeFileSync(file,'fixture');
+ const id='localsend:restored',batchId='stored-batch';
+ let {app,page}=await launchApp(root,[],{keepBootState:true});
+ try{
+  await page.evaluate(({id,batchId,retained})=>{
+   const rows=Array.from({length:9},(_,i)=>({id:'record-'+i,peerId:id,batchId,batchCount:9,name:'file'+i,status:i?'delivered':'failed',direction:'outgoing',path:i?null:retained,startedAt:100+i}));
+   window.orbitAPI.dbSetSetting('locallink.transfers',rows);
+  },{id,batchId,retained});
+  await app.close();
+  ({app,page}=await launchApp(root,[],{keepBootState:true}));
+  await page.evaluate(id=>{window.store.addOrUpdatePeer({userId:id,username:'Restored',status:'offline'});window.store.setState({activeChatId:id});},id);
+  const failed=page.locator('[data-failed-batch]');
+  await expect(failed).toBeVisible();await failed.click();await expect(page.locator('.ll-history-row')).toHaveCount(1);
+  const cache=await page.evaluate(()=>window.orbitAPI.invoke('locallink-sent-cache-size'));
+  expect(cache).toMatchObject({count:1,bytes:7,retained:7});
+  await app.evaluate(({dialog})=>{dialog.showMessageBox=async()=>({response:1});});
+  expect((await page.evaluate(()=>window.orbitAPI.invoke('locallink-clean-sent-cache'))).count).toBe(1);
+  expect(fs.existsSync(orphan)).toBe(false);expect(fs.existsSync(retained)).toBe(true);
+ }finally{await app.close();}
+});

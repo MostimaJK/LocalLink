@@ -37,6 +37,10 @@ test('general settings prioritize folders and retain preferences across sections
   await chooseSetting(page,'ll-download-limit','10');
   expect(await page.evaluate(()=>window.orbitAPI.dbGetSetting('locallink.bandwidth'))).toEqual({upload:5,download:10});
   await page.screenshot({path:path.resolve('../artifacts/settings-bandwidth.png')});
+  const limit=page.locator('#ll-large-transfer-limit');
+  await limit.fill('2.5');await limit.press('Tab');
+  expect(await page.evaluate(()=>window.orbitAPI.dbGetSetting('locallink.largeTransferGB'))).toBe(2.5);
+  await page.locator('.ll-receive-options').screenshot({path:path.resolve('../artifacts/receiving-options.png')});
   await page.locator('#ll-open-after-receive').check();
   await page.locator('#ll-transfer-notifications').uncheck();
   await page.locator('#ll-export-records').scrollIntoViewIfNeeded();

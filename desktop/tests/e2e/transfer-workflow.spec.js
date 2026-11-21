@@ -200,7 +200,8 @@ test('packaged resources retain the icon library and a working native database',
 });
 
 test('real file conversation: manual discovery, text, batch, paste, folder and history',async()=>{
- test.setTimeout(90000);
+ const batchSize=process.env.LOCALLINK_STRESS_BATCH==='1'?10000:120;
+ test.setTimeout(batchSize===120?90000:300000);
  const dir=tmpUserDataDir('workflow'),receiverDir=tmpUserDataDir('receiver'),incoming=[];
  const receiver=new LocalSend({dataDir:receiverDir,receiveDir:path.join(receiverDir,'files'),alias:()=> 'Test laptop',maxBytes:1e7,port:0,discovery:false,pair:async()=>true,accept:async()=>true,result:r=>incoming.push(r)});
  await receiver.start();let app;
@@ -231,8 +232,16 @@ test('real file conversation: manual discovery, text, batch, paste, folder and h
   expect(incoming.find(r=>r.status==='received').text).toContain('你好');
   await expect(page.locator('#ll-message-input')).toHaveValue('');
   const files=['Notes.txt','中文空文件.txt'].map((name,i)=>{const file=path.join(dir,name);fs.writeFileSync(file,i?'':'a file with original bytes');return file;});
-  await app.evaluate(({dialog},paths)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:paths});},files);
-  await page.locator('#localsend-send').click();
+  await page.evaluate(paths=>{
+   const panel=window.LocalSendPanel,bind=panel.bindFileDrop;
+   panel.bindFileDrop=function(surface,enabled,add){bind.call(this,surface,enabled,add);window.addDropped=add;};
+   window.store.setState({friends:[...window.store.getState().friends]});
+   const peer=window.store.getState().friends.find(p=>p.userId===window.store.getState().activeChatId);
+   panel.render(peer,document.querySelector('#chat-container'));
+   window.addDropped([paths[0]]);window.addDropped(paths);
+  },files);
+  await expect(page.locator('.ll-composer')).toContainText('待傳送 · 2');
+  await page.getByRole('button',{name:'傳送檔案',exact:true}).click();
   await expect(page.locator('[data-status="delivered"]')).toHaveCount(3);
   expect(incoming.filter(r=>r.status==='received').length).toBe(3);
   const png=await require('sharp')({create:{width:300,height:160,channels:3,background:'#2463ba'}}).png().toBuffer();
@@ -248,10 +257,12 @@ test('real file conversation: manual discovery, text, batch, paste, folder and h
   await page.evaluate(()=>window.LocalSendPanel.history());
   await page.locator('#ll-history-dialog input[type=search]').fill('Notes');await expect(page.locator('.ll-history-row')).toHaveCount(1);
   await page.locator('#ll-history-dialog .ll-dialog-close').click();
-  const folder=path.join(dir,'Documents');fs.mkdirSync(folder);fs.writeFileSync(path.join(folder,'nested.txt'),'folder bytes');
+  const folder=path.join(dir,'Documents');fs.mkdirSync(folder);fs.mkdirSync(path.join(folder,'Empty'));fs.writeFileSync(path.join(folder,'nested.txt'),'folder bytes');
   await app.evaluate(({dialog},folder)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[folder]});},folder);
   await page.locator('#ll-send-folder').click();await expect(page.locator('[data-status="delivered"]')).toHaveCount(5);
-  const zipped=incoming.find(r=>r.status==='received'&&r.name==='Documents.zip');expect(fs.readFileSync(zipped.path).includes(Buffer.from('folder bytes'))).toBe(true);
+  await page.locator('.ll-skipped-folders summary').click();
+  await expect(page.locator('.ll-skipped-folders')).toContainText('Empty');
+  const nested=incoming.find(r=>r.status==='received'&&r.name==='Documents/nested.txt');expect(nested.path.endsWith(path.join('Documents','nested.txt'))).toBe(true);expect(fs.readFileSync(nested.path,'utf8')).toBe('folder bytes');
   const receiveDir=path.join(dir,'custom-received');fs.mkdirSync(receiveDir);
   await app.evaluate(({dialog},folder)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[folder]});dialog.showMessageBox=async()=>({response:1});},receiveDir);
   await page.evaluate(()=>window.SettingsModal.open('network'));await page.locator('#ll-choose-directory').click();
@@ -297,7 +308,7 @@ test('real file conversation: manual discovery, text, batch, paste, folder and h
   await page.locator('#ll-history-dialog .ll-load-more').click();
   await expect(page.locator('[data-trash-file]')).toHaveCount(0);expect(fs.existsSync(received.path)).toBe(false);
   expect(fs.existsSync(files[0])).toBe(true);
-  const cleaned=await page.evaluate(()=>window.orbitAPI.invoke('locallink-clean-sent-cache'));expect(cleaned.ok).toBe(true);expect(cleaned.count).toBeGreaterThanOrEqual(2);expect(fs.existsSync(files[0])).toBe(true);
+  const cleaned=await page.evaluate(()=>window.orbitAPI.invoke('locallink-clean-sent-cache'));expect(cleaned.ok).toBe(true);expect(cleaned.count).toBeGreaterThanOrEqual(1);expect(fs.existsSync(files[0])).toBe(true);
   const peerId='localsend:'+receiver.fingerprint;
   expect((await page.evaluate(id=>window.orbitAPI.invoke('locallink-manage-trust',id),peerId)).ok).toBe(true);
   expect(await page.evaluate(id=>window.orbitAPI.dbGetSetting('locallink.trust.'+id).autoReceive,peerId)).toBe(false);
@@ -308,5 +319,71 @@ test('real file conversation: manual discovery, text, batch, paste, folder and h
   expect(await page.evaluate(id=>window.orbitAPI.dbGetSetting('locallink.trust.'+id).paired,peerId)).toBeUndefined();
 
 
- }finally{if(app)await app.close();receiver.stop();}
+  const tree=path.join(dir,'RetryFixture');
+  for(const branch of ['A','B']){
+   const sub=path.join(tree,branch,'inner');fs.mkdirSync(sub,{recursive:true});
+   fs.writeFileSync(path.join(sub,'report.txt'),branch);
+  }
+  const accept=receiver.opts.accept;receiver.opts.accept=async()=>false;
+  const refusedTree=await page.evaluate(args=>window.orbitAPI.invoke('locallink-send-paths',args),{peerId,paths:[tree,path.join(tree,"A"),path.join(tree,"A","inner","report.txt")]});
+  expect(refusedTree.ok).toBe(false);receiver.opts.accept=accept;
+  const retryRecords=await page.evaluate(peerId=>window.orbitAPI.sendSync('locallink-list-transfers',{peerId,limit:100}),peerId);
+  expect(retryRecords.filter(r=>r.name.startsWith('RetryFixture/'))).toHaveLength(2);
+  for(const branch of ['B','A']){
+   const record=retryRecords.find(r=>r.name==='RetryFixture/'+branch+'/inner/report.txt');
+   expect(record.status).toBe('failed');
+   expect((await page.evaluate(id=>window.orbitAPI.invoke('locallink-retry-transfer',{id}),record.id)).ok).toBe(true);
+   expect(fs.readFileSync(path.join(receiver.opts.receiveDir,record.name),'utf8')).toBe(branch);
+  }
+  await page.locator('#ll-history-dialog .ll-dialog-close').click();
+  const empty=path.join(dir,'only-empty');fs.mkdirSync(empty);
+  const noFiles=await page.evaluate(args=>window.orbitAPI.invoke('locallink-send-paths',args),{peerId,paths:[empty]});
+  expect(noFiles.error).toBe('Only empty folders selected');
+  const mixed=await page.evaluate(args=>window.orbitAPI.invoke('locallink-send-paths',args),{peerId,paths:[empty,files[0]]});
+  expect(mixed.emptyFolders).toEqual(['only-empty']);
+  const fixtures=Array.from({length:batchSize},(_,index)=>{
+   const file=path.join(dir,'batch-'+index+'.txt');fs.writeFileSync(file,'fixture '+index);return file;
+  });
+  await page.evaluate(()=>{
+   window.chatMaxGap=0;let last=performance.now();
+   window.chatHeartbeat=setInterval(()=>{const now=performance.now();window.chatMaxGap=Math.max(window.chatMaxGap,now-last);last=now;},50);
+  });
+  const started=Date.now();
+  const sending=receiver.sendBatch(peer.id,fixtures);
+  try{
+   await expect(chatCard).toBeVisible();
+   const detail=chatCard.locator('details');
+   await expect(detail.locator('div')).toHaveCount(0);
+   await detail.locator('summary').click();await expect(detail.locator('div')).toHaveCount(50);
+   await detail.locator('button').click();await expect(detail.locator('div')).toHaveCount(100);
+   await chatCard.locator('.ll-receipt-accept').click();
+   await sending;
+  }finally{receiver.stop();await sending.catch(()=>{});}
+  await expect(page.locator('[data-show-batch]').first()).toBeVisible();
+  const finished=await page.evaluate(n=>[...window.LocalSendPanel.batches.values()].find(b=>b.total===n),batchSize);
+  expect(finished.finished).toBe(batchSize);expect(finished.failed).toBe(0);
+  expect(await app.evaluate(()=>globalThis.__llShown.length)).toBe(2);
+  await page.locator('[data-show-batch]').first().click();
+  await expect(page.locator('[data-status="received"]')).toHaveCount(100);
+  const summary=await page.evaluate(id=>window.orbitAPI.sendSync('locallink-batch-summary',id),finished.id);
+  expect(summary.finished).toBe(batchSize);
+  const gap=await page.evaluate(()=>{clearInterval(window.chatHeartbeat);return window.chatMaxGap;});
+  console.log(batchSize+' files with chat open: '+(Date.now()-started)+' ms; longest renderer heartbeat interval: '+Math.round(gap)+' ms');
+  await app.evaluate(({dialog})=>{dialog.showMessageBox=async()=>({response:1});});
+  const target=await page.evaluate(()=>window.orbitAPI.sendSync('locallink-list-transfers',{direction:'incoming',limit:1})[0]);
+  fs.renameSync(target.path,target.path+'.original');fs.writeFileSync(target.path,'a different file');
+  const protect=await page.evaluate(id=>window.orbitAPI.invoke('locallink-storage-cleanup',[id]),target.id);
+  expect(protect.ok).toBe(false);expect(fs.readFileSync(target.path,'utf8')).toBe('a different file');
+ }finally{
+  if(app)await app.close();receiver.stop();
+  if(batchSize>120){
+   const temp=fs.realpathSync(require('node:os').tmpdir());
+   for(const [folder,prefix] of [[dir,'orbit-e2e-workflow-'],[receiverDir,'orbit-e2e-receiver-']]){
+    const verified=fs.realpathSync(folder);
+    if(path.dirname(verified)===temp&&path.basename(verified).startsWith(prefix)){
+     await fs.promises.rm(verified,{recursive:true,force:true,maxRetries:3});
+    }
+   }
+  }
+ }
 });

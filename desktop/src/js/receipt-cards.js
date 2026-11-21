@@ -42,14 +42,27 @@
       icon.setAttribute('aria-hidden','true');
       title.prepend(icon);
       window.lucide.createIcons({root:title});
-      append(card,'small',t('本次傳輸超過','本次传输超过','This transfer exceeds')+' '+offer.largeThreshold+' GiB'+t('，確認後才會開始接收。','，确认后才会开始接收。','. Confirm to start receiving.'));
+      append(card,'small',t('本次傳輸超過','本次传输超过','This transfer exceeds')+' '+offer.largeThreshold+' GB'+t('，確認後才會開始接收。','，确认后才会开始接收。','. Confirm to start receiving.'));
+    }
+    const insufficient=offer.total>offer.freeBytes;
+    if(Number.isFinite(offer.freeBytes)){
+      append(card,'small',(insufficient?t('空間不足','空间不足','Insufficient space')+' · ':'')+t('本次傳輸','本次传输','Transfer')+' '+panel.size(offer.total)+' · '+t('可用空間','可用空间','Available')+' '+panel.size(offer.freeBytes));
     }
     const list = append(card, 'details', '');
-    const formatSize = bytes => offer.largeThreshold && bytes >= 1024**3 ? (bytes/1024**3).toLocaleString(undefined,{maximumFractionDigits:2})+' GiB' : panel.size(bytes);
+    const formatSize = bytes => offer.largeThreshold && bytes >= 1e9 ? (bytes/1e9).toLocaleString(undefined,{maximumFractionDigits:2})+' GB' : panel.size(bytes);
     const first = offer.files[0].name;
     append(list, 'summary', first + (offer.files.length > 1 ? ' (+' + (offer.files.length-1) + ')' : '') + ' · ' + formatSize(offer.total));
     append(list, 'small', offer.ip || '');
-    for (const file of offer.files) append(list, 'div', file.name + ' · ' + formatSize(file.size));
+    let shown=0;
+    const more=append(list,'button',t('顯示更多','显示更多','Show more'));
+    function showPage(){
+      for(const file of offer.files.slice(shown,shown+50)){
+        const row=document.createElement('div');row.textContent=file.name+' · '+formatSize(file.size);more.before(row);shown++;
+      }
+      more.hidden=shown>=offer.files.length;
+    }
+    list.ontoggle=()=>{if(list.open && !shown)showPage();};
+    more.onclick=showPage;
     const previews=offer.files.filter(file=>file.preview?.startsWith('data:image/png;base64,'));
     if(previews.length){
       const gallery=append(card,'div','');
@@ -72,6 +85,7 @@
     actions.className='ll-receipt-actions';
     for (const [accept, label] of [[false,t('拒絕','拒绝','Reject')],[true,t('接受','接受','Accept')]]) {
       const button = append(actions, 'button', label);
+      button.disabled=accept && insufficient;
       button.className = accept ? 'll-receipt-accept' : 'll-receipt-reject';
       const glyph=document.createElement('i');
       glyph.dataset.lucide=accept?'check':'x';
@@ -81,7 +95,7 @@
       button.onclick = async () => {
         for (const btn of actions.children) btn.disabled = true;
         try { await api.invoke('locallink-decide-receipt', {id:offer.id, accept, remember:!!remember?.checked}); }
-        catch { for (const btn of actions.children) btn.disabled = false; }
+        catch { for (const btn of actions.children) btn.disabled = insufficient && btn.classList.contains('ll-receipt-accept'); }
       };
     }
     cards.set(offer.id, card);

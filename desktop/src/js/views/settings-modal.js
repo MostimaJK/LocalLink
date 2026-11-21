@@ -895,10 +895,12 @@ window.SettingsModal = {
       async function refreshCacheSize(){
         clean.disabled=true;
         try{
-          const {bytes,count}=await window.orbitAPI.invoke('locallink-sent-cache-size');
-          const units=['B','KiB','MiB','GiB','TiB'];
-          const index=Math.min(units.length-1,Math.floor(Math.log2(Math.max(1,bytes))/10));
-          size.textContent=(bytes/1024**index).toLocaleString(undefined,{maximumFractionDigits:1})+' '+units[index];
+          const {bytes,count,active,retained}=await window.orbitAPI.invoke('locallink-sent-cache-size');
+          const units=['B','KB','MB','GB','TB'];
+          const index=Math.min(units.length-1,Math.floor(Math.log10(Math.max(1,bytes))/3));
+          size.textContent=(bytes/1000**index).toLocaleString(undefined,{maximumFractionDigits:1})+' '+units[index];
+          if(active)size.textContent+=' · '+t('傳送中','发送中','Sending')+' '+window.LocalSendPanel.size(active);
+          if(retained)size.textContent+=' · '+t('保留供重試','保留供重试','Retained for retry')+' '+window.LocalSendPanel.size(retained);
           clean.disabled=count===0;
         }catch{size.textContent=t('無法讀取','无法读取','Unavailable');clean.disabled=false;}
       }
@@ -914,7 +916,7 @@ window.SettingsModal = {
       const backup=async(channel,arg)=>{
         const buttons=[...content.querySelectorAll('.ll-file-actions button')];buttons.forEach(b=>b.disabled=true);
         const message=content.querySelector('#ll-backup-result');message.textContent=t('處理中…','处理中…','Working…');
-        try{const result=await window.orbitAPI.invoke(channel,arg);message.textContent=result.error||(result.ok?t('完成','完成','Completed')+' · '+result.count+' · '+result.path+(result.missing?' · '+t('找不到的檔案','找不到的文件','Missing files')+': '+result.missing:''):'');}
+        try{const result=await window.orbitAPI.invoke(channel,arg);message.textContent=result.error||(result.ok?t('完成','完成','Completed')+' · '+result.count+' · '+result.path+(result.missing?' · '+t('已略過的原檔案','已跳过的原文件','Skipped originals')+' ('+result.missing+'): '+result.skipped.join(', '):''):'');}
         catch(error){message.textContent=error.message;}finally{buttons.forEach(b=>b.disabled=false);}
       };
       content.querySelector('#ll-export-records').onclick=()=>backup('locallink-export-transfers',false);
@@ -929,7 +931,7 @@ window.SettingsModal = {
         <details class="ll-folder-tools"><summary>${t('更多操作','更多操作','More actions')}</summary><div class="ll-file-actions"><button id="ll-update-reset">${t('還原更新資料夾','恢复默认更新目录','Reset update folder')}</button><button id="ll-open-directory">${t('開啟資料夾','打开目录','Open folder')}</button><button id="ll-rediscover">${t('重新搜尋','重新搜索','Discover again')}</button></div></details><p id="ll-network-result" role="status"></p></div></section>`;
       const receivingCard=content.querySelector('#ll-receive-path').closest('section');
       const showResult=result=>{if(!receivingCard.isConnected)return;if(result.path)setPath(receivingCard.querySelector('#ll-receive-path'),result.path);receivingCard.querySelector('#ll-network-result').textContent=result.error||'';};
-      const receiveOptions=document.createElement('section');receiveOptions.className='ll-settings-card';receiveOptions.innerHTML=`<div class="ll-settings-card-head"><i data-lucide="folder-check"></i>${t('接收後','接收后','After receiving')}</div><div class="ll-settings-card-body"><p class="ll-settings-copy">${t('接收成功後，檔案會自動儲存在上方資料夾內。','接收成功后，文件会自动保存在上方文件夹内。','Accepted files are saved automatically inside the folder above.')}</p><label class="ll-setting-row" for="ll-open-after-receive">${t('完成後開啟所在資料夾','完成后打开所在文件夹','Open containing folder when complete')}<input id="ll-open-after-receive" type="checkbox" role="switch" class="ll-switch"></label></div>`;content.appendChild(receiveOptions);
+      const receiveOptions=document.createElement('section');receiveOptions.className='ll-settings-card ll-receive-options';receiveOptions.innerHTML=`<div class="ll-settings-card-head"><i data-lucide="folder-check"></i>${t('接收選項','接收选项','Receiving options')}</div><div class="ll-settings-card-body"><p class="ll-settings-copy">${t('接收成功後，檔案會自動儲存在上方資料夾內。','接收成功后，文件会自动保存在上方文件夹内。','Accepted files are saved automatically inside the folder above.')}</p><label class="ll-setting-row" for="ll-open-after-receive">${t('完成後開啟所在資料夾','完成后打开所在文件夹','Open containing folder when complete')}<input id="ll-open-after-receive" type="checkbox" role="switch" class="ll-switch"></label></div>`;content.appendChild(receiveOptions);
       const bandwidth = window.orbitAPI.dbGetSetting('locallink.bandwidth', {upload:0,download:0});
       const speedCard = document.createElement('section');
       speedCard.className = 'll-settings-card';
@@ -950,13 +952,19 @@ window.SettingsModal = {
       content.querySelector('#ll-download-limit').onchange = saveBandwidth;
       const thresholdRow=document.createElement('label');
       thresholdRow.className='ll-setting-row';
-      thresholdRow.innerHTML=`<span>${t('大檔案接收確認門檻','大文件接收确认阈值','Large transfer confirmation threshold')}</span><span><input id="ll-large-transfer-limit" type="number" min="0.01" step="0.01" required style="width:6em"> GiB</span>`;
+      thresholdRow.innerHTML=`<span>${t('大檔案接收確認門檻','大文件确认阈值','Large transfer confirmation threshold')}</span><span class="ll-size-field"><input id="ll-large-transfer-limit" type="number" min="0.01" step="0.01" required><span>GB</span></span>`;
       receiveOptions.querySelector('.ll-settings-card-body').append(thresholdRow);
+      const waitRow=document.createElement('label');waitRow.className='ll-setting-row';
+      waitRow.innerHTML=`<span>${t('等待接收確認','等待接收确认','Wait for confirmation')}</span><select>${[0,1,5,15,60].map(n=>'<option value="'+n+'">'+(n?n+' '+t('分鐘','分钟','min'):t('不限時','不限时','No timeout'))+'</option>').join('')}</select>`;
+      thresholdRow.after(waitRow);
+      const waitSelect=waitRow.querySelector('select');
+      waitSelect.value=window.orbitAPI.dbGetSetting('locallink.receiptMinutes',0);
+      waitSelect.onchange=()=>window.orbitAPI.dbSetSetting('locallink.receiptMinutes',Number(waitSelect.value));
       const limitInput=thresholdRow.querySelector('input');
-      limitInput.value=window.orbitAPI.dbGetSetting('locallink.largeTransferGiB',10);
+      limitInput.value=window.orbitAPI.dbGetSetting('locallink.largeTransferGB',window.orbitAPI.dbGetSetting('locallink.largeTransferGiB',10));
       limitInput.onchange=()=>{
-        if(!limitInput.reportValidity()){limitInput.value=window.orbitAPI.dbGetSetting('locallink.largeTransferGiB',10);return;}
-        window.orbitAPI.dbSetSetting('locallink.largeTransferGiB',limitInput.valueAsNumber);
+        if(!limitInput.reportValidity()){limitInput.value=window.orbitAPI.dbGetSetting('locallink.largeTransferGB',window.orbitAPI.dbGetSetting('locallink.largeTransferGiB',10));return;}
+        window.orbitAPI.dbSetSetting('locallink.largeTransferGB',limitInput.valueAsNumber);
       };
       const openAfter=content.querySelector('#ll-open-after-receive');openAfter.checked=window.orbitAPI.dbGetSetting('locallink.openAfterReceive',false);openAfter.onchange=()=>window.orbitAPI.dbSetSetting('locallink.openAfterReceive',openAfter.checked);
       window.orbitAPI.invoke('locallink-storage').then(showResult);
@@ -1568,7 +1576,7 @@ window.SettingsModal = {
       const probe=document.createElement('div');probe.className='ll-settings-card-body';
       const testCard=document.createElement('section');testCard.className='ll-settings-card';
       testCard.innerHTML=`<div class="ll-settings-card-head"><i data-lucide="network"></i>${t('區域網路傳輸速率測試','局域网传输速率测试','LAN throughput test')}</div>`;
-      probe.innerHTML=`<label class="ll-setting-row">${t('目標裝置','目标设备','Target device')} <select></select></label><p class="ll-settings-copy">${t('選擇已配對的附近電腦，每個方向傳輸 8 MiB。','选择已配对的附近电脑，每个方向传输 8 MiB。','Select a nearby paired computer. Transfers 8 MiB each way.')}</p><div class="ll-file-actions"><button>${t('重新整理','刷新设备','Refresh devices')}</button><button disabled>${t('開始測速','开始测速','Run test')}</button></div><p role="status"></p>`;
+      probe.innerHTML=`<label class="ll-setting-row">${t('目標裝置','目标设备','Target device')} <select></select></label><p class="ll-settings-copy">${t('選擇已配對的附近電腦，每個方向傳輸 8.39 MB。','选择已配对的附近电脑，每个方向传输 8.39 MB。','Select a nearby paired computer. Transfers 8.39 MB each way.')}</p><div class="ll-file-actions"><button>${t('重新整理','刷新设备','Refresh devices')}</button><button disabled>${t('開始測速','开始测速','Run test')}</button></div><p role="status"></p>`;
       testCard.append(probe);
       const selectPeer=probe.querySelector('select'),[refreshPeers,testSpeed]=probe.querySelectorAll('button'),report=probe.querySelector('[role=status]');
       async function loadPeers(){
@@ -2151,14 +2159,14 @@ window.SettingsModal = {
         var result = await window.orbitAPI.backupCreate('orzip');
         if (result.canceled) return;
         if (result.error) { window.Toast.show('Backup Failed', result.error); return; }
-        window.Toast.show('Backup Created', 'Saved (' + (result.size / 1024).toFixed(1) + ' KB)');
+        window.Toast.show('Backup Created', 'Saved (' + (result.size / 1000).toFixed(1) + ' KB)');
       }));
       content.querySelector('#btn-backup-zip').addEventListener('click', withLoading(content.querySelector('#btn-backup-zip'), async function() {
         if (!window.orbitAPI || !window.orbitAPI.backupCreate) { window.Toast.show('Error', 'Backup not available'); return; }
         var result = await window.orbitAPI.backupCreate('zip');
         if (result.canceled) return;
         if (result.error) { window.Toast.show('Backup Failed', result.error); return; }
-        window.Toast.show('Backup Created', 'Saved (' + (result.size / 1024).toFixed(1) + ' KB)');
+        window.Toast.show('Backup Created', 'Saved (' + (result.size / 1000).toFixed(1) + ' KB)');
       }));
 
       // Restore with confirmation

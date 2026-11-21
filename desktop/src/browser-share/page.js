@@ -42,7 +42,8 @@ function renderRoom(room) {
     }
     const f=m;
     const row=append(feed,'li','');if(f.sender===room.me)row.className='mine';append(row,'small',sender(f.sender,room.me));
-    append(row,'p',f.name+' · '+(f.size<1024?f.size+' B':Math.ceil(f.size/1024)+' KiB'));
+    const unit=Math.min(4,Math.floor(Math.log10(Math.max(1,f.size))/3));
+    append(row,'p',f.name+' · '+(f.size/1000**unit).toLocaleString(undefined,{maximumFractionDigits:2})+' '+['B','KB','MB','GB','TB'][unit]);
     if(f.hasPreview && f.decision!=='reject'){
       const img=append(row,'img','');img.className='preview';img.alt=f.name;img.src='preview/'+f.id;
     }
@@ -128,9 +129,18 @@ async function previewPixels(file,edge) {
     return {width:canvas.width,height:canvas.height,rgb:btoa(rgb)};
   } catch {return undefined;} finally {URL.revokeObjectURL(url);}
 }
-let sending = false;
+let sending = false,controller;
+const cancel=el('cancel-send');
+cancel.textContent=t('Cancel transfer','取消本次发送','取消本次傳送');
+cancel.onclick=()=>controller?.abort();
+function finishSending(){
+  sending=false;controller=null;cancel.hidden=true;el('pick').disabled=false;el('pick').value='';refresh();
+}
+const cancelled=t('Transfer cancelled','已取消发送','已取消傳送');
 el('pick').onchange = async event => {
   const files = Array.from(event.target.files);
+  controller=new AbortController();cancel.hidden=false;
+  const {signal}=controller;
   sending = true; el('pick').disabled = true;
   let completed = 0, tokens;
   try {
@@ -138,30 +148,30 @@ el('pick').onchange = async event => {
     const manifest=[];
     const edge=Math.min(192,Math.floor(Math.sqrt(700000/files.length)));
     for(const file of files)manifest.push({name:file.name,size:file.size,pixels:await previewPixels(file,edge)});
-    const offer = await fetch('offer', {method:'POST',body:JSON.stringify(manifest)});
+    const offer = await fetch('offer', {method:'POST',signal,body:JSON.stringify(manifest)});
     if (!offer.ok) throw offer.status;
     tokens = await offer.json();
   } catch (status) {
-    el('status').textContent = status === 403 ? t('Declined or expired','已拒绝或请求已过期','已拒絕或請求已過期') :
+    el('status').textContent = signal.aborted?cancelled:status === 403 ? t('Declined or expired','已拒绝或请求已过期','已拒絕或請求已過期') :
       status === 413 ? t('Session limit reached','已达到本次共享上限','已達本次共享上限') : t('Request failed','请求失败','請求失敗');
-    sending = false; el('pick').value = ''; refresh(); return;
+    finishSending();return;
   }
   for (const [index,file] of files.entries()) {
     if (!tokens[index]) continue;
     el('status').textContent = (completed + 1) + '/' + files.length + ' · ' + file.name;
     try {
-      const result = await fetch('upload', { method:'POST', headers:{ 'X-Upload-Token':tokens[index], 'X-File-Name':encodeURIComponent(file.name), 'X-File-Size':String(file.size) }, body:file });
+      const result = await fetch('upload', { method:'POST', signal,headers:{ 'X-Upload-Token':tokens[index], 'X-File-Name':encodeURIComponent(file.name), 'X-File-Size':String(file.size) }, body:file });
       if (!result.ok) throw result.status;
       completed++;
       el('status').textContent = t('Sent','已发送','已傳送') + ' · ' + completed + '/' + files.length;
     } catch (status) {
-      const message = status === 413 ? t('Session limit reached','已达到本次共享上限','已達本次共享上限') :
+      const message = signal.aborted?cancelled:status === 413 ? t('Session limit reached','已达到本次共享上限','已達本次共享上限') :
         status === 507 ? t('Computer disk is full','电脑磁盘空间不足','電腦磁碟空間不足') :
         t('Could not send','发送失败','傳送失敗');
       el('status').textContent = message + ' · ' + file.name + ' (' + completed + '/' + files.length + ')';
       break;
     }
   }
-  sending = false; el('pick').value = ''; refresh();
+  finishSending();
 };
 refresh(); setInterval(refresh, 3000); document.addEventListener('visibilitychange', refresh);

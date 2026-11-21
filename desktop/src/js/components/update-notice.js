@@ -87,7 +87,7 @@ window.UpdateNotice = {
       <p>${t('目前版本','当前版本','Current version')}: ${esc(result.current)}${result.prerelease ? ' · '+t('預覽版','预览版','Prerelease') : ''}</p>
       <p>${windowsUpdate ? t('校驗完成後可更新並重新啟動，設定與記錄會保留。請先完成傳輸與通話。','校验完成后可更新并重启，设置与记录会保留。请先完成传输和通话。','After verification, update and restart while keeping settings and history. Finish transfers and calls first.') : t('校驗完成後，開啟下載資料夾並手動安裝。','校验完成后，打开下载文件夹并手动安装。','After verification, open the download folder to install the update manually.')}</p>
       <ul>${(result.highlights || []).map(note=>`<li>${esc(note)}</li>`).join('')}</ul>
-      <p>${esc(result.asset?.name)} ${result.asset?.size ? '('+(result.asset.size/1048576).toFixed(1)+' MiB)' : ''}</p>
+      <p>${esc(result.asset?.name)} ${result.asset?.size ? '('+(result.asset.size/1e6).toFixed(1)+' MB)' : ''}</p>
       <p id="update-download-status" role="status" aria-live="polite"></p>
       <progress id="update-download-bar" max="100" value="0" hidden style="width:100%"></progress>
       <div class="ll-file-actions" style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
@@ -114,7 +114,7 @@ window.UpdateNotice = {
       status.textContent = t('正在下載…','正在下载…','Downloading…'); bar.hidden = false;
       const unsubscribe = window.orbitAPI.onUpdateDownloadProgress(progress => {
         if (progress.total) bar.value = Math.min(100, progress.percent); else bar.removeAttribute('value');
-        status.textContent = (progress.received/1048576).toFixed(1)+' MiB'+(progress.total ? ' / '+(progress.total/1048576).toFixed(1)+' MiB' : '') +
+        status.textContent = (progress.received/1e6).toFixed(1)+' MB'+(progress.total ? ' / '+(progress.total/1e6).toFixed(1)+' MB' : '') +
           (progress.percent >= 100 ? ' · '+t('正在校驗…','正在校验…','Verifying…') : '');
       });
       try {

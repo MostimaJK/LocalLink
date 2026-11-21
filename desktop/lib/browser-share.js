@@ -20,7 +20,7 @@ function fail(status) { throw Object.assign(new Error(), { status }); }
 function usesTLS() {
   return ['LOCALLINK_SHARE_HOST','LOCALLINK_SHARE_CERT','LOCALLINK_SHARE_KEY'].some(key=>!!process.env[key]);
 }
-async function startShare({ address, receiveDir, record, accept, previewPath, allowHttp = false, multiple = true, onChanged, onPaired, onStopped }) {
+async function startShare({ address, receiveDir, record, accept, receiptMinutes, memberGraceMs=90000, staging, canShare=()=>true, previewPath, allowHttp = false, multiple = true, onChanged, onPaired, onStopped }) {
   let tls, hostname = address;
   if (usesTLS()) {
     hostname = process.env.LOCALLINK_SHARE_HOST;
@@ -32,13 +32,14 @@ async function startShare({ address, receiveDir, record, accept, previewPath, al
   } else if (!allowHttp) throw new Error('HTTP sharing requires confirmation');
   const prefix = '/' + randomBytes(24).toString('hex') + '/';
   const code = String(randomInt(1000000)).padStart(6,'0');
-  const clients = new Map();
+  const clients = new Map();let nextNumber=1;
+  const members=()=>[...clients.values()].filter(c=>!c.away);
   const maxClients = multiple ? 8 : 1;
   let attempts = 0;
-  const canInvite = () => clients.size < maxClients && attempts < 5 && Date.now() < expires;
+  const canInvite = () => members().length < maxClients && attempts < 5 && Date.now() < expires;
   const files = new Map();
   const {BrowserRoom} = require('./browser-room');
-  const room = new BrowserRoom({record,receiveDir,changed:onChanged});
+  const room = new BrowserRoom({record,receiveDir,receiptMinutes,staging,changed:onChanged});
   const peerId = 'web:browser';
   let closed = false, remaining = uploadBudget, count = 0;
   const controller = new AbortController();
@@ -65,6 +66,13 @@ async function startShare({ address, receiveDir, record, accept, previewPath, al
   const host = new URL(origin).host;
   const expires = Date.now() + lifetime;
   const timer = setTimeout(() => clients.size ? onPaired?.() : stop(), lifetime);
+  const heartbeat=setInterval(()=>{
+    for(const client of clients.values()){
+      if(!client.away&&!client.uploading&&!client.downloading&&Date.now()-client.seen>memberGraceMs){
+        client.away=true;room.depart(client.number);onChanged?.();
+      }
+    }
+  },Math.min(3000,memberGraceMs));
   function stop() {
     if (closed) return cleanup;
     closed = true;
@@ -72,7 +80,7 @@ async function startShare({ address, receiveDir, record, accept, previewPath, al
     room.cancelPending();
     server.close();
     server.closeAllConnections();
-    clearTimeout(timer);
+    clearTimeout(timer);clearInterval(heartbeat);
     cleanup=Promise.allSettled([...active]).then(()=>room.close()).finally(()=>{clients.clear();files.clear();});
     cleanup.catch(error=>console.warn('Browser room cleanup',error.message));
     onStopped?.();
@@ -88,10 +96,12 @@ async function startShare({ address, receiveDir, record, accept, previewPath, al
       const stat = await fs.lstat(selected).catch(()=>null);
       if (stat?.isFile() && ![...files.values()].some(file => file.path === selected)) {
         const preview = previewPath && /\.(png|jpe?g|gif|webp|bmp|avif|heic)$/i.test(selected) ? await previewPath(selected).catch(()=>null) : null;
+        const real=await fs.realpath(selected).catch(()=>null);
+        if(!real || !canShare(real))continue;
         if(closed || files.size>=100) break;
         if([...files.values()].some(file=>file.path===selected))continue;
         added++;
-        files.set(randomUUID(), {path:selected,stat,time:Date.now(),preview});
+        files.set(randomUUID(), {path:selected,real,stat,time:Date.now(),preview});
       }
     }
     outcome.skipped=paths.length-added;
@@ -114,16 +124,22 @@ async function startShare({ address, receiveDir, record, accept, previewPath, al
     if (action === 'pair' && req.method === 'POST') {
       if (client) { res.writeHead(204).end(); return; }
       if (Date.now() >= expires) fail(410);
-      if (clients.size >= maxClients) fail(409);
+      if (members().length >= maxClients) fail(409);
       if (attempts >= 5) fail(429);
       if (req.headers['x-pair-code'] !== code) { attempts++; if (attempts === 5) onPaired?.(); fail(attempts >= 5 ? 429 : 403); }
       const cookie = 'llshare=' + randomBytes(32).toString('hex');
-      clients.set(cookie, {number:clients.size+1, platform:/iphone/i.test(req.headers['user-agent'])?'iPhone':/ipad/i.test(req.headers['user-agent'])?'iPad':/android/i.test(req.headers['user-agent'])?'Android':'Browser', choices:new Map(), approved:new Map(), requesting:false, uploading:false});
+      if(clients.size>=maxClients){
+        const retired=[...clients.entries()].find(([,c])=>c.away);
+        if(retired)clients.delete(retired[0]);
+      }
+      clients.set(cookie, {number:nextNumber++,seen:Date.now(), platform:/iphone/i.test(req.headers['user-agent'])?'iPhone':/ipad/i.test(req.headers['user-agent'])?'iPad':/android/i.test(req.headers['user-agent'])?'Android':'Browser', choices:new Map(), approved:new Map(), requesting:false, uploading:false});
       res.writeHead(204, { 'Set-Cookie':cookie+'; HttpOnly; SameSite=Strict; Path='+prefix+(tls?'; Secure':'') }).end();
       onPaired?.();
       return;
     }
     if (!client) fail(401);
+    client.seen=Date.now();
+    if(client.away){client.away=false;onChanged?.();}
     const approved = client.approved;
     if(req.method==='GET' && action.startsWith('preview/')) {
       const id=action.slice(8);
@@ -134,7 +150,7 @@ async function startShare({ address, receiveDir, record, accept, previewPath, al
     }
     if (action === 'room' && req.method === 'GET') {
       res.writeHead(200,{'Content-Type':'application/json'}).end(JSON.stringify({
-        me:client.number, members:clients.size+1, messages:room.messages,
+        me:client.number, members:members().length+1, messages:room.messages,
         files:[...room.localFiles.filter(f=>f.sender===client.number).map(f=>({...f,decision:'sent'})),...list().map(f=>({...f,sender:0,ready:true,decision:client.choices.get(f.id)||'pending'})),...room.list(client.number)]
       }));
       return;
@@ -164,6 +180,7 @@ async function startShare({ address, receiveDir, record, accept, previewPath, al
       if (!file) fail(404);
       const handle = await fs.open(file.path, 'r').catch(() => fail(410));
       try {
+        client.downloading=(client.downloading||0)+1;
         const stat = await handle.stat();
         if (!stat.isFile() || ['dev','ino','size','mtimeMs'].some(key => stat[key] !== file.stat[key])) fail(410);
         const name = relayed ? relayed.name : path.basename(file.path);
@@ -173,7 +190,7 @@ async function startShare({ address, receiveDir, record, accept, previewPath, al
         else res.end();
         record({ peerId, roomId:room.id, recipient:client.number, id:randomUUID(), name, ...(relayed?{}:{path:file.path}), size:stat.size, bytes:stat.size,
           direction: 'outgoing', status: 'delivered', startedAt: Date.now() });
-      } finally { await handle.close(); }
+      } finally {client.downloading--;client.seen=Date.now();await handle.close();}
       return;
     }
     if (req.method === 'POST' && action === 'offer') {
@@ -202,7 +219,7 @@ async function startShare({ address, receiveDir, record, accept, previewPath, al
         }
         if (total > remaining) fail(413);
         const confirm = response=>accept?.({files:batch.map(({name,size,preview})=>({name,size,preview:preview?'data:image/png;base64,'+preview.toString('base64'):null})),total,peerId:'web-room:'+room.id,number:client.number,ip:req.socket.remoteAddress},response);
-        const others = [...clients.values()].filter(c=>c!==client).map(c=>c.number);
+        const others = members().filter(c=>c!==client).map(c=>c.number);
         let relays;
         if (others.length) {
           if (batch.length + room.files.size > 250) fail(429);
@@ -235,7 +252,7 @@ async function startShare({ address, receiveDir, record, accept, previewPath, al
     remaining -= size;
     count++;
     let saved = false;
-    let partial, bytes = 0;
+    let partial, tracked, bytes = 0;
     try {
       const dir = file.relay ? await room.directory() : receiveDir();
       await fs.mkdir(dir, { recursive: true });
@@ -244,6 +261,7 @@ async function startShare({ address, receiveDir, record, accept, previewPath, al
       const temp = path.join(dir, '.locallink-' + randomUUID() + '.part');
       const handle = await fs.open(temp, 'wx', 0o600);
       partial = temp;
+      if(!file.relay)try{tracked=staging?.track(temp,'phone');}catch(e){await handle.close();throw e;}
       const meter = new Transform({ transform(chunk, _, next) {
         bytes += chunk.length;
         next(bytes > size ? new Error('Size mismatch') : null, chunk);
@@ -254,14 +272,15 @@ async function startShare({ address, receiveDir, record, accept, previewPath, al
         await room.ready(file.relay,partial);
         partial=null;
       } else {
-        const dest = await publishFile(partial, dir, name);
-        room.received({id:randomUUID(),name,size,sender:client.number,time:Date.now(),host:true,ready:true});
+        const dest = await publishFile(partial, dir, name,{consume:true});
+        room.received({id:randomUUID(),name,size,sender:client.number,time:Date.now(),host:true,saved:true,ready:true});
         record({ peerId, roomId:room.id, sender:client.number, id: randomUUID(), name, path: dest, size, bytes, direction: 'incoming',
         status: 'received', startedAt: Date.now() });
       }
       saved=true;
     } finally {
       try { if (partial) await fs.rm(partial,{force:true}); } finally {
+        staging?.forgetIfGone(tracked);
         if (!saved && file.relay) room.files.delete(file.relay.id);
         if (!saved) { remaining += size; count--; }
         client.uploading = false;
@@ -269,8 +288,8 @@ async function startShare({ address, receiveDir, record, accept, previewPath, al
     }
     res.writeHead(201).end();
   }
-  return { url: origin + prefix, code, expires, add, stop, message:text=>room.message(0,text), get closed() { return closed; },
-    snapshot() { return {address, multiple, roomId:room.id, members:[...clients.values()].map(({number,platform})=>({number,platform})), messages:room.messages, sharedFiles:room.summary(), paired:clients.size > 0, pairedCount:clients.size, files:list(), url:canInvite()?origin+prefix:null, code:canInvite()?code:null, expires}; }
+  return { url: origin + prefix, code, expires, add, stop, usesSource:real=>[...files.values()].some(f=>f.real===real), retrySave:id=>{const f=room.files.get(id);return f?.saveFailed && room.save(f);}, message:text=>room.message(0,text), get closed() { return closed; },
+    snapshot() { return {address, multiple, roomId:room.id, members:members().map(({number,platform})=>({number,platform})), messages:room.messages, sharedFiles:room.summary(), paired:clients.size > 0, pairedCount:clients.size, files:list(), url:canInvite()?origin+prefix:null, code:canInvite()?code:null, expires}; }
   };
 }
 module.exports = { startShare, usesTLS };

@@ -40,6 +40,25 @@ const {LocalSend,safeName}=require('../src/js/network/localsend');
   assert.deepEqual(fs.readFileSync(path.join(b.opts.receiveDir,'sample.bin')),bytes);
   assert.equal(fs.existsSync(path.join(b.opts.receiveDir,'.locallink-partials')),false);
   assert.deepEqual(fs.readdirSync(b.opts.receiveDir).sort(),['sample (1).bin','sample.bin']);
+  // Both prompts saw enough space, but only one reservation fits at approval time.
+  const third=make('third'),statfs=fs.statfsSync,approvals=[];
+  try{
+   await third.start();
+   fs.statfsSync=()=>({bavail:60,bsize:1});
+   b.opts.accept=offer=>new Promise(resolve=>approvals.push({offer,resolve}));
+   const prepare=node=>node.request(peer,'prepare-upload',{info:node.info(),files:{sample:{fileName:'sample',size:40}}});
+   const settled=Promise.allSettled([prepare(a),prepare(third)]);
+   for(let i=0;i<200 && approvals.length<2;i++)await new Promise(resolve=>setTimeout(resolve,10));
+   assert.equal(approvals.length,2);
+   assert(approvals.every(({offer})=>offer.freeBytes===60));
+   approvals.forEach(({resolve})=>resolve(true));
+   const replies=await settled;
+   assert.equal(replies.filter(r=>r.status==='fulfilled').length,1);
+   assert.equal(replies.find(r=>r.status==='rejected').reason.statusCode,507);
+   b.cancel(replies.find(r=>r.status==='fulfilled').value.sessionId);
+   b.opts.accept=async offer=>{assert.equal(offer.freeBytes,60);return true;};
+   b.cancel((await prepare(a)).sessionId);
+  }finally{approvals.forEach(({resolve})=>resolve(false));fs.statfsSync=statfs;third.stop();}
   console.log('PASS: HTTPS byte-exact flat receive, collision numbering, temporary cleanup, refusal, checksum and TLS pin');
  }finally{a.stop();b.stop();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

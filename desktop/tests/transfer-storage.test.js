@@ -13,6 +13,23 @@ try{
  const rows=[{id:'old',peerId:'phone',name:'中文 100%.txt',size:10,path:'C:/retained.txt',status:'received',direction:'incoming',time:1}];
  db.db.prepare('INSERT INTO settings VALUES (?,?)').run('locallink.transfers',JSON.stringify(rows));
  db.transfers=new TransferStore(db.db);
+ const {StagingRegistry,identity}=require('../lib/transfer-staging');
+ const staging=new StagingRegistry(db.db);
+ const stalePid=require('node:child_process').spawnSync(process.execPath,['-e',''],{windowsHide:true}).pid;
+ const desktopStage=path.join(root,'.locallink-partials','transfer-test');
+ fs.mkdirSync(desktopStage,{recursive:true});fs.writeFileSync(path.join(desktopStage,'.partial'),'sample');
+ const stray=path.join(root,'phone.part'),live=path.join(root,'live.part'),swapped=path.join(root,'replaced.part');
+ for(const file of [stray,live,swapped]){fs.writeFileSync(file,'fixture');staging.track(file,'phone');}
+ staging.track(desktopStage,'desktop');
+ const room=fs.mkdtempSync(path.join(root,'locallink-room-'));
+ fs.writeFileSync(path.join(room,require('node:crypto').randomUUID()),'sample');staging.track(room,'room');
+ db.db.prepare('UPDATE ll_staging SET pid=? WHERE path!=?').run(stalePid,fs.realpathSync(live));
+ fs.renameSync(swapped,swapped+'.original');fs.writeFileSync(swapped,'replacement');
+ assert.notEqual(identity(swapped,true),identity(swapped+'.original',true));
+ staging.recover();
+ assert.ok([stray,desktopStage,room].every(file=>!fs.existsSync(file)));
+ assert.ok([live,swapped].every(file=>fs.existsSync(file)));
+
  assert.equal(db.transfers.get('old').path,'C:/retained.txt');
  assert.equal(db.db.prepare('SELECT value FROM settings WHERE key=?').get('locallink.transfers'),undefined);
  assert.equal(db.transfers.list({query:'100%'}).length,1);
