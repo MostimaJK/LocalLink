@@ -2,21 +2,21 @@
 
 [繁體中文](README.zh-TW.md)
 
-LocalLink shares files, folders and text across a local network. **Desktop release 1.0.6** is available for Windows x64 and macOS.
+LocalLink shares files, folders and text across a local network. **Desktop release 1.0.7** is available for Windows x64 and macOS.
 
 ## Download
 
-Choose a package from the [1.0.6 release](https://github.com/MostimaJK/LocalLink/releases/tag/v1.0.6).
+Choose a package from the [1.0.7 release](https://github.com/MostimaJK/LocalLink/releases/tag/v1.0.7).
 
 | Computer | Package |
 | --- | --- |
-| Windows x64 | `LocalLink-Setup-1.0.6.exe` or `LocalLink-1.0.6-Portable.exe` |
-| Mac with Apple silicon | `LocalLink-1.0.6-arm64.dmg` |
-| Intel Mac | `LocalLink-1.0.6-x64.dmg` |
+| Windows x64 | `LocalLink-Setup-1.0.7.exe` or `LocalLink-1.0.7-Portable.exe` |
+| Mac with Apple silicon | `LocalLink-1.0.7-arm64.dmg` |
+| Intel Mac | `LocalLink-1.0.7-x64.dmg` |
 
 The release includes SHA256SUMS.txt for all four packages. Windows builds are unsigned. Mac builds use ad-hoc signatures and have not been notarized by Apple. On Mac, open the matching DMG and drag LocalLink to Applications.
 
-Folder transfers now show scan and packing progress and support cancellation. If nearby discovery is unavailable, open **Connect device** to copy the address and port for a manual connection. [Release notes](docs/RELEASE-NOTES-1.0.6.md)
+Folder transfers now show scan and packing progress and support cancellation. If nearby discovery is unavailable, open **Connect device** to copy the address and port for a manual connection. [Release notes](docs/RELEASE-NOTES-1.0.7.md)
 
 ## Features
 
@@ -57,8 +57,8 @@ The manual **Build and test macOS candidates** workflow builds on both architect
 
 ## Limitations
 
-100 files per batch, 10,000 folder entries. ZIP needs extra disk space. Retry starts over; no resume in the default protocol. Calls remain in the legacy transport. Tested with 600 MiB loopback transfer, not 50 GB or full physical cross-platform validation. No mobile binaries.
+Desktop folder transfers and file batches have no fixed entry count. Incoming batches above 10 GiB require confirmation by default, including trusted devices. The threshold is configurable. ZIP needs extra disk space. Retry starts over; no resume in the default protocol. Calls remain in the legacy transport. Tested with 600 MiB loopback transfer, not 50 GB or full physical cross-platform validation. No mobile binaries.
 
 ## Licensing
 
-Based on Orbit, inspired by LocalSend; no official affiliation. Retained [MIT license](LICENSE), [dependency notices](desktop/THIRD-PARTY-NOTICES.txt) and [security policy](SECURITY.md). See the [1.0.6 release notes](docs/RELEASE-NOTES-1.0.6.md).
+Based on Orbit, inspired by LocalSend; no official affiliation. Retained [MIT license](LICENSE), [dependency notices](desktop/THIRD-PARTY-NOTICES.txt) and [security policy](SECURITY.md). See the [1.0.7 release notes](docs/RELEASE-NOTES-1.0.7.md).

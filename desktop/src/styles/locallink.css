@@ -308,12 +308,21 @@ html[data-platform="darwin"] #titlebar .controls { display: none; }
 #ll-receipts { flex:0 1 auto; max-height:38vh; overflow:auto; }
 #ll-receipts:not([hidden]) { padding:10px 16px; }
 .ll-receipt-card { display:grid; gap:8px; padding:14px 18px; margin:4px 0; background:var(--bg-surface); color:var(--text-primary); border:1px solid var(--border-subtle); border-radius:16px; overflow-wrap:anywhere; }
+.ll-receipt-card.ll-large-receipt {
+  border-color:color-mix(in srgb,#f4bc32 65%,var(--border-subtle));
+  border-inline-start:4px solid #f4bc32;
+  background:color-mix(in srgb,#f4bc32 8%,var(--bg-surface));
+}
+.ll-large-receipt > strong { display:flex; align-items:center; gap:9px; }
+.ll-large-receipt > strong svg { flex:none; width:24px; height:24px; fill:#ffd24a; color:#3d2a00; }
+.ll-large-receipt small { line-height:1.5; }
 .ll-receipt-card summary { cursor:pointer; }
 .ll-receipt-card details div, .ll-receipt-card small { color:var(--text-secondary); }
 .ll-receipt-actions {display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px}
 .ll-receipt-card button { padding:7px 18px; border-radius:20px; cursor:pointer; font:inherit; }
 .ll-receipt-accept { background:#135da5; color:white; border:1px solid transparent; }
 .ll-receipt-reject { background:var(--bg-base); color:var(--text-primary); border:1px solid var(--border-subtle); }
+.ll-large-receipt .ll-receipt-reject { background:#b42330; border-color:#b42330; color:white; }
 .ll-group-members {display:grid}
 .ll-group-members .list-row {font:inherit;text-align:start;color:var(--text-primary)}
 .ll-group-members .list-row-title,.ll-group-members .list-row-subtitle {display:block}
@@ -396,3 +405,13 @@ label:has(> input[type="checkbox"]:not(.ll-switch, .orbit-switch input, #profile
 .ll-folder-tools { border-top:1px solid var(--border-subtle); padding-top:12px; }
 .ll-folder-tools summary { cursor:pointer; color:var(--text-secondary); }
 .ll-folder-tools .ll-file-actions { flex-wrap:wrap; border:0; }
+
+.ll-transfer .ll-bubble { box-sizing:border-box; width:fit-content; max-width:min(90%,34rem); }
+.ll-transfer .ll-file-main { min-width:min(15rem,100%); }
+.ll-transfer .ll-text-content { margin:0; }
+.ll-transfer .ll-file-actions { gap:6px; }
+.ll-transfer .ll-file-actions button,.ll-receipt-actions button { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:32px; padding:5px 10px; border-radius:9px; font-size:12px; font-weight:600; }
+.ll-receipt-actions svg { width:15px; height:15px; }
+.ll-bubble:has(.ll-text-content) .ll-file-state,.ll-bubble:has(.ll-text-content) .ll-file-actions { display:inline-flex; vertical-align:middle; margin:8px 0 0; }
+.ll-bubble:has(.ll-text-content) .ll-file-actions { border:0; padding:0; margin-inline-start:10px; }
+.ll-timeline .ll-receipt-card { align-self:flex-start; width:fit-content; max-width:min(90%,34rem); box-sizing:border-box; }

@@ -14,6 +14,15 @@ class Fixture { public static void Main(string[] args) {
 } }
 '@`);
  execFileSync(ps,['-NoProfile','-ExecutionPolicy','Bypass','-File',compile,'-Output',fixture],{windowsHide:true});
+ const recoveryDir=path.join(root,'recovery');
+ const setup=await updater.prepare({file:fixture,target:fixture,sha256:await updater.hashFile(fixture),userData:recoveryDir,portable:false,version:'1.0.7'});
+ const attempt=await updater.lastInstall(recoveryDir,fixture,'1.0.6');
+ assert.equal(attempt.updated,false);assert.equal(attempt.available,true);
+ assert.equal((await updater.lastInstall(recoveryDir,fixture,'1.0.7')).updated,true);
+ assert.equal(await updater.lastInstall(recoveryDir,fixture,'1.0.8'),null);
+ let opened;await updater.openVerifiedSetup(attempt,async file=>{opened=file;return '';});
+ assert.equal(opened,setup.source);fs.appendFileSync(opened,'tampered');
+ await assert.rejects(updater.openVerifiedSetup(attempt,()=>assert.fail()),/unverified-update/);
  for(const rollback of [false,true]){
   const data=path.join(root,rollback?'rollback':'資料 with spaces');fs.mkdirSync(data);
   const target=path.join(data,'LocalLink.exe'),download=path.join(data,'download.exe');fs.copyFileSync(fixture,target);fs.copyFileSync(fixture,download);fs.appendFileSync(download,'new-build');

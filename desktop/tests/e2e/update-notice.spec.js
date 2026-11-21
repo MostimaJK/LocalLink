@@ -63,3 +63,19 @@ test('GitHub updates: settings, package selection, verified download and rejecti
   expect(current.hasUpdate).toBe(false);
  } finally {await app.close();}
 });
+
+test('About shows recovery for an interrupted Setup update',async()=>{
+ const {app,page}=await launchApp(tmpUserDataDir('recovery-ui'),[],{fixtureLocale:false});
+ try{
+  test.skip(process.platform!=='win32','Windows Setup recovery');
+  await app.evaluate(({ipcMain})=>{
+   ipcMain.removeHandler('locallink-update-recovery');
+   ipcMain.handle('locallink-update-recovery',(_,arg)=>arg?.action?{error:'active-transfers'}:{id:'fixture',version:'1.0.7',updated:false,available:true});
+  });
+  await page.evaluate(()=>window.SettingsModal.open('about'));
+  const panel=page.locator('#ll-last-update');
+  await expect(panel).toContainText('Previous update did not finish');
+  await panel.getByRole('button',{name:'Run installer again'}).click();
+  await expect(panel).toContainText('Finish transfers and sharing first.');
+ }finally{await app.close();}
+});

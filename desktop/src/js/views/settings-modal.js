@@ -948,6 +948,16 @@ window.SettingsModal = {
       });
       content.querySelector('#ll-upload-limit').onchange = saveBandwidth;
       content.querySelector('#ll-download-limit').onchange = saveBandwidth;
+      const thresholdRow=document.createElement('label');
+      thresholdRow.className='ll-setting-row';
+      thresholdRow.innerHTML=`<span>${t('大檔案接收確認門檻','大文件接收确认阈值','Large transfer confirmation threshold')}</span><span><input id="ll-large-transfer-limit" type="number" min="0.01" step="0.01" required style="width:6em"> GiB</span>`;
+      receiveOptions.querySelector('.ll-settings-card-body').append(thresholdRow);
+      const limitInput=thresholdRow.querySelector('input');
+      limitInput.value=window.orbitAPI.dbGetSetting('locallink.largeTransferGiB',10);
+      limitInput.onchange=()=>{
+        if(!limitInput.reportValidity()){limitInput.value=window.orbitAPI.dbGetSetting('locallink.largeTransferGiB',10);return;}
+        window.orbitAPI.dbSetSetting('locallink.largeTransferGiB',limitInput.valueAsNumber);
+      };
       const openAfter=content.querySelector('#ll-open-after-receive');openAfter.checked=window.orbitAPI.dbGetSetting('locallink.openAfterReceive',false);openAfter.onchange=()=>window.orbitAPI.dbSetSetting('locallink.openAfterReceive',openAfter.checked);
       window.orbitAPI.invoke('locallink-storage').then(showResult);
       const receiveInput=receivingCard.querySelector('#ll-receive-path'),updateInput=receivingCard.querySelector('#ll-update-path');
@@ -2455,10 +2465,12 @@ window.SettingsModal = {
         <p class="ll-about-description">${t('個人裝置之間的檔案傳輸工具','个人设备之间的文件传输工具','File sharing across your devices')}</p>
         <section class="ll-settings-card"><div class="ll-settings-card-head"><i data-lucide="package"></i>${t('版本資訊','版本信息','Build information')}</div>
           <div class="ll-settings-card-body"><dl class="ll-about-facts"><div><dt>${t('更新渠道','更新渠道','Updates')}</dt><dd>GitHub · MostimaJK/LocalLink</dd></div><div><dt>${t('檔案傳輸','文件传输','File transfer')}</dt><dd>LocalSend ${t('協定','协议','protocol')}</dd></div></dl>
+          <div id="ll-last-update" hidden></div>
           <label class="ll-setting-row" style="margin-top:20px">${t('啟動後檢查更新','启动后检查更新','Check for updates after startup')}<input type="checkbox" role="switch" id="ll-auto-update"></label>
           <div class="ll-file-actions" style="margin-top:20px"><button class="ll-action-button" id="settings-btn-check-update">${t('檢查更新','检查更新','Check for updates')}</button></div></div>
 
         </section>`;
+      window.UpdateNotice.lastAttempt(content.querySelector('#ll-last-update'));
       const autoUpdate=content.querySelector('#ll-auto-update');
       autoUpdate.checked=window.orbitAPI.dbGetSetting('locallink.updateCheck',false);
       autoUpdate.onchange=()=>window.orbitAPI.dbSetSetting('locallink.updateCheck',autoUpdate.checked);

@@ -33,6 +33,7 @@ window.LocalSendPanel = {
    'Device is no longer nearby':['裝置已離線，請重新搜尋','设备已离线，请重新搜索','Device is offline. Discover it again.'],
    'Transfer interrupted':['上次傳輸已中斷，可重新傳送','上次传输已中断，可重新发送','Transfer was interrupted. You can retry.'],
    'Transfer timed out':['連線逾時，請檢查對方裝置','连接超时，请检查对方设备','Connection timed out. Check the other device.'],
+   'Not enough space for temporary ZIP':['暫存 ZIP 的磁碟空間不足','临时 ZIP 所在磁盘空间不足','Not enough disk space for the temporary ZIP'],
    'Not enough disk space':['接收磁碟空間不足','接收磁盘空间不足','Not enough disk space'],
    'File integrity check failed':['檔案校驗失敗，請重試','文件校验失败，请重试','File integrity check failed. Retry the transfer.'],
    'Receiver did not accept this file':['對方未接收此檔案','对方未接收此文件','The receiver did not accept this file'],
@@ -134,14 +135,14 @@ window.LocalSendPanel = {
    const ext=(r.name.split('.').pop()||'').toLowerCase();
    const fileIcon=['png','jpg','jpeg','webp','gif'].includes(ext)?'file-image':['mp4','mov','mkv'].includes(ext)?'file-video':['zip','7z','rar'].includes(ext)?'file-archive':'file-text';
    feed+='<article class="ll-transfer '+(incoming?'ll-incoming':'ll-outgoing')+'" data-transfer-id="'+esc(r.id)+'" data-status="'+esc(r.status)+'">'+
-    '<div class="ll-bubble">'+(r.kind==='text'?'<p class="ll-text-content selectable">'+esc(r.text||'')+'</p>':'')+(done&&['png','jpg','jpeg','webp','gif'].includes(ext)?'<img class="ll-image-preview" data-preview="'+esc(r.id)+'" alt="'+esc(r.name)+'" hidden>':'')+'<div class="ll-file-main"><span class="ll-file-icon">'+icon(fileIcon)+'</span><div class="ll-file-copy"><strong class="selectable">'+esc(r.name)+'</strong><span>'+this.size(r.size)+'</span></div></div>'+
+    '<div class="ll-bubble">'+(r.kind==='text'?'<p class="ll-text-content selectable">'+esc(r.text||'')+'</p>':((done&&['png','jpg','jpeg','webp','gif'].includes(ext)?'<img class="ll-image-preview" data-preview="'+esc(r.id)+'" alt="'+esc(r.name)+'" hidden>':'')+'<div class="ll-file-main"><span class="ll-file-icon">'+icon(fileIcon)+'</span><div class="ll-file-copy"><strong class="selectable">'+esc(r.name)+'</strong><span>'+this.size(r.size)+'</span></div></div>'))+
     '<div class="ll-file-state '+(failed?'ll-error':'')+'">'+icon(failed?'circle-alert':done?'check-check':'clock-3')+'<span>'+esc(this.statusLabel(r.status))+'</span></div>'+
     (progress?'<div class="ll-progress"><progress max="'+Math.max(1,r.size)+'" value="'+Math.min(r.bytes,r.size)+'" aria-label="'+esc(this.statusLabel(r.status))+'"></progress><span>'+this.size(r.bytes)+' / '+this.size(r.size)+(r.rate?' · '+this.size(r.rate)+'/s':'')+'</span></div>':'')+
-    (active?'<div class="ll-file-actions"><button data-cancel="'+esc(r.id)+'">'+t('取消本批次','取消本批次','Cancel batch')+'</button></div>':'')+
-    ((!incoming&&(failed||r.status==='cancelled'))?'<div class="ll-file-actions"><button data-retry="'+esc(r.id)+'" '+(!nearby||busy?'disabled':'')+'>'+t('重試','重试','Retry')+'</button></div>':'')+
+    (active?'<div class="ll-file-actions"><button data-cancel="'+esc(r.id)+'">'+icon('x')+t('取消本批次','取消本批次','Cancel batch')+'</button></div>':'')+
+    ((!incoming&&(failed||r.status==='cancelled'))?'<div class="ll-file-actions"><button data-retry="'+esc(r.id)+'" '+(!nearby||busy?'disabled':'')+'>'+icon('rotate-ccw')+t('重試','重试','Retry')+'</button></div>':'')+
     (failed?'<p class="ll-error-detail selectable">'+esc(this.errorLabel(r.error)||t('請重新選擇檔案再試一次','请重新选择文件再试一次','Choose the file to try again'))+'</p>':'')+
-    (done&&r.kind==='text'&&!r.path?'<div class="ll-file-actions"><button data-copy="'+esc(r.id)+'">'+t('複製','复制','Copy')+'</button></div>':'')+
-    (done&&r.path?'<div class="ll-file-actions">'+(r.kind==='text'?'<button data-copy="'+esc(r.id)+'">'+t('複製','复制','Copy')+'</button>':'')+'<button data-open="'+esc(r.id)+'">'+icon('file')+t('開啟','打开','Open')+'</button><button data-folder="'+esc(r.id)+'">'+icon('folder-open')+t('所在資料夾','所在目录','Show in folder')+'</button></div>':'')+
+    (done&&r.kind==='text'&&!r.path?'<div class="ll-file-actions"><button data-copy="'+esc(r.id)+'">'+icon('copy')+t('複製','复制','Copy')+'</button></div>':'')+
+    (done&&r.path?'<div class="ll-file-actions">'+(r.kind==='text'?'<button data-copy="'+esc(r.id)+'">'+icon('copy')+t('複製','复制','Copy')+'</button>':'')+'<button data-open="'+esc(r.id)+'">'+icon('file')+t('開啟','打开','Open')+'</button><button data-folder="'+esc(r.id)+'">'+icon('folder-open')+t('所在資料夾','所在目录','Show in folder')+'</button></div>':'')+
     ''+'</div>'+
     '<div class="ll-message-meta">'+esc(incoming?name:t('本裝置','本设备','This device'))+' · <time datetime="'+date.toISOString()+'">'+date.toLocaleTimeString(locale,{hour:'2-digit',minute:'2-digit',hour12:false})+'</time></div></article>';
   }

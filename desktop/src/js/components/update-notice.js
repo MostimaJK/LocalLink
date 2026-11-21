@@ -7,12 +7,49 @@ window.UpdateNotice = {
   _engine() { return window.Orbit.UpdateCheck; },
   _openExternal(url) { return window.orbitAPI.openExternal(url); },
   init() {
+    if(!this._checkedAttempt){this._checkedAttempt=true;this.lastAttempt();}
     // Opt-in, delayed, throttled; never competes with the first render.
     if (!window.orbitAPI.dbGetSetting('locallink.updateCheck', false)) return;
     setTimeout(() => this._engine().checkThrottled().then(result => {
       if (result.ok && result.hasUpdate) window.Toast.show('LocalLink',
         this._t('有新版本，請至設定 → 關於查看。','有新版本，请到设置 → 关于查看。','An update is available in Settings → About.'), 'info');
     }), 10000);
+  },
+  async lastAttempt(container){
+    if(window.orbitAPI.platform!=='win32')return;
+    const attempt=await window.orbitAPI.invoke('locallink-update-recovery').catch(()=>null);
+    if(!attempt)return;
+    const t=this._t.bind(this);
+    const message=attempt.updated?t('已更新至','已更新至','Updated to')+' LocalLink '+attempt.version:
+      t('上次更新未完成','上次更新未完成','Previous update did not finish')+' · LocalLink '+attempt.version;
+    if(!container){
+      const key=attempt.id+(attempt.updated?'-ok':'-pending');
+      if(window.orbitAPI.dbGetSetting('locallink.lastUpdateNotice','')!==key){
+        window.Toast.show('LocalLink',message+(attempt.updated?'':t('。請至設定 → 關於查看。','。请到设置 → 关于查看。','. Open Settings → About.')),attempt.updated?'success':'info');
+        window.orbitAPI.dbSetSetting('locallink.lastUpdateNotice',key);
+      }
+      return;
+    }
+    container.hidden=false;
+    const status=document.createElement('p');status.setAttribute('role','status');status.textContent=message;container.append(status);
+    if(attempt.updated)return;
+    if(!attempt.available){status.textContent+=t('。請重新下載更新包。','。请重新下载更新包。','. Download the update package again.');return;}
+    const actions=document.createElement('div');actions.className='ll-file-actions';container.append(actions);
+    for(const [action,label] of [['reveal',t('開啟所在資料夾','打开所在目录','Open folder')],['retry',t('重新執行安裝程式','重新运行安装包','Run installer again')]]){
+      const btn=document.createElement('button');btn.textContent=label;actions.append(btn);
+      btn.onclick=async()=>{
+        btn.disabled=true;
+        if(action==='retry')status.textContent=this.startingMessage();
+        try{
+          const res=await window.orbitAPI.invoke('locallink-update-recovery',{id:attempt.id,action});
+          if(!res?.ok)status.textContent=res?.error==='active-transfers'?t('請先結束傳輸與共享。','请先结束传输与共享。','Finish transfers and sharing first.'):t('無法使用此安裝包，請重新下載。','无法使用此安装包，请重新下载。','Cannot use this installer. Download the update again.');
+        }catch{status.textContent=t('操作失敗，請重試。','操作失败，请重试。','Action failed. Try again.');}
+        finally{btn.disabled=false;}
+      };
+    }
+  },
+  startingMessage(){
+    return this._t('正在準備安裝。Windows 可能會要求管理員授權。','正在准备安装。Windows 可能会请求管理员授权。','Preparing installation. Windows may ask for administrator approval.');
   },
   async checkManual(opts) {
     if (this._checking) return;
@@ -101,6 +138,7 @@ window.UpdateNotice = {
         find('update-open-file').hidden = false;
         find('update-open-file').onclick = async () => {
           const install=find('update-open-file');install.disabled=true;
+          status.textContent=this.startingMessage();
           try {
             const opened=await window.orbitAPI.installUpdate(out.path);
             if(!opened?.ok) status.textContent=opened?.error==='active-transfers'

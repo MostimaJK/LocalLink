@@ -35,4 +35,32 @@ function acknowledge(app,window){
   window.webContents.once('did-finish-load',()=>fs.writeFileSync(path.join(job,'app-ready'),'1'));
  }catch{}
 }
-module.exports={hashFile,prepare,start,acknowledge};
+async function lastInstall(userData,target,current){
+ const root=path.join(userData,'locallink-updates');
+ const dirs=await fs.promises.readdir(root,{withFileTypes:true}).catch(()=>[]);
+ const jobs=[];
+ for(const dir of dirs){
+  if(!dir.isDirectory()||!/^[a-f0-9-]{36}$/i.test(dir.name))continue;
+  const job=path.join(root,dir.name),configFile=path.join(job,'config.json');
+  try{
+   const cfg=JSON.parse(await fs.promises.readFile(configFile,'utf8'));
+   if(cfg.id!==dir.name||cfg.portable||typeof cfg.target!=='string'||path.resolve(cfg.target).toLowerCase()!==path.resolve(target).toLowerCase()||
+      !/^\d+\.\d+\.\d+$/.test(cfg.version)||!/^[a-f0-9]{64}$/.test(cfg.sha256))continue;
+   jobs.push({job,cfg,time:(await fs.promises.stat(configFile)).mtimeMs});
+  }catch{}
+ }
+ const latest=jobs.sort((a,b)=>b.time-a.time)[0];
+ if(!latest)return null;
+ const {job,cfg}=latest;
+ if(!/^\d+\.\d+\.\d+$/.test(current))return null;
+ const diff=current.split('.').map((n,i)=>Number(n)-Number(cfg.version.split('.')[i])).find(n=>n!==0)||0;
+ if(diff>0)return null;
+ const file=path.join(job,'Setup.exe');
+ return {id:cfg.id,version:cfg.version,updated:diff===0,file,sha256:cfg.sha256,available:diff<0&&await fs.promises.stat(file).then(s=>s.isFile(),()=>false)};
+}
+async function openVerifiedSetup(attempt,open){
+ if(!attempt?.available||attempt.updated||await hashFile(attempt.file)!==attempt.sha256)throw Error('unverified-update');
+ const error=await open(attempt.file);
+ if(error)throw Error(error);
+}
+module.exports={hashFile,prepare,start,acknowledge,lastInstall,openVerifiedSetup};

@@ -1,5 +1,9 @@
 # LocalLink Changelog
 
+## v1.0.7 — Desktop release
+
+Large folder transfers, configurable receive confirmation and Windows Setup recovery. [Release notes](docs/RELEASE-NOTES-1.0.7.md)
+
 ## v1.0.6 — Desktop release
 
 LAN throughput diagnostics, customizable update folders and simpler desktop controls. [Release notes](docs/RELEASE-NOTES-1.0.6.md)

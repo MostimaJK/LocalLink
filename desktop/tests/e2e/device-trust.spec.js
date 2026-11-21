@@ -77,6 +77,15 @@ test('authenticated pairing enables receive consent once; revocation restores pr
   await Promise.all([sender.sendMessage(receiver.id,'Remember my permission'),(async()=>{await page.locator('.ll-receipt-card input').check();await page.locator('.ll-receipt-accept').click();})()]);
   expect(await app.evaluate(()=>globalThis.__trustPrompts.at(-1))).toBe(null);
   expect(await page.evaluate(id=>window.orbitAPI.dbGetSetting('locallink.trust.'+id).autoReceive,senderId)).toBe(true);
+  await page.evaluate(()=>window.I18n.set('zh-Hans'));
+  const offer={info:sender.info(),files:{fixture:{id:'fixture',fileName:'项目资料.zip',fileType:'application/zip',size:12*1024**3}}};
+  const declined=sender.request(receiver,'prepare-upload',offer).then(()=>false,e=>e.statusCode===403);
+  const card=page.locator('.ll-timeline .ll-large-receipt');
+  await expect(card).toContainText('10 GiB');
+  await card.screenshot({path:path.resolve('../artifacts/large-transfer-confirmation.png')});
+  await card.locator('.ll-receipt-reject').click();
+  expect(await declined).toBe(true);
+  await page.evaluate(()=>window.I18n.set('en'));
   const count=await app.evaluate(()=>globalThis.__trustPrompts.length);
   const file=path.join(senderDir,'trusted-file.txt');fs.writeFileSync(file,'original bytes');
   await sender.send(receiver.id,file);

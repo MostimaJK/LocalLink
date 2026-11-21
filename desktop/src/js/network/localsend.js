@@ -160,7 +160,7 @@ class LocalSend {
    this.pending=true;
    try{
     const body=await jsonBody(req);this.observe(body.info,ip);const entries=Object.entries(body.files||{});
-    if(!body.info?.fingerprint||!entries.length||entries.length>100)return reply(400);
+    if(!body.info?.fingerprint||!entries.length)return reply(400);
     let total=0;
     for(const [id,f] of entries){if(!id||id.length>128||!safeName(f.fileName)||!Number.isSafeInteger(f.size)||f.size<0||f.size>this.opts.maxBytes|| (f.sha256 && !/^[0-9a-f]{64}$/i.test(f.sha256)))return reply(400);total+=f.size;}
     if(!Number.isSafeInteger(total)||total>this.opts.maxBytes)return reply(400);
@@ -317,7 +317,7 @@ class LocalSend {
   finally{this.outgoing.delete(task.id);}
  }
  async sendBatch(peerId,paths,options={}){
-  if(!Array.isArray(paths)||!paths.length||paths.length>100)throw new Error('Choose 1–100 files');
+  if(!Array.isArray(paths)||!paths.length)throw new Error('Choose at least one file');
   if([...this.outgoing.values()].some(b=>b.peerId===peerId))throw new Error('A transfer to this device is already running');
   const batch={peerId,controller:new AbortController()};const signal=batch.controller.signal;
   const batchStartedAt=Date.now();

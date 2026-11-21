@@ -14,7 +14,10 @@ window.Changelog = {
         '<button id="changelog-close" style="background:transparent;border:none;cursor:pointer;color:var(--text-secondary);padding:4px;"><i data-lucide="x" style="width:20px;height:20px;"></i></button>' +
       '</div>' +
       '<div style="display:flex;flex-direction:column;gap:20px;">' +
-        versionBlock('1.0.6', 'Latest', [
+        versionBlock('1.0.7', 'Latest', [
+          ['New', ['Confirm large transfers in chat and recover interrupted Windows Setup updates from Settings.']]
+        ]) +
+        versionBlock('1.0.6', '', [
           ['New', ['Measure LAN throughput between paired computers and choose where update packages are stored.']]
         ]) +
         versionBlock('1.0.5', '', [

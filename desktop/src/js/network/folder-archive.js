@@ -16,7 +16,7 @@ async function archiveFolder(source, cache, maxBytes = Number.MAX_SAFE_INTEGER, 
       if (stat.isSymbolicLink()) throw new Error('Folder contains a symbolic link; remove it before sending');
       if (!stat.isDirectory() && !stat.isFile()) continue;
       total += stat.isFile() ? stat.size : 0;
-      if (entries.length >= 10000 || !Number.isSafeInteger(total) || total > maxBytes) {
+      if (!Number.isSafeInteger(total) || total > maxBytes) {
         throw new Error('Folder exceeds transfer limit');
       }
       const name = path.relative(path.dirname(root), file).split(path.sep).join('/');
@@ -31,6 +31,8 @@ async function archiveFolder(source, cache, maxBytes = Number.MAX_SAFE_INTEGER, 
   signal?.throwIfAborted();
   const { ZipArchive } = await import('archiver');
   await fs.promises.mkdir(cache, { recursive: true });
+  const disk = await fs.promises.statfs(cache);
+  if (disk.bavail * disk.bsize < total) throw new Error('Not enough space for temporary ZIP');
   const dir = await fs.promises.mkdtemp(path.join(cache, 'folder-'));
   const dest = path.join(dir, path.basename(root) + '.zip');
   try {

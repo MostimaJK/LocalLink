@@ -1024,12 +1024,13 @@ app.whenReady().then(() => {
     return err ? { ok: false, error: err } : { ok: true };
   });
 
+  const updateBlocked=async()=>!!((browserShare && !browserShare.closed)||folderPreparations.size||localSendInstance?.pending||localSendInstance?.sessions.size||localSendInstance?.outgoing.size||transferInstance?.activeReceives.size||transferInstance?.sendSessions.size||globalDb.transfers.list({statuses:['queued','preparing','awaiting','receiving','verifying','transferring','confirming'],limit:1}).length||await mainWindow.webContents.executeJavaScript('Boolean(window.CallManager?.activeCall || window.CallManager?.incomingCallData)'));
   ipcMain.handle('update-install',async(event,file)=>{
     if(process.platform!=='win32'||!app.isPackaged)return {ok:false,error:'packaged-windows-only'};
     if(updatePreparing)return {ok:false,error:'update-in-progress'};
     if(typeof file!=='string'||!_downloadedFiles.has(file))return {ok:false,error:'unverified-update'};
-    const active=async()=>!!((browserShare && !browserShare.closed)||folderPreparations.size||localSendInstance?.pending||localSendInstance?.sessions.size||localSendInstance?.outgoing.size||transferInstance?.activeReceives.size||transferInstance?.sendSessions.size||globalDb.transfers.list({statuses:['queued','preparing','awaiting','receiving','verifying','transferring','confirming'],limit:1}).length||await mainWindow.webContents.executeJavaScript('Boolean(window.CallManager?.activeCall || window.CallManager?.incomingCallData)'));
-    if(await active())return {ok:false,error:'active-transfers'};
+
+    if(await updateBlocked())return {ok:false,error:'active-transfers'};
     updatePreparing=true;let job;
     try{
       const portable=!!process.env.PORTABLE_EXECUTABLE_FILE;
@@ -1037,15 +1038,37 @@ app.whenReady().then(() => {
       if(!match)throw Error('Wrong update package');
       const updater=require('./lib/update-restart');
       job=await updater.prepare({file,sha256:_downloadedFiles.get(file),target:process.env.PORTABLE_EXECUTABLE_FILE||process.execPath,userData:app.getPath('userData'),portable,version:match[1]});
-      if(await active())throw Error('active-transfers');
+      if(await updateBlocked())throw Error('active-transfers');
       await updater.start(job);
-      if(await active())throw Error('active-transfers');
+      if(await updateBlocked())throw Error('active-transfers');
       setImmediate(()=>app.quit());
       return {ok:true};
     }catch(error){
       if(job)fs.writeFileSync(path.join(job.job,'cancel'),'1');
       updatePreparing=false;return {ok:false,error:error.message};
     }
+  });
+
+  ipcMain.handle('locallink-update-recovery',async(event,payload={})=>{
+    if(event.sender!==mainWindow?.webContents||event.senderFrame!==event.sender.mainFrame||process.platform!=='win32'||!app.isPackaged||process.env.PORTABLE_EXECUTABLE_FILE)return null;
+    const updater=require('./lib/update-restart');
+    const attempt=await updater.lastInstall(app.getPath('userData'),process.execPath,app.getVersion());
+    if(!attempt)return null;
+    const {id,version,updated,available}=attempt;
+    if(!payload.action)return {id,version,updated,available};
+    if(payload.id!==id||updated||!available)return {error:'unavailable'};
+    if(payload.action==='reveal'){shell.showItemInFolder(attempt.file);return {ok:true};}
+    if(payload.action!=='retry')return {error:'unavailable'};
+    if(updatePreparing||await updateBlocked())return {error:'active-transfers'};
+    updatePreparing=true;
+    try{
+      await updater.openVerifiedSetup(attempt,async file=>{
+        if(await updateBlocked())return 'active-transfers';
+        return shell.openPath(file);
+      });
+      setImmediate(()=>app.quit());
+      return {ok:true};
+    }catch(error){updatePreparing=false;return {error:error.message};}
   });
 
   ipcMain.handle('update-reveal-file', (event, file) => {
@@ -1650,8 +1673,11 @@ app.whenReady().then(() => {
           accept: async (offer, response) => {
             if(updatePreparing)return false;
             const trusted=offer.authenticatedPeerId&&globalDb.getSetting('locallink.trust.'+offer.authenticatedPeerId,{});
-            if(trusted?.paired===true&&trusted.autoReceive===true)return true;
-            const answer = await requestReceipt(offer, response, trusted?.paired === true);
+            const limit=globalDb.getSetting('locallink.largeTransferGiB',10);
+            const threshold=Number.isFinite(limit)&&limit>0?limit:10;
+            const large=offer.total>threshold*1024**3;
+            if(!large && trusted?.paired===true&&trusted.autoReceive===true)return true;
+            const answer = await requestReceipt({...offer,largeThreshold:large?threshold:null}, response, !large && trusted?.paired === true);
             if (answer.remember && globalDb.getSetting('locallink.trust.'+offer.authenticatedPeerId, {}).paired === true)
               saveDeviceTrust(offer.authenticatedPeerId, {...trusted, autoReceive:true});
             return answer.accept;
@@ -1773,7 +1799,7 @@ app.whenReady().then(() => {
       response.once('close', dismiss);
       contents.once('render-process-gone', dismiss);
       contents.once('destroyed', dismiss);
-      contents.send('locallink-receipt', {id, peerId:offer.peerId, alias:offer.alias, files:offer.files, total:offer.total, mayRemember, ip:offer.ip});
+      contents.send('locallink-receipt', {id, largeThreshold:offer.largeThreshold, peerId:offer.peerId, alias:offer.alias, files:offer.files, total:offer.total, mayRemember, ip:offer.ip});
     });
   }
   ipcMain.handle('locallink-decide-receipt', (event, decision) => {
