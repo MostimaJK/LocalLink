@@ -1699,13 +1699,16 @@ app.whenReady().then(() => {
   });
   ipcMain.handle('locallink-clean-sent-cache',async()=>{
     const root=path.resolve(app.getPath('userData'),'locallink-outbox');
+    // Windows may expose the same directory as an 8.3 alias and a long path.
+    const realRoot=await fs.promises.realpath(root).catch(()=>null);
+    if(!realRoot)return {ok:true,count:0};
     const rows=globalDb.transfers.list({all:true});const groups=new Map();
     for(const row of rows)if(row.path){const file=path.resolve(row.path);if(!groups.has(file))groups.set(file,[]);groups.get(file).push(row);}
     const candidates=[];
     for(const [file,records] of groups){
       const relative=path.relative(root,file);
       if(!relative||relative.startsWith('..')||path.isAbsolute(relative)||records.some(r=>r.direction!=='outgoing'||r.status!=='delivered'))continue;
-      try{const real=await fs.promises.realpath(file),inside=path.relative(root,real);if(inside.startsWith('..')||path.isAbsolute(inside))continue;const stat=await fs.promises.lstat(file);if(stat.isFile()&&!stat.isSymbolicLink())candidates.push({file,records,size:stat.size});}catch{}
+      try{const real=await fs.promises.realpath(file),inside=path.relative(realRoot,real);if(inside.startsWith('..')||path.isAbsolute(inside))continue;const stat=await fs.promises.lstat(file);if(stat.isFile()&&!stat.isSymbolicLink())candidates.push({file,records,size:stat.size});}catch{}
     }
     if(!candidates.length)return {ok:true,count:0};
     const choice=await dialog.showMessageBox(mainWindow,{type:'question',title:'LocalLink',message:llText('清理已送達的傳送快取？','清理已送达的发送缓存？','Clean delivered send cache?'),detail:candidates.map(c=>c.file).join('\n'),buttons:[llText('取消','取消','Cancel'),llText('移到資源回收筒','移到回收站','Move to Recycle Bin')],defaultId:0,cancelId:0});
