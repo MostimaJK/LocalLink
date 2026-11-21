@@ -75,11 +75,8 @@ window.SettingsModal = {
     // ⚠ The inline styles are gone — the layer owns `.settings-tab` outright now, so
     // the active state is a class and there is no second writer left to fight it.
     var navItems = [
-      { tab: 'account', icon: 'monitor-smartphone', label: window.I18n.t('s1') },
+      { tab: 'account', icon: 'sliders-horizontal', label: window.LocalSendPanel.text('通用','通用','General') },
       { tab: 'appearance', icon: 'palette', label: window.I18n.t('s2') },
-      { tab: 'network', icon: 'wifi', label: window.I18n.t('s3') },
-      { tab: 'notifications', icon: 'bell', label: window.I18n.t('s4') },
-      { tab: 'data', icon: 'database', label: window.I18n.t('s5') },
       { tab: 'security', icon: 'shield', label: window.I18n.t('s6'), experimental: true },
       { tab: 'advanced', icon: 'sliders-horizontal', label: window.orbitAPI.dbGetSetting('locallink.transport','localsend')==='localsend'?(window.I18n.locale==='en'?'Diagnostics':window.I18n.locale==='zh-Hans'?'诊断':'診斷'):window.I18n.t('s7') },
       { tab: 'about', icon: 'info', label: window.I18n.t('s8') }
@@ -202,9 +199,41 @@ window.SettingsModal = {
     self._syncNavToggle();
   },
 
-  renderTab(tabName) {
+  renderGeneral() {
     window.LocalLinkSelect.close();
-    var content = this.container.querySelector('#settings-content');
+    const content = this.container.querySelector('#settings-content');
+    const draft = content.querySelector('#input-username');
+    if (draft) this.accountDraft = draft.value;
+    content.innerHTML = '<h3 class="ll-settings-title">' + window.LocalSendPanel.text('通用', '通用', 'General') + '</h3>';
+    this.container.querySelectorAll('.settings-tab').forEach(tab => {
+      tab.classList.toggle('active', tab.dataset.tab === 'account');
+    });
+    // Render directly into attached sections so existing handlers keep their own scope.
+    for (const name of ['network', 'account', 'notifications', 'data']) {
+      const section = document.createElement('div');
+      section.dataset.generalSection = name;
+      if (name === 'data') section.style.paddingBottom = '20px';
+      content.appendChild(section);
+      this.renderTab(name, section);
+      section.querySelector(':scope > h3')?.remove();
+    }
+    // Protocol switching is infrequent: keep it after everyday controls and backups.
+    const transport = content.querySelector('#transport-mode')?.closest('section');
+    if (transport) content.appendChild(transport);
+    const savePath = content.querySelector('#ll-receive-path');
+    if (savePath) savePath.closest('dl').prepend(savePath.parentElement);
+    const first = content.querySelector('[data-general-section="network"] .ll-settings-card-head');
+    if (first && window.orbitAPI.dbGetSetting('locallink.transport', 'localsend') === 'localsend') {
+      first.innerHTML = '<i data-lucide="folder-down"></i>' + window.LocalSendPanel.text('接收與儲存', '接收与保存', 'Receiving and saving');
+    }
+    window.lucide.createIcons({root: content});
+    content.scrollTop = 0;
+  },
+
+  renderTab(tabName, target) {
+    if(!target&&['account','network','notifications','data','general'].includes(tabName)){this.renderGeneral();return;}
+    window.LocalLinkSelect.close();
+    var content = target || this.container.querySelector('#settings-content');
     const nameDraft=content.querySelector('#input-username');if(nameDraft)this.accountDraft=nameDraft.value;
     const t = (...labels) => window.LocalSendPanel.text(...labels);
     const esc = window.Sanitize.escapeHtml;
@@ -855,11 +884,50 @@ window.SettingsModal = {
         <section class="ll-settings-card"><div class="ll-settings-card-head"><i data-lucide="wifi"></i>${t('區域網路傳輸','局域网传输','Local network transfer')}</div>
         <div class="ll-settings-card-body"><dl class="ll-about-facts">
           <div><dt>${t('接收方式','接收方式','Receiving')}</dt><dd>${t('配對授權自動接收，其餘逐次確認','配对授权自动接收，其余逐次确认','Authorized paired devices receive automatically; otherwise ask')}</dd></div>
-          <div><dt>${t('單次傳輸上限','单次传输上限','Session limit')}</dt><dd>500 MB</dd></div>
+          <div><dt>${t('單次傳輸上限','单次传输上限','Session limit')}</dt><dd>${t('不設容量上限（受磁碟與系統限制）','不设容量上限（受磁盘与系统限制）','No capacity cap (disk and system limits apply)')}</dd></div>
           <div><dt>${t('儲存位置','保存位置','Save location')}</dt><dd id="ll-receive-path">…</dd></div>
         </dl><div class="ll-file-actions"><button id="ll-choose-directory">${t('變更資料夾','更改目录','Change folder')}</button><button id="ll-open-directory">${t('開啟資料夾','打开目录','Open folder')}</button><button id="ll-rediscover">${t('重新搜尋','重新搜索','Discover again')}</button></div><p id="ll-network-result" role="status"></p></div></section>`;
       const showResult=result=>{if(!content.querySelector('#ll-network-result'))return;if(result.path)content.querySelector('#ll-receive-path').textContent=result.path;content.querySelector('#ll-network-result').textContent=result.error||'';};
       const receiveOptions=document.createElement('section');receiveOptions.className='ll-settings-card';receiveOptions.innerHTML=`<div class="ll-settings-card-head"><i data-lucide="folder-check"></i>${t('接收後','接收后','After receiving')}</div><div class="ll-settings-card-body"><p class="ll-settings-copy">${t('接收成功後，檔案會自動儲存在上方資料夾內。','接收成功后，文件会自动保存在上方文件夹内。','Accepted files are saved automatically inside the folder above.')}</p><label class="ll-setting-row" for="ll-open-after-receive">${t('完成後開啟所在資料夾','完成后打开所在文件夹','Open containing folder when complete')}<input id="ll-open-after-receive" type="checkbox" role="switch" class="ll-switch"></label></div>`;content.appendChild(receiveOptions);
+      const bandwidth = window.orbitAPI.dbGetSetting('locallink.bandwidth', {upload:0,download:0});
+      const speedCard = document.createElement('section');
+      speedCard.className = 'll-settings-card';
+      const speedOptions = value => [...new Set([0,1,5,10,25,50,100,Number(value)||0])].sort((a,b)=>a-b).map(n =>
+        `<option value="${n}" ${n===Number(value||0)?'selected':''}>${n ? n+' MB/s' : t('不限速','不限速','Unlimited')}</option>`).join('');
+      speedCard.innerHTML = `<div class="ll-settings-card-head"><i data-lucide="gauge"></i>${t('傳輸限速','传输限速','Transfer speed limits')}</div>
+        <div class="ll-settings-card-body">
+          <label class="ll-setting-row" for="ll-upload-limit">${t('傳送上限','发送上限','Upload limit')}<select id="ll-upload-limit">${speedOptions(bandwidth.upload)}</select></label>
+          <label class="ll-setting-row" for="ll-download-limit">${t('接收上限','接收上限','Download limit')}<select id="ll-download-limit">${speedOptions(bandwidth.download)}</select></label>
+          <p class="ll-settings-copy">${t('立即生效，同方向的所有檔案傳輸共用上限。1 MB/s = 8 Mbps；接收限速可能有短暫緩衝突波。','立即生效，同方向的所有文件传输共享上限。1 MB/s = 8 Mbps；接收限速可能有短暂缓冲突发。','Applies immediately across file transfers in each direction. 1 MB/s = 8 Mbps. Receive buffering may cause brief bursts.')}</p>
+        </div>`;
+      content.insertBefore(speedCard, receiveOptions.nextSibling);
+      const saveBandwidth = () => window.orbitAPI.dbSetSetting('locallink.bandwidth', {
+        upload:Number(content.querySelector('#ll-upload-limit').value),
+        download:Number(content.querySelector('#ll-download-limit').value)
+      });
+      content.querySelector('#ll-upload-limit').onchange = saveBandwidth;
+      content.querySelector('#ll-download-limit').onchange = saveBandwidth;
+      const adapterCard=document.createElement('section');adapterCard.className='ll-settings-card';
+      adapterCard.innerHTML=`<div class="ll-settings-card-head"><i data-lucide="network"></i>${t('網卡與鏈路速度','网卡与链路速度','Network adapters and link speed')}</div><div class="ll-settings-card-body">
+        <p class="ll-settings-copy">${t('查看目前連線的理論上限；不是實際傳輸速度。虛擬網卡不代表物理頻寬；多張網卡的速度不會相加。','查看当前连接的理论上限；不是实际传输速度。虚拟网卡不代表物理带宽；多张网卡的速度不会相加。','Current link ceilings, not measured transfer speed. Virtual links do not represent physical bandwidth; adapter speeds do not add up.')}</p>
+        <div id="ll-adapters-result" role="status">${t('按下檢測以讀取本機網卡資訊。','点击检测读取本机网卡信息。','Check to read this computer’s adapter information.')}</div>
+        <div class="ll-file-actions"><button id="ll-check-adapters">${t('檢測網卡','检测网卡','Check adapters')}</button></div></div>`;
+      speedCard.after(adapterCard);
+      adapterCard.querySelector('button').onclick=async()=>{
+        const button=adapterCard.querySelector('button'),result=adapterCard.querySelector('#ll-adapters-result');
+        button.disabled=true;result.textContent=t('正在檢測…','正在检测…','Checking…');
+        try{
+          const info=await window.orbitAPI.invoke('locallink-network-adapters');
+          if(!info.ok){result.textContent=info.reason==='unsupported'?t('目前僅支援 Windows 鏈路檢測。','目前仅支持 Windows 链路检测。','Link detection currently supports Windows only.'):t('無法讀取網卡，請稍後重試。','无法读取网卡，请稍后重试。','Unable to read adapters. Please try again.');return;}
+          const speed=bps=>bps?`${(bps/1000000).toLocaleString()} Mbps ≈ ${(bps/8000000).toLocaleString(undefined,{maximumFractionDigits:2})} MB/s`:t('未知','未知','Unknown');
+          result.innerHTML=info.adapters.map(adapter=>{
+            const kind=adapter.kind==='wifi'?t('無線','无线','Wi-Fi'):adapter.kind==='ethernet'?t('有線','有线','Ethernet'):adapter.kind==='virtual'?t('虛擬網卡','虚拟网卡','Virtual adapter'):t('其他','其他','Other');
+            return `<div style="padding:12px 0;border-bottom:1px solid var(--border-subtle)"><strong>${esc(adapter.name)}</strong> · ${kind} · ${adapter.connected?t('已連線','已连接','Connected'):t('未連線','未连接','Disconnected')}<p class="ll-settings-copy">${esc(adapter.description)}</p>${adapter.connected?`<div>${t('傳送','发送','Send')}: ${speed(adapter.sendBps)}</div><div>${t('接收','接收','Receive')}: ${speed(adapter.receiveBps)}</div>`:''}</div>`;
+          }).join('')||t('未找到網卡。','未找到网卡。','No adapters found.');
+          if(adapterCard.isConnected)adapterCard.scrollIntoView({block:'start'});
+        }catch{result.textContent=t('檢測失敗，請重試。','检测失败，请重试。','Detection failed. Please retry.');}
+        finally{button.disabled=false;}
+      };
       const openAfter=content.querySelector('#ll-open-after-receive');openAfter.checked=window.orbitAPI.dbGetSetting('locallink.openAfterReceive',false);openAfter.onchange=()=>window.orbitAPI.dbSetSetting('locallink.openAfterReceive',openAfter.checked);
       window.orbitAPI.invoke('locallink-storage').then(showResult);
       content.querySelector('#ll-choose-directory').onclick=()=>window.orbitAPI.invoke('locallink-choose-directory').then(showResult);
@@ -2505,6 +2573,7 @@ window.SettingsModal = {
     if (!tab) {
       tab = window.Storage ? window.Storage.get('lastSettingsTab', 'account') : 'account';
     }
+    if(['network','notifications','data','general'].includes(tab))tab='account';
     if(!this.isOpen)this.returnFocus=document.activeElement;
     this.container.style.display = 'flex';
     this.isOpen = true;

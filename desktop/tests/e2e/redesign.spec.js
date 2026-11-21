@@ -372,10 +372,10 @@ test.describe('desktop redesign', () => {
     // ⚠ The tab colours are written INLINE and the click handler rewrites them, so
     // this is really asking whether the `!important` block still wins after a
     // switch — the failure mode is a nav that reverts to the old look on click.
-    await page.locator('.settings-tab[data-tab="notifications"]').click();
+    await page.locator('.settings-tab[data-tab="account"]').click();
     await page.waitForTimeout(900);
     const second = await read();
-    expect(second.label).toBe('Notifications');
+    expect(second.label).toBe('General');
     expect(second.activeBg).toBe(first.activeBg);
     expect(second.idleBg).toBe(first.idleBg);
   });
@@ -1516,12 +1516,12 @@ test.describe('desktop redesign', () => {
     expect(shut.inStore).toBe(true);
 
     // The nav still works collapsed.
-    await page.evaluate(() => document.querySelector('.settings-tab[data-tab="notifications"]').click());
+    await page.evaluate(() => document.querySelector('.settings-tab[data-tab="account"]').click());
     await page.waitForTimeout(700);
     expect(await page.evaluate(() => {
       const a = document.querySelector('.settings-tab.active');
       return a ? a.dataset.tab : null;
-    })).toBe('notifications');
+    })).toBe('account');
     expect(await page.evaluate(() => document.getElementById('settings-overlay').classList.contains('nav-collapsed'))).toBe(true);
 
     // ── And with the layer OFF, there is no control and the rail is untouched ────

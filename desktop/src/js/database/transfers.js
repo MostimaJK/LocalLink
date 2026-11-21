@@ -41,7 +41,7 @@ class TransferStore {
   return this.db.prepare(sql).all(...params).map(r=>JSON.parse(r.payload));
  }
  replace(rows){this.db.transaction(()=>{this.db.exec('DELETE FROM locallink_transfers');rows.forEach(r=>this.save(r));})();}
- interrupt(){for(const row of this.list({all:true}))if(['queued','preparing','awaiting','transferring','confirming','receiving','verifying'].includes(row.status))this.save({...row,status:'failed',error:'Transfer interrupted',time:Date.now()});}
+ interrupt(){for(const row of this.list({all:true,statuses:['queued','preparing','awaiting','transferring','confirming','receiving','verifying']}))this.save({...row,status:'failed',error:'Transfer interrupted',time:Date.now()});}
  remove(id){return this.db.prepare('DELETE FROM locallink_transfers WHERE id=?').run(id).changes;}
 }
 module.exports=TransferStore;

@@ -1,6 +1,6 @@
 'use strict';
 const fs=require('fs'),path=require('path');
-async function archiveFolder(source,cache,maxBytes=500*1024*1024){
+async function archiveFolder(source,cache,maxBytes=Number.MAX_SAFE_INTEGER){
  const root=await fs.promises.realpath(source),entries=[];let total=0;
  async function walk(dir){
   for(const entry of await fs.promises.readdir(dir,{withFileTypes:true})){
@@ -8,7 +8,7 @@ async function archiveFolder(source,cache,maxBytes=500*1024*1024){
    const file=path.join(dir,entry.name),stat=await fs.promises.lstat(file);
    if(stat.isSymbolicLink())throw new Error('Folder contains a symbolic link; remove it before sending');
    if(stat.isDirectory()){entries.push({file,name:path.relative(root,file).replaceAll('\\','/')+'/',directory:true});await walk(file);}
-   else if(stat.isFile()){total+=stat.size;if(total>maxBytes||entries.length>=10000)throw new Error('Folder exceeds transfer limit');entries.push({file,name:path.relative(root,file).replaceAll('\\','/')});}
+   else if(stat.isFile()){total+=stat.size;if(!Number.isSafeInteger(total)||total>maxBytes||entries.length>=10000)throw new Error('Folder exceeds transfer limit');entries.push({file,name:path.relative(root,file).replaceAll('\\','/')});}
   }
  }
  await walk(root);await fs.promises.mkdir(cache,{recursive:true});

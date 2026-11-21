@@ -13,7 +13,7 @@ test('centered window, nearby sightings and explicit favorites have separate lif
     expect(bounds.fullscreen).toBe(false);
     expect(Math.abs(bounds.bounds.x + bounds.bounds.width/2 - (bounds.area.x + bounds.area.width/2))).toBeLessThanOrEqual(1);
     expect(Math.abs(bounds.bounds.y + bounds.bounds.height/2 - (bounds.area.y + bounds.area.height/2))).toBeLessThanOrEqual(1);
-    await expect(page.locator('#chat-welcome-host')).toContainText('在你的设备之间传输');
+    await expect(page.locator('#chat-welcome-host')).toContainText('在你的裝置之間傳輸');
     await expect(page.locator('#friends-list-container')).not.toContainText('Local demo');
     await page.evaluate(() => window.store.addOrUpdatePeer({userId:'wan-only', username:'Internet peer', status:'online', usertag:'0001'}));
     await expect(page.locator('#friends-list-container')).not.toContainText('Internet peer');

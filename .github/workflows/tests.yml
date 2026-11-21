@@ -1,6 +1,7 @@
 name: Tests
 
 on:
+  push:
   pull_request:
   workflow_dispatch:
 
@@ -18,7 +19,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       # Plain Node — `global.window = global` then require the module. No install step,
       # because these tests deliberately have no dependencies.
@@ -40,7 +41,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: desktop/package-lock.json
 
@@ -50,4 +51,4 @@ jobs:
       # Playwright drives the app's own Electron binary — no browser install
       # step is needed and none should be added.
       - name: Run E2E tests
-        run: npx playwright test
+        run: npm run test:release

@@ -1281,6 +1281,10 @@ app.whenReady().then(() => {
     event.returnValue = globalDb.getSetting(key, def);
   });
   ipcMain.on('db-set-setting', (event, key, val) => {
+    if (key === 'locallink.bandwidth') {
+      val = require('./src/js/network/bandwidth').normalizeLimits(val);
+      localSendInstance?.setBandwidth(val);
+    }
     globalDb.setSetting(key, val);
     event.returnValue = true;
   });
@@ -1539,7 +1543,8 @@ app.whenReady().then(() => {
         const emit = (channel, value) => { if(mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel,value); };
         localSendInstance = new LocalSend({
           dataDir: app.getPath('userData'), receiveDir: globalDb.getSetting('locallink.receiveDir',path.join(app.getPath('downloads'),'LocalLink')),
-          maxBytes: 500 * 1024 * 1024,
+          // No product capacity cap; transport validates safe integer byte counts.
+          bandwidth: globalDb.getSetting('locallink.bandwidth', {}),
           alias: () => currentIdentity.username,
           peer: peer => emit('locallink-lan-seen', peer),
           error: error => emit('locallink-transfer-error', error),
@@ -1767,6 +1772,8 @@ app.whenReady().then(() => {
     try{const result=await require('./src/js/database/transfer-archive').importArchive(globalDb.transfers,pick.filePaths[0],receiveDir());mainWindow?.webContents.send('locallink-history-changed');return {ok:true,...result};}
     catch(error){return {ok:false,error:error.message};}
   });
+  const readAdapters = require('./src/js/network/adapters').createAdapterReader();
+  ipcMain.handle('locallink-network-adapters', () => readAdapters());
   ipcMain.handle('locallink-diagnostics',async()=>({running:!!localSendInstance?.port&&!localSendInstance.closed,error:localSendError,port:localSendInstance?.port||null,addresses:Object.values(os.networkInterfaces()).flat().filter(a=>a?.family==='IPv4'&&!a.internal).map(a=>a.address)}));
   ipcMain.handle('locallink-storage',async()=>({ok:true,path:receiveDir()}));
   ipcMain.handle('locallink-choose-directory',async()=>{

@@ -18,7 +18,7 @@ window.LocalSendPanel = {
    'Not enough disk space':['接收磁碟空間不足','接收磁盘空间不足','Not enough disk space'],
    'File integrity check failed':['檔案校驗失敗，請重試','文件校验失败，请重试','File integrity check failed. Retry the transfer.'],
    'Receiver did not accept this file':['對方未接收此檔案','对方未接收此文件','The receiver did not accept this file'],
-   'File selection exceeds transfer limit or has an unsupported name':['檔案超過 500 MiB 或名稱不受支援','文件超过 500 MiB 或名称不受支持','Files exceed 500 MiB or have an unsupported name'],
+   'File selection exceeds transfer limit or has an unsupported name':['檔案大小無效或名稱不受支援','文件大小无效或名称不受支持','Invalid file size or unsupported name'],
    'Enter an IP address with an optional port':['請輸入 IP 位址，可附加連接埠','请输入 IP 地址，可附加端口','Enter an IP address with an optional port']
   };
   if(error?.includes('HTTP 401'))return this.text('對方需要 PIN，按重試輸入','对方需要 PIN，按重试输入','The receiver requires a PIN. Choose Retry.');

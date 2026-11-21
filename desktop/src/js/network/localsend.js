@@ -10,6 +10,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { Transform } = require('stream');
 const { pipeline } = require('stream/promises');
+const {Budget,normalizeLimits} = require('./bandwidth');
 const PREFIX = '/api/localsend/v2/';
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
 const normalize = value => String(value || '').replace(/:/g, '').toLowerCase();
@@ -22,7 +23,8 @@ function safeName(name) {
  return typeof name==='string' && name.length>0 && name.length<=180 && !/[<>:"/\\|?*\x00-\x1f]/.test(name) && !/[. ]$/.test(name) && !/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(name) && name!=='.' && name!=='..';
 }
 class LocalSend {
- constructor(opts){this.opts=opts;this.peers=new Map();this.sessions=new Map();this.pending=false;this.sockets=new Set();this.closed=false;this.outgoing=new Map();this.requests=new Set();this.idleMs=opts.idleTimeoutMs||120000;}
+ constructor(opts){this.uploadBudget=new Budget();this.downloadBudget=new Budget();this.setBandwidth(opts.bandwidth);this.opts={...opts,maxBytes:opts.maxBytes ?? Number.MAX_SAFE_INTEGER};this.peers=new Map();this.sessions=new Map();this.pending=false;this.sockets=new Set();this.closed=false;this.outgoing=new Map();this.requests=new Set();this.idleMs=opts.idleTimeoutMs||120000;}
+ setBandwidth(value){const limits=normalizeLimits(value);this.uploadBudget.set(limits.upload);this.downloadBudget.set(limits.download);}
  info(){return {alias:this.opts.alias(),version:'2.2',deviceModel:process.platform,deviceType:'desktop',fingerprint:this.fingerprint,port:this.port,protocol:'https',download:false,locallink:{messages:1}};}
  async start(){
   const certFile=path.join(this.opts.dataDir,'locallink-tls.json');
@@ -116,7 +118,7 @@ class LocalSend {
     if(!body.info?.fingerprint||!entries.length||entries.length>100)return reply(400);
     let total=0;
     for(const [id,f] of entries){if(!id||id.length>128||!safeName(f.fileName)||!Number.isSafeInteger(f.size)||f.size<0||f.size>this.opts.maxBytes|| (f.sha256 && !/^[0-9a-f]{64}$/i.test(f.sha256)))return reply(400);total+=f.size;}
-    if(total>this.opts.maxBytes)return reply(400);
+    if(!Number.isSafeInteger(total)||total>this.opts.maxBytes)return reply(400);
     const allowed=await this.opts.accept({authenticatedPeerId:'localsend:'+normalize(body.info.fingerprint)===authenticatedPeerId?authenticatedPeerId:null,alias:String(body.info?.alias||ip).slice(0,100),ip,files:entries.map(([,f])=>({name:f.fileName,size:f.size})),total});
     if(!allowed||this.closed||res.destroyed)return reply(403);
     const sessionId=crypto.randomUUID();const files=new Map();
@@ -144,7 +146,7 @@ class LocalSend {
    dir=fs.mkdtempSync(path.join(session.receiveDir,'transfer-'));
    partial=path.join(dir,'.partial');const dest=path.join(dir,file.fileName);
    const transport=this;
-   await pipeline(req,new Transform({transform(chunk,enc,cb){
+   await pipeline(req,this.downloadBudget.stream(),new Transform({transform(chunk,enc,cb){
     received+=chunk.length;if(received>file.size)return cb(new Error('Size exceeded'));
     session.expires=Date.now()+transport.idleMs;sha.update(chunk);
     transport.progress(task,received,'receiving');cb(null,chunk);
@@ -213,7 +215,14 @@ class LocalSend {
    });
    this.requests.add(req);req.once('close',()=>this.requests.delete(req));
    req.setTimeout(options.timeout||this.idleMs,()=>req.destroy(new Error('Transfer timed out')));req.on('error',reject);
-   const send=()=>{if(file){const input=fs.createReadStream(file.path);input.on('error',e=>req.destroy(e));req.on('close',()=>input.destroy());let bytes=0;input.on('data',chunk=>{bytes+=chunk.length;options.progress?.(bytes);});input.pipe(req);req.once('finish',()=>options.flushed?.());}else req.end(raw);};
+   const send=()=>{
+    if(!file){req.end(raw);return;}
+    const input=fs.createReadStream(file.path),limiter=this.uploadBudget.stream();
+    let bytes=0;
+    limiter.on('data',chunk=>{bytes+=chunk.length;options.progress?.(bytes);});
+    req.once('finish',()=>options.flushed?.());
+    pipeline(input,limiter,req).catch(error=>req.destroy(error));
+   };
    if(peer.protocol==='https')req.on('socket',socket=>socket.once('secureConnect',()=>{const cert=socket.getPeerCertificate();if(options.discover&&cert.raw)peer.fingerprint=hash(cert.raw);if(!cert.raw||hash(cert.raw)!==normalize(peer.fingerprint))return req.destroy(new Error('Device certificate changed; rediscover the device'));send();}));else send();
   });
  }
@@ -243,7 +252,7 @@ class LocalSend {
    let total=0;const files={};
    for(const task of tasks){
     signal.throwIfAborted();const stat=await fs.promises.stat(task.path);total+=stat.size;
-    if(!stat.isFile()||!safeName(task.name)||total>this.opts.maxBytes)throw new Error('File selection exceeds transfer limit or has an unsupported name');
+    if(!stat.isFile()||!Number.isSafeInteger(stat.size)||!Number.isSafeInteger(total)||!safeName(task.name)||total>this.opts.maxBytes)throw new Error('File selection exceeds transfer limit or has an unsupported name');
     task.size=stat.size;this.publish(task,'preparing');
     const sha=crypto.createHash('sha256');
     for await(const chunk of fs.createReadStream(task.path,{signal}))sha.update(chunk);

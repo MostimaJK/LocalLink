@@ -2,7 +2,7 @@
   "name": "orbit-workspace",
   "version": "1.0.0",
   "private": true,
-  "description": "Orbit P2P Chat \u2014 Workspace Root",
+  "description": "LocalLink development workspace",
   "scripts": {
     "start": "npm --prefix desktop start",
     "desktop:start": "npm --prefix desktop start",

@@ -60,3 +60,12 @@ mobile/tests/.shots/
 !docs/**
 /test-results/
 /desktop/test-results/
+
+# Local credentials and runtime identities
+.env.*
+!.env.example
+*.pfx
+*.p12
+locallink-tls.json
+*.db-wal
+*.db-shm

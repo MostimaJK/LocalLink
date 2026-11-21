@@ -21,6 +21,8 @@ files:
 # requires ../shared/crypto/* — both resolve to resources/shared at runtime.
 # Without this, every shared/ module 404s in packaged builds.
 extraResources:
+  - from: THIRD-PARTY-NOTICES.txt
+    to: licenses/THIRD-PARTY-NOTICES.txt
   - from: ../LICENSE
     to: licenses/Orbit-LICENSE.txt
   - from: ../shared

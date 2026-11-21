@@ -1,0 +1,32 @@
+[
+  {
+    "run": 1,
+    "profile": "new",
+    "settingsUsableMs": 1577,
+    "transportReadyMs": 1601,
+    "navigation": {
+      "domContentLoadedMs": 556,
+      "loadMs": 905
+    }
+  },
+  {
+    "run": 2,
+    "profile": "existing",
+    "settingsUsableMs": 1216,
+    "transportReadyMs": 1240,
+    "navigation": {
+      "domContentLoadedMs": 487,
+      "loadMs": 560
+    }
+  },
+  {
+    "run": 3,
+    "profile": "existing",
+    "settingsUsableMs": 1170,
+    "transportReadyMs": 1205,
+    "navigation": {
+      "domContentLoadedMs": 454,
+      "loadMs": 536
+    }
+  }
+]

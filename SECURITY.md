@@ -1,63 +1,21 @@
-# Security Policy
+# LocalLink 安全说明
 
-## Supported Versions (v0.3.x >=)
+当前 1.0.0 为发布候选开发版本，尚未作出稳定版本支持期限、响应时间或安全审计认证承诺。
 
-Orbit is in beta. Security fixes are issued for the **latest release and the one
-immediately prior**. Anything older is not maintained.
+## 报告问题
 
-| Version | Supported |
-|---------|-----------|
-| Latest release | ✅ |
-| Previous release | ✅ |
-| Anything older | ❌ |
+仓库所有者应在 GitHub Settings → Security 中启用 Private vulnerability reporting，再接受私密漏洞报告。若仓库尚未开放该入口，请通过仓库维护者明确提供的私密渠道联系；不要在公开 Issue 附上私钥、真实文件、访问令牌或可利用的未修复漏洞细节。本项目没有指定上游维护者代收问题。
 
-See [CHANGELOG.md](CHANGELOG.md) for the current version.
+## 安全边界
 
-## Reporting a Vulnerability
+- 附近发现不表示信任；收藏不等于配对或自动接收授权。
+- 默认 LocalSend 文件通路使用 HTTPS、设备证书指纹校验、单次令牌及文件完整性检查。
+- 原生自动接收授权需要显式配对；旧通信协议的安全边界与默认协议不同，不应混用声明。
+- 本地网卡检测仅执行固定只读 Windows 命令，不上传网卡资料，不主动进行网络压测。
+- 限速作用于本应用默认协议文件有效载荷，不是系统防火墙或路由器 QoS。
 
-If you discover a security vulnerability in Orbit, please report it privately.
+## 发布验证
 
-**Do not** open a public GitHub issue. Instead, email **orbit.support.real@gmail.com**
+本仓库尚未配置 LocalLink 的公开代码签名或发布签名身份。上游 security/ 中的公钥与历史签名不适用于 LocalLink。SHA-256 文件校验只能验证内容一致性，不能替代发布者身份验证。
 
-Please include the version, platform, and steps to reproduce if you can. If you
-would like to encrypt your report, use the PGP key in [`security/`](security/).
-
-You can expect an acknowledgement within 48 hours and a detailed response within 5 business days.
-
-## Release Verification
-
-All official Orbit releases include:
-- `SHA256SUMS.txt` — checksums of every release artifact
-- `SHA256SUMS.txt.sig` — GPG signature of the checksums file
-
-See [security/README.md](security/README.md) for full verification instructions.
-
-## NAT Traversal: What the Relay Sees
-
-Orbit's internet path uses a **signalling relay** to introduce two peers, then a direct
-peer-to-peer WebRTC connection. The relay's role is deliberately narrow, and the security
-properties follow from where the encryption sits.
-
-**What the relay carries.** SDP and ICE candidates only — the information two peers need to
-find each other. It is not a message path. Once the DataChannel is open, both sides stop
-talking to it.
-
-**What the relay can see.** Which two IP addresses are pairing, when, and how much
-signalling traffic passes. That is unavoidable for anything that introduces two peers, and
-it is why the relay URL is a setting rather than a hard-coded default: you decide who, if
-anyone, gets to see that.
-
-**What the relay cannot see.** Message content, attachments, contact names, or your identity
-keys. End-to-end encryption sits **above** the transport, so every packet is already
-ciphertext before the relay — or the DataChannel — sees it. This is also why the two
-transports (LAN TCP and WAN WebRTC) carry byte-identical payloads.
-
-**A stolen pairing code is a denial of service, not a disclosure.** A room holds two peers,
-so somebody who learns your code can take the second seat and prevent the real connection.
-They still cannot read a single message: they hold no keys. The worst case is an interrupted
-connection, not a leak.
-
-**Not yet configured in this build.** `iceServers` defaults to empty, so only host
-candidates are used — Orbit connects over a LAN and over loopback, but **not yet between two
-different networks**. Reaching that requires STUN (and TURN for symmetric NAT) plus a relay
-you host yourself.
+上传前检查工作树与 Git 历史中的敏感资料。调试用 Android keystore 不是正式签名凭据，不得用于正式发行。发现真实泄漏应撤销/轮换相应凭据；单纯删除当前文件不会清除 Git 历史。

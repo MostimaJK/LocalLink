@@ -100,7 +100,7 @@ test('settings localize controls, show retained content directly, and use LocalL
  try{
   await page.locator('#btn-nav-settings').click();
   await expect(page.locator('#settings-content')).toContainText('裝置名稱');
-  await expect(page.locator('#transport-mode')).toHaveCount(0);
+  await expect(page.locator('#transport-mode')).toHaveCount(1);
   await expect(page.locator('#settings-content')).not.toContainText('Language /');
   await page.screenshot({path:screen('settings-device-refined')});
   await page.locator('#input-username').fill('未保存的设备名');
@@ -110,8 +110,8 @@ test('settings localize controls, show retained content directly, and use LocalL
   await chooseSetting(page,'interface-language','zh-Hans');
   await expect(page.locator('#settings-content')).toContainText('界面语言');
   await chooseSetting(page,'interface-language','zh-Hant');
-  await page.locator('.settings-tab[data-tab="network"]').click();
-  await expect(page.locator('#settings-content')).toContainText('區域網路傳輸');
+  await page.locator('.settings-tab[data-tab="account"]').click();
+  await expect(page.locator('#settings-content')).toContainText('接收與儲存');
   await expect(page.locator('#transport-mode')).toHaveValue('localsend');
   await chooseSetting(page,'transport-mode','orbit');
   await expect(page.locator('#transport-save-msg')).toContainText('重新啟動');
@@ -128,7 +128,10 @@ test('settings localize controls, show retained content directly, and use LocalL
   // Also verify controls fit a shorter normal desktop window.
   await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1000,680));
   await page.locator('.settings-tab[data-tab="account"]').click();
+  await expect(page.locator('#ll-choose-directory')).toBeInViewport();
+  await page.locator('#btn-save-account').scrollIntoViewIfNeeded();
   await expect(page.locator('#btn-save-account')).toBeInViewport();
+  await page.locator('#interface-language-trigger').scrollIntoViewIfNeeded();
   await expect(page.locator('#interface-language-trigger')).toBeInViewport();
  }finally{await app.close();}
 });
