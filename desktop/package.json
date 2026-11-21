@@ -1,6 +1,6 @@
 {
   "name": "orbit-beta",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "LocalLink device-to-device file transfer",
   "author": "LocalLink contributors",
   "main": "main.js",
@@ -13,7 +13,8 @@
     "test": "playwright test",
     "test:sharded": "playwright test --shard=1/2 && playwright test --shard=2/2",
     "build:win:local": "node scripts/build-windows-local.cjs",
-    "test:transfers": "node tests/localsend-protocol.test.js && node tests/localsend-tasks.test.js"
+    "test:transfers": "node tests/localsend-protocol.test.js && node tests/localsend-tasks.test.js",
+    "build:win:installer": "node scripts/build-installer.cjs"
   },
   "keywords": [],
   "license": "MIT",
@@ -23,7 +24,7 @@
     "@capacitor/core": "8.6.2",
     "archiver": "8.0.0",
     "bad-words": "^4.0.0",
-    "better-sqlite3": "^12.10.0",
+    "better-sqlite3": "13.2.0",
     "electron-store": "^8.2.0",
     "emoji-picker-element": "^1.29.1",
     "jsqr": "^1.4.0",
@@ -37,9 +38,11 @@
   "devDependencies": {
     "@capacitor/cli": "8.6.2",
     "@playwright/test": "^1.62.1",
-    "electron": "^32.3.3",
-    "electron-builder": "^26.8.1",
-    "rcedit": "5.0.2"
+    "electron": "45.4.1",
+    "electron-builder": "26.18.0"
   },
-  "productName": "LocalLink"
+  "productName": "LocalLink",
+  "overrides": {
+    "minimatch": "11.0.1"
+  }
 }

@@ -23,12 +23,17 @@ class TransferStore {
   this.put.run({id:r.id,peerId:r.peerId,startedAt:r.startedAt||r.time||0,name:r.name||'',status:r.status||'failed',direction:r.direction||(r.status==='received'?'incoming':'outgoing'),payload:JSON.stringify(r)});
  }
  get(id){const row=this.db.prepare('SELECT payload FROM locallink_transfers WHERE id=?').get(id);return row?JSON.parse(row.payload):null;}
- list({peerId,query='',status,direction,limit=200,offset=0,all=false}={}){
+ list({peerId,query='',status,direction,from,to,kind,limit=200,offset=0,all=false}={}){
   const where=[],params=[];
   if(peerId){where.push('peerId=?');params.push(peerId);}
   if(query){where.push("name LIKE ? ESCAPE '\\'");params.push('%'+String(query).replace(/[\\%_]/g,'\\$&')+'%');}
   if(status){where.push('status=?');params.push(status);}
   if(direction){where.push('direction=?');params.push(direction);}
+  if(from){where.push('startedAt>=?');params.push(Number(from));}
+  if(to){where.push('startedAt<?');params.push(Number(to));}
+  if(kind==='image')where.push("(lower(name) GLOB '*.png' OR lower(name) GLOB '*.jpg' OR lower(name) GLOB '*.jpeg' OR lower(name) GLOB '*.webp' OR lower(name) GLOB '*.gif')");
+  if(kind==='text')where.push("(lower(name) GLOB '*.txt')");
+  if(kind==='archive')where.push("(lower(name) GLOB '*.zip' OR lower(name) GLOB '*.7z' OR lower(name) GLOB '*.rar')");
   let sql='SELECT payload FROM locallink_transfers'+(where.length?' WHERE '+where.join(' AND '):'')+' ORDER BY startedAt DESC,id DESC';
   if(!all){sql+=' LIMIT ? OFFSET ?';params.push(Math.max(1,Math.min(Number(limit)||200,1000)),Math.max(0,Number(offset)||0));}
   return this.db.prepare(sql).all(...params).map(r=>JSON.parse(r.payload));

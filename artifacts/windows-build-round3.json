@@ -1,0 +1,9 @@
+{
+  "version": "1.1.0",
+  "file": "LocalLink-Setup-1.1.0.exe",
+  "bytes": 205674090,
+  "sha256": "253DC15FBFD4F2028A5792061AD8F20030F665BD6E4AD9232FC81DE58C714263",
+  "electron": "45.4.1",
+  "signed": false,
+  "sourceArchiveChecked": true
+}

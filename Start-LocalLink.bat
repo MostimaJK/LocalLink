@@ -6,7 +6,8 @@ pushd "%~dp0desktop"
 if errorlevel 1 goto directory_error
 
 if not exist "node_modules\electron\dist\electron.exe" goto setup
-if not exist "node_modules\better-sqlite3\build\Release\better_sqlite3.node" goto setup
+rem SQLite 13 ships Node-API prebuilds; it no longer requires build\Release.
+if not exist "node_modules\better-sqlite3\package.json" goto setup
 if not exist "node_modules\selfsigned\package.json" goto setup
 goto ready
 

@@ -4,6 +4,7 @@ const https = require('https');
 const http = require('http');
 const dgram = require('dgram');
 const net = require('net');
+const os = require('os');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -42,12 +43,30 @@ class LocalSend {
    this.udp.on('error',error=>this.opts.error?.(error.message));
    this.udp.on('message',(bytes,r)=>{if(bytes.length>65536)return;try{const p=JSON.parse(bytes);this.observe(p,r.address);if(p.announce===true&&p.fingerprint!==this.fingerprint)this.announce(false);}catch{}});
    await new Promise((resolve,reject)=>{this.udp.once('error',reject);this.udp.bind(53317,resolve);});
-   this.udp.addMembership('224.0.0.167');this.udp.setMulticastTTL(1);this.announce(true);
+   this.interfaces=new Set();this.refreshInterfaces();this.udp.setMulticastTTL(1);this.announce(true);
    this.beacons=setInterval(()=>this.announce(true),10000);
   }
   return this.info();
  }
- announce(announce=true){if(this.udp&&!this.closed)this.udp.send(Buffer.from(JSON.stringify({...this.info(),announce})),53317,'224.0.0.167');}
+ refreshInterfaces(){
+  const addresses=new Set(Object.values(os.networkInterfaces()).flat().filter(a=>a.family==='IPv4'&&!a.internal).map(a=>a.address));
+  for(const ip of this.interfaces||[])if(!addresses.has(ip)){try{this.udp.dropMembership('224.0.0.167',ip);}catch{}this.interfaces.delete(ip);}
+  for(const ip of addresses)if(!this.interfaces.has(ip))try{this.udp.addMembership('224.0.0.167',ip);this.interfaces.add(ip);}catch(error){this.opts.error?.(error.message);}
+ }
+ async announce(announce=true){
+  if(!this.udp||this.closed||this.announcing)return;
+  this.announcing=true;
+  try{
+   this.refreshInterfaces();const bytes=Buffer.from(JSON.stringify({...this.info(),announce}));
+   // send() completes asynchronously. Do not change the socket interface before
+   // the previous datagram has actually been submitted to the operating system.
+   for(const ip of [...this.interfaces]){
+    if(this.closed)break;
+    try{this.udp.setMulticastInterface(ip);await new Promise((resolve,reject)=>this.udp.send(bytes,53317,'224.0.0.167',error=>error?reject(error):resolve()));}
+    catch(error){this.opts.error?.(error.message);}
+   }
+  }finally{this.announcing=false;}
+ }
  observe(p,ip){
   if(!p||typeof p.alias!=='string'||p.alias.length>100||!net.isIP(ip)||!['http','https'].includes(p.protocol)||!Number.isInteger(p.port)||p.port<1||p.port>65535||!p.version?.startsWith('2.')||typeof p.fingerprint!=='string'||p.fingerprint.length>128||!p.fingerprint)return;
   if(normalize(p.fingerprint)===this.fingerprint)return;

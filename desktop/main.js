@@ -1662,6 +1662,21 @@ app.whenReady().then(() => {
     if(!record||record.direction!=='outgoing'||!['failed','cancelled'].includes(record.status))return {ok:false,error:'This transfer cannot be retried'};
     return sendPaths(record.peerId,[record.path],pin,record.text);
   });
+  ipcMain.handle('locallink-send-folder',async(event,peerId)=>{
+    const pick=await dialog.showOpenDialog(mainWindow,{properties:['openDirectory']});if(pick.canceled)return {cancelled:true};
+    try{const file=await require('./src/js/network/folder-archive').archiveFolder(pick.filePaths[0],path.join(app.getPath('userData'),'locallink-outbox'));return sendPaths(peerId,[file]);}
+    catch(error){return {ok:false,error:error.message};}
+  });
+  ipcMain.handle('locallink-storage-cleanup',async(event,ids)=>{
+    if(!Array.isArray(ids)||ids.length>1000)return {ok:false,error:'Invalid selection'};
+    const rows=ids.map(id=>globalDb.transfers.get(id));
+    if(rows.some(r=>!r||r.direction!=='incoming'||r.status!=='received'||!r.path))return {ok:false,error:llText('只能清理已接收的檔案','只能清理已接收的文件','Only received files can be cleaned up')};
+    const confirm=await dialog.showMessageBox(mainWindow,{type:'warning',message:llText('將所選檔案移到資源回收筒？','将所选文件移到回收站？','Move selected files to the Recycle Bin?'),detail:rows.map(r=>r.name+'\n'+r.path).join('\n\n'),buttons:[llText('取消','取消','Cancel'),llText('移到資源回收筒','移到回收站','Move to Recycle Bin')],defaultId:0,cancelId:0});
+    if(confirm.response!==1)return {cancelled:true};
+    let count=0;const errors=[];
+    for(const row of rows)try{if(fs.existsSync(row.path))await shell.trashItem(row.path);globalDb.transfers.save({...row,path:null,fileRemoved:true});count++;}catch(error){errors.push(row.name+': '+error.message);}
+    mainWindow?.webContents.send('locallink-history-changed');return {ok:!errors.length,count,error:errors.join('\n')};
+  });
   ipcMain.handle('locallink-send-content',async(event,request)=>{
     try{
       const dir=path.join(app.getPath('userData'),'locallink-outbox');fs.mkdirSync(dir,{recursive:true});

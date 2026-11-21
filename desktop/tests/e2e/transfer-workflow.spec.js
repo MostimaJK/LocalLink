@@ -37,8 +37,12 @@ test('real file conversation: manual discovery, text, batch, paste, folder and h
   await page.locator('#ll-search-files').fill('中文');await expect(page.locator('.ll-transfer')).toHaveCount(1);
   await page.locator('#ll-search-files').fill('');await expect(page.locator('.ll-transfer')).toHaveCount(4);
   await page.evaluate(()=>window.LocalSendPanel.history());
-  await page.locator('#ll-history-dialog input').fill('Notes');await expect(page.locator('.ll-history-row')).toHaveCount(1);
+  await page.locator('#ll-history-dialog input[type=search]').fill('Notes');await expect(page.locator('.ll-history-row')).toHaveCount(1);
   await page.locator('#ll-history-dialog .ll-dialog-close').click();
+  const folder=path.join(dir,'Documents');fs.mkdirSync(folder);fs.writeFileSync(path.join(folder,'nested.txt'),'folder bytes');
+  await app.evaluate(({dialog},folder)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[folder]});},folder);
+  await page.locator('#ll-send-folder').click();await expect(page.locator('[data-status="delivered"]')).toHaveCount(5);
+  const zipped=incoming.find(r=>r.status==='received'&&r.name==='Documents.zip');expect(fs.readFileSync(zipped.path).includes(Buffer.from('folder bytes'))).toBe(true);
   const receiveDir=path.join(dir,'custom-received');fs.mkdirSync(receiveDir);
   await app.evaluate(({dialog},folder)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[folder]});dialog.showMessageBox=async()=>({response:1});},receiveDir);
   await page.evaluate(()=>window.SettingsModal.open('network'));await page.locator('#ll-choose-directory').click();
@@ -51,5 +55,21 @@ test('real file conversation: manual discovery, text, batch, paste, folder and h
   await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1000,680));
   await expect(page.locator('#ll-send-text')).toBeInViewport();await expect(page.locator('#ll-message-input')).toBeInViewport();
   await page.screenshot({path:path.resolve('../artifacts/transfer-workflow-compact.png')});
+  const received=await page.evaluate(()=>window.orbitAPI.sendSync('locallink-list-transfers',{direction:'incoming'})[0]);
+  const rejected=await page.evaluate(()=>window.orbitAPI.invoke('locallink-storage-cleanup',[window.orbitAPI.sendSync('locallink-list-transfers',{direction:'outgoing'})[0].id]));
+  expect(rejected.ok).toBe(false);
+  await app.evaluate(({dialog})=>{dialog.showMessageBox=async()=>({response:0});});
+  const cancelled=await page.evaluate(id=>window.orbitAPI.invoke('locallink-storage-cleanup',[id]),received.id);
+  expect(cancelled.cancelled).toBe(true);expect(fs.existsSync(received.path)).toBe(true);
+  await app.evaluate(({dialog})=>{dialog.showMessageBox=async()=>({response:1});});
+  await page.evaluate(()=>window.LocalSendPanel.history());
+  await page.locator('#ll-history-status-trigger').click();await page.getByRole('option',{name:'已接收',exact:true}).click();
+  await expect(page.locator('.ll-history-row')).toHaveCount(1);
+  await page.screenshot({path:path.resolve('../artifacts/history-round3.png')});
+  await page.locator('[data-cleanup-id]').check();
+  await page.locator('#ll-history-dialog .ll-load-more').click();
+  await expect(page.locator('[data-trash-file]')).toHaveCount(0);expect(fs.existsSync(received.path)).toBe(false);
+  expect(fs.existsSync(files[0])).toBe(true);
+
  }finally{if(app)await app.close();receiver.stop();}
 });

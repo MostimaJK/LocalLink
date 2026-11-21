@@ -5,9 +5,19 @@
     "license": "MIT"
   },
   {
+    "name": "@capacitor/cli",
+    "version": "8.6.2",
+    "license": "MIT"
+  },
+  {
     "name": "@capacitor/core",
     "version": "8.6.2",
     "license": "MIT"
+  },
+  {
+    "name": "@playwright/test",
+    "version": "1.62.1",
+    "license": "Apache-2.0"
   },
   {
     "name": "archiver",
@@ -21,7 +31,17 @@
   },
   {
     "name": "better-sqlite3",
-    "version": "12.10.0",
+    "version": "13.2.0",
+    "license": "MIT"
+  },
+  {
+    "name": "electron",
+    "version": "45.4.1",
+    "license": "MIT"
+  },
+  {
+    "name": "electron-builder",
+    "version": "26.18.0",
     "license": "MIT"
   },
   {

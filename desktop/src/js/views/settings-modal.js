@@ -258,6 +258,16 @@ window.SettingsModal = {
           message.textContent = error.message;
         }
       };
+    } else if (tabName === 'appearance' && window.orbitAPI.dbGetSetting('locallink.transport','localsend')==='localsend') {
+      const settings=state.settings;
+      const themes=[['dark',t('深色','深色','Dark')],['light',t('淺色','浅色','Light')],['system',t('跟隨系統','跟随系统','System')]];
+      content.innerHTML=`<h3 class="ll-settings-title">${t('外觀','外观','Appearance')}</h3><section class="ll-settings-card"><div class="ll-settings-card-head">${t('主題','主题','Theme')}</div><div class="ll-settings-card-body"><div class="ll-setting-row">${themes.map(([value,label])=>'<label><input type="radio" name="theme" value="'+value+'" '+(settings.theme===value?'checked':'')+'> '+label+'</label>').join('')}</div><div class="ll-setting-row" style="margin-top:20px"><label for="ll-custom-theme">${t('配色','配色','Color theme')}</label><select id="ll-custom-theme"><option value="">${t('標準','标准','Standard')}</option><option value="dark-purple">${t('深紫','深紫','Dark purple')}</option><option value="midnight">${t('午夜','午夜','Midnight')}</option><option value="sunset">${t('日落','日落','Sunset')}</option><option value="seasonal">${t('四季','四季','Seasonal')}</option><option value="nord">${t('北歐','北欧','Nord')}</option></select></div></div></section><section class="ll-settings-card"><div class="ll-settings-card-body"><label class="ll-setting-row">${t('文字大小','文字大小','Text size')}<select id="ll-font"><option value="Small">${t('小','小','Small')}</option><option value="Medium">${t('中','中','Medium')}</option><option value="Large">${t('大','大','Large')}</option></select></label><label class="ll-setting-row" style="margin-top:20px">${t('介面縮放','界面缩放','Interface scale')}<input id="ll-scale" type="range" min="80" max="150" step="5"><output id="ll-scale-value"></output></label><label class="ll-setting-row" style="margin-top:20px">${t('減少動態效果','减少动态效果','Reduce motion')}<input id="ll-reduce-motion" type="checkbox"></label></div></section>`;
+      const update=(key,value)=>{const next={...window.store.getState().settings,[key]:value};window.store.setState({settings:next});window.Storage.set('settings',next);window.orbitAPI.dbSetSetting('settings',next);window.App?.applySettings(next);};
+      content.querySelectorAll('[name="theme"]').forEach(input=>input.onchange=()=>update('theme',input.value));
+      const custom=content.querySelector('#ll-custom-theme');custom.value=themes.some(([value])=>value===settings.theme)?'':settings.theme;custom.onchange=()=>update('theme',custom.value||'dark');
+      const font=content.querySelector('#ll-font');font.value=settings.fontSize||'Medium';font.onchange=()=>update('fontSize',font.value);
+      const scale=content.querySelector('#ll-scale');scale.value=settings.appZoom||100;content.querySelector('output').value=scale.value+'%';scale.oninput=()=>{content.querySelector('output').value=scale.value+'%';};scale.onchange=()=>update('appZoom',Number(scale.value));
+      const motion=content.querySelector('#ll-reduce-motion');motion.checked=!!settings.reduceMotion;motion.onchange=()=>update('reduceMotion',motion.checked);
     } else if (tabName === 'appearance') {
       var s = state.settings;
 
@@ -317,7 +327,7 @@ window.SettingsModal = {
         // Section: Theme
         '<div class="settings-collapsible" style="margin-bottom:12px;border-radius:10px;border:1px solid var(--border-subtle);overflow:visible;">' +
           '<div class="collapsible-header" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg-base);cursor:pointer;user-select:none;" onclick="var b=this.nextElementSibling;var i=this.querySelector(\'.collapse-icon\');if(b.style.display===\'none\'){b.style.display=\'block\';i.style.transform=\'rotate(0deg)\'}else{b.style.display=\'none\';i.style.transform=\'rotate(-90deg)\'}">' +
-            '<div style="display:flex;align-items:center;gap:8px;"><i data-lucide="palette" style="width:16px;height:16px;color:var(--text-muted);"></i><span style="font-size:13px;font-weight:600;color:var(--text-primary);">Theme</span></div>' +
+            '<div style="display:flex;align-items:center;gap:8px;"><i data-lucide="palette" style="width:16px;height:16px;color:var(--text-muted);"></i><span style="font-size:13px;font-weight:600;color:var(--text-primary);">' + t("主題","主题","Theme") + '</span></div>' +
             '<i data-lucide="chevron-down" class="collapse-icon" style="width:16px;height:16px;color:var(--text-muted);transition:transform 0.2s;"></i>' +
           '</div>' +
           '<div class="collapsible-body" style="padding:16px;display:block;">' +
@@ -326,7 +336,7 @@ window.SettingsModal = {
             (s.enableCustomColors
               ? '<button id="theme-custom-colors-btn" style="display:flex;align-items:center;gap:6px;width:100%;padding:8px 12px;margin-top:8px;border-radius:8px;border:1px dashed var(--border-subtle);background:transparent;color:var(--text-secondary);font-size:12px;cursor:pointer;text-align:center;justify-content:center;transition:border-color 0.15s,color 0.15s;">' +
                 '<i data-lucide="palette" style="width:14px;height:14px;"></i>' +
-                '<span>Custom Colors</span>' + experimentalBadge +
+                '<span>' + t("自訂配色","自定义配色","Custom Colors") + '</span>' + experimentalBadge +
               '</button>'
               : '') +
             // A way BACK to the saved custom colours. Applying in the editor sets
@@ -341,7 +351,7 @@ window.SettingsModal = {
               : '') +
             '<label style="display:flex;align-items:center;gap:12px;font-size:14px;color:var(--text-primary);cursor:pointer;margin-top:16px;padding-top:12px;border-top:1px solid var(--border-subtle);">' +
               '<input id="set-24h" type="checkbox" '+(s.timeFormat24?'checked':'')+'>' +
-              '<div><div>24-hour Time</div><div style="font-size:12px;color:var(--text-muted);font-weight:400;">Show timestamps in 24-hour format</div></div>' +
+              '<div><div>24-hour Time</div><div style="font-size:12px;color:var(--text-muted);font-weight:400;">' + t("使用 24 小時制顯示時間","使用 24 小时制显示时间","Show timestamps in 24-hour format") + '</div></div>' +
             '</label>' +
           '</div>' +
         '</div>' +
@@ -349,24 +359,24 @@ window.SettingsModal = {
         // Section: Text & Layout
         '<div class="settings-collapsible" style="margin-bottom:12px;border-radius:10px;border:1px solid var(--border-subtle);overflow:hidden;">' +
           '<div class="collapsible-header" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg-base);cursor:pointer;user-select:none;" onclick="var b=this.nextElementSibling;var i=this.querySelector(\'.collapse-icon\');if(b.style.display===\'none\'){b.style.display=\'block\';i.style.transform=\'rotate(0deg)\'}else{b.style.display=\'none\';i.style.transform=\'rotate(-90deg)\'}">' +
-            '<div style="display:flex;align-items:center;gap:8px;"><i data-lucide="type" style="width:16px;height:16px;color:var(--text-muted);"></i><span style="font-size:13px;font-weight:600;color:var(--text-primary);">Text & Layout</span></div>' +
+            '<div style="display:flex;align-items:center;gap:8px;"><i data-lucide="type" style="width:16px;height:16px;color:var(--text-muted);"></i><span style="font-size:13px;font-weight:600;color:var(--text-primary);">' + t("文字與版面","文字与布局","Text & Layout") + '</span></div>' +
             '<i data-lucide="chevron-down" class="collapse-icon" style="width:16px;height:16px;color:var(--text-muted);transition:transform 0.2s;"></i>' +
           '</div>' +
           '<div class="collapsible-body" style="padding:16px;display:block;">' +
             '<div style="margin-bottom:16px;">' +
-              '<label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px;">Font Size</label>' +
+              '<label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px;">' + t("文字大小","文字大小","Font Size") + '</label>' +
               '<select id="set-font" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border-subtle);background:var(--bg-base);color:var(--text-primary);outline:none;font-size:13px;">' +
                 '<option '+(s.fontSize==='Small'?'selected':'')+'>Small</option><option '+(s.fontSize==='Medium'?'selected':'')+'>Medium</option><option '+(s.fontSize==='Large'?'selected':'')+'>Large</option>' +
               '</select>' +
             '</div>' +
             '<div style="margin-bottom:16px;">' +
-              '<label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px;">Message Bubbles</label>' +
+              '<label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px;">' + t("訊息氣泡","消息气泡","Message Bubbles") + '</label>' +
               '<select id="set-bubbles" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border-subtle);background:var(--bg-base);color:var(--text-primary);outline:none;font-size:13px;">' +
                 '<option '+(s.messageBubbles==='Modern'?'selected':'')+'>Modern (Rounded)</option><option '+(s.messageBubbles==='Compact'?'selected':'')+'>Compact (Square)</option>' +
               '</select>' +
             '</div>' +
             '<div>' +
-              '<label for="set-zoom" style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px;">App Zoom</label>' +
+              '<label for="set-zoom" style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px;">' + t("介面縮放","界面缩放","App Zoom") + '</label>' +
               '<div style="display:flex;align-items:center;gap:10px;">' +
                 '<span style="font-size:11px;color:var(--text-muted);">80%</span>' +
                 '<input id="set-zoom" type="range" min="80" max="150" value="'+s.appZoom+'" style="flex:1;accent-color:var(--accent-primary);">' +
@@ -396,33 +406,33 @@ window.SettingsModal = {
               '</div>' +
             '</div>' +
             '<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border-subtle);">' +
-              '<label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:10px;">Sidebar Buttons</label>' +
+              '<label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:10px;">' + t("側邊欄按鈕","侧边栏按钮","Sidebar Buttons") + '</label>' +
               '<div style="display:flex;flex-direction:column;gap:8px;">' +
                 '<label style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-primary);cursor:pointer;">' +
                   '<input type="checkbox" class="sidebar-btn-toggle" data-btn="activity" '+(s.sidebarButtons&&s.sidebarButtons.activity!==false?'checked':'')+'>' +
                   '<i data-lucide="bell" style="width:14px;height:14px;color:var(--text-muted);"></i>' +
-                  '<span>Activity Center</span>' +
+                  '<span>' + t("活動中心","活动中心","Activity Center") + '</span>' +
                 '</label>' +
                 '<label style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-primary);cursor:pointer;">' +
                   '<input type="checkbox" class="sidebar-btn-toggle" data-btn="gallery" '+(s.sidebarButtons&&s.sidebarButtons.gallery!==false?'checked':'')+'>' +
                   '<i data-lucide="archive" style="width:14px;height:14px;color:var(--text-muted);"></i>' +
-                  '<span>Gallery</span>' +
+                  '<span>' + t("圖庫","图库","Gallery") + '</span>' +
                 '</label>' +
                 '<label style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-primary);cursor:pointer;">' +
                   '<input type="checkbox" class="sidebar-btn-toggle" data-btn="storage" '+(s.sidebarButtons&&s.sidebarButtons.storage!==false?'checked':'')+'>' +
                   '<i data-lucide="hard-drive" style="width:14px;height:14px;color:var(--text-muted);"></i>' +
-                  '<span>Storage</span>' +
+                  '<span>' + t("儲存空間","存储空间","Storage") + '</span>' +
                 '</label>' +
               '</div>' +
             '</div>' +
           '<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border-subtle);">' +
             '<label style="display:flex;align-items:center;gap:12px;font-size:14px;color:var(--text-primary);cursor:pointer;">' +
               '<input id="set-translate" type="checkbox" '+(s.messageTranslate||s.experimentalMessageTranslate?'checked':'')+'>' +
-              '<div><div>Message Translation</div><div style="font-size:12px;color:var(--text-muted);font-weight:400;">Show a translate button on messages via MyMemory API</div></div>' +
+              '<div><div>' + t("訊息翻譯","消息翻译","Message Translation") + '</div><div style="font-size:12px;color:var(--text-muted);font-weight:400;">' + t("使用 MyMemory API 翻譯訊息","使用 MyMemory API 翻译消息","Show a translate button on messages via MyMemory API") + '</div></div>' +
             '</label>' +
             '<div id="translate-options" style="' + ((s.messageTranslate || s.experimentalMessageTranslate) ? '' : 'display:none;') + '">' +
               '<div style="margin-top:12px;">' +
-                '<label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px;">Translate to</label>' +
+                '<label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px;">' + t("翻譯為","翻译为","Translate to") + '</label>' +
                 '<select id="set-translate-lang" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border-subtle);background:var(--bg-base);color:var(--text-primary);outline:none;font-size:13px;">' +
                   '<option value="" '+(s.translateTargetLang===''?'selected':'')+'>Auto (browser language)</option>' +
                   '<option value="en" '+(s.translateTargetLang==='en'?'selected':'')+'>English</option>' +
@@ -459,7 +469,7 @@ window.SettingsModal = {
               '</div>' +
               '<label style="display:flex;align-items:center;gap:12px;font-size:14px;color:var(--text-primary);cursor:pointer;margin-top:12px;">' +
                 '<input id="set-translate-autodetect" type="checkbox" '+(s.autoDetectSource?'checked':'')+'>' +
-                '<div><div>Auto-detect Source Language</div><div style="font-size:12px;color:var(--text-muted);font-weight:400;">Detect message language instead of assuming English</div></div>' +
+                '<div><div>' + t("自動偵測原文語言","自动检测原文语言","Auto-detect Source Language") + '</div><div style="font-size:12px;color:var(--text-muted);font-weight:400;">' + t("自動偵測訊息語言","自动检测消息语言","Detect message language instead of assuming English") + '</div></div>' +
               '</label>' +
             '</div>' +
           '</div>' +
@@ -469,13 +479,13 @@ window.SettingsModal = {
         // Section: Animation
         '<div class="settings-collapsible" style="margin-bottom:12px;border-radius:10px;border:1px solid var(--border-subtle);overflow:hidden;">' +
           '<div class="collapsible-header" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg-base);cursor:pointer;user-select:none;" onclick="var b=this.nextElementSibling;var i=this.querySelector(\'.collapse-icon\');if(b.style.display===\'none\'){b.style.display=\'block\';i.style.transform=\'rotate(0deg)\'}else{b.style.display=\'none\';i.style.transform=\'rotate(-90deg)\'}">' +
-            '<div style="display:flex;align-items:center;gap:8px;"><i data-lucide="sparkles" style="width:16px;height:16px;color:var(--text-muted);"></i><span style="font-size:13px;font-weight:600;color:var(--text-primary);">Animation</span></div>' +
+            '<div style="display:flex;align-items:center;gap:8px;"><i data-lucide="sparkles" style="width:16px;height:16px;color:var(--text-muted);"></i><span style="font-size:13px;font-weight:600;color:var(--text-primary);">' + t("動態效果","动画","Animation") + '</span></div>' +
             '<i data-lucide="chevron-down" class="collapse-icon" style="width:16px;height:16px;color:var(--text-muted);transition:transform 0.2s;"></i>' +
           '</div>' +
           '<div class="collapsible-body" style="padding:16px;display:none;">' +
             '<div style="display:flex;flex-direction:column;gap:12px;">' +
               '<div style="display:flex;align-items:center;gap:12px;">' +
-                '<label style="font-size:13px;color:var(--text-primary);min-width:90px;">Speed</label>' +
+                '<label style="font-size:13px;color:var(--text-primary);min-width:90px;">' + t("速度","速度","Speed") + '</label>' +
                 '<select id="set-anim-speed" style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--border-subtle);background:var(--bg-base);color:var(--text-primary);outline:none;font-size:13px;">' +
                   '<option value="slow"'+(s.animSpeed==='slow'?' selected':'')+'>Slow</option>' +
                   '<option value="normal"'+(s.animSpeed==='normal'?' selected':'')+'>Normal</option>' +
@@ -483,7 +493,7 @@ window.SettingsModal = {
                 '</select>' +
               '</div>' +
               '<div style="display:flex;align-items:center;gap:12px;">' +
-                '<label style="font-size:13px;color:var(--text-primary);min-width:90px;">Messages</label>' +
+                '<label style="font-size:13px;color:var(--text-primary);min-width:90px;">' + t("訊息","消息","Messages") + '</label>' +
                 '<select id="set-msg-anim" style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--border-subtle);background:var(--bg-base);color:var(--text-primary);outline:none;font-size:13px;">' +
                   '<option value="slide"'+(s.messageAnim==='slide'?' selected':'')+'>Slide</option>' +
                   '<option value="fade"'+(s.messageAnim==='fade'?' selected':'')+'>Fade</option>' +
@@ -493,13 +503,13 @@ window.SettingsModal = {
               '<div style="border-top:1px solid var(--border-subtle);padding-top:12px;">' +
                 '<label style="display:flex;align-items:center;gap:12px;font-size:14px;color:var(--text-primary);cursor:pointer;">' +
                   '<input id="set-anim" type="checkbox" '+(s.animations===false?'':'checked')+'>' +
-                  '<div><div>UI Animations</div><div style="font-size:12px;color:var(--text-muted);font-weight:400;">Enable animated transitions and effects</div></div>' +
+                  '<div><div>' + t("介面動態效果","界面动画","UI Animations") + '</div><div style="font-size:12px;color:var(--text-muted);font-weight:400;">' + t("啟用轉場及動態效果","启用过渡和动画效果","Enable animated transitions and effects") + '</div></div>' +
                 '</label>' +
               '</div>' +
               '<div>' +
                 '<label style="display:flex;align-items:center;gap:12px;font-size:14px;color:var(--text-primary);cursor:pointer;">' +
                   '<input id="set-reduce-motion" type="checkbox" '+(s.reduceMotion?'checked':'')+'>' +
-                   '<div><div>Reduce Motion</div><div style="font-size:12px;color:var(--text-muted);font-weight:400;">Disable animations, freeze GIF previews, and stop avatar effects</div></div>' +
+                   '<div><div>' + t("減少動態效果","减少动态效果","Reduce Motion") + '</div><div style="font-size:12px;color:var(--text-muted);font-weight:400;">' + t("停用動畫、GIF 預覽及頭像特效","停用动画、GIF 预览和头像特效","Disable animations, freeze GIF previews, and stop avatar effects") + '</div></div>' +
                 '</label>' +
               '</div>' +
             '</div>' +
@@ -509,14 +519,14 @@ window.SettingsModal = {
         // Section: Save/Load Themes
         '<div class="settings-collapsible" style="margin-bottom:12px;border-radius:10px;border:1px solid var(--border-subtle);overflow:hidden;">' +
           '<div class="collapsible-header" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg-base);cursor:pointer;user-select:none;" onclick="var b=this.nextElementSibling;var i=this.querySelector(\'.collapse-icon\');if(b.style.display===\'none\'){b.style.display=\'block\';i.style.transform=\'rotate(0deg)\'}else{b.style.display=\'none\';i.style.transform=\'rotate(-90deg)\'}">' +
-            '<div style="display:flex;align-items:center;gap:8px;"><i data-lucide="download" style="width:16px;height:16px;color:var(--text-muted);"></i><span style="font-size:13px;font-weight:600;color:var(--text-primary);">Save/Load Themes</span></div>' +
+            '<div style="display:flex;align-items:center;gap:8px;"><i data-lucide="download" style="width:16px;height:16px;color:var(--text-muted);"></i><span style="font-size:13px;font-weight:600;color:var(--text-primary);">' + t("儲存與載入主題","保存与加载主题","Save/Load Themes") + '</span></div>' +
             '<i data-lucide="chevron-down" class="collapse-icon" style="width:16px;height:16px;color:var(--text-muted);transition:transform 0.2s;"></i>' +
           '</div>' +
           '<div class="collapsible-body" style="padding:16px;display:none;">' +
-            '<div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;line-height:1.4;">Export your current theme settings to a file or import a previously saved theme.</div>' +
+            '<div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;line-height:1.4;">' + t("匯出目前主題或匯入已儲存的主題。","导出当前主题或导入已保存的主题。","Export your current theme settings to a file or import a previously saved theme.") + '</div>' +
             '<div id="save-load-theme-buttons" style="display:flex;align-items:center;gap:8px;margin-top:8px;">' +
-              '<button id="btn-export-theme" style="padding:10px 20px;border-radius:10px;background:var(--accent-primary);color:white;border:none;cursor:pointer;font-weight:600;font-size:13px;">Export Theme</button>' +
-              '<button id="btn-import-theme" style="padding:10px 20px;border-radius:10px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-secondary);cursor:pointer;font-weight:500;font-size:13px;">Import Theme</button>' +
+              '<button id="btn-export-theme" style="padding:10px 20px;border-radius:10px;background:var(--accent-primary);color:white;border:none;cursor:pointer;font-weight:600;font-size:13px;">' + t("匯出主題","导出主题","Export Theme") + '</button>' +
+              '<button id="btn-import-theme" style="padding:10px 20px;border-radius:10px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-secondary);cursor:pointer;font-weight:500;font-size:13px;">' + t("匯入主題","导入主题","Import Theme") + '</button>' +
             '</div>' +
           '</div>' +
         '</div>' +
@@ -524,43 +534,43 @@ window.SettingsModal = {
         // Section: Chat
         '<div class="settings-collapsible" style="margin-bottom:12px;border-radius:10px;border:1px solid var(--border-subtle);overflow:hidden;">' +
           '<div class="collapsible-header" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg-base);cursor:pointer;user-select:none;" onclick="var b=this.nextElementSibling;var i=this.querySelector(\'.collapse-icon\');if(b.style.display===\'none\'){b.style.display=\'block\';i.style.transform=\'rotate(0deg)\'}else{b.style.display=\'none\';i.style.transform=\'rotate(-90deg)\'}">' +
-            '<div style="display:flex;align-items:center;gap:8px;"><i data-lucide="message-square" style="width:16px;height:16px;color:var(--text-muted);"></i><span style="font-size:13px;font-weight:600;color:var(--text-primary);">Chat</span></div>' +
+            '<div style="display:flex;align-items:center;gap:8px;"><i data-lucide="message-square" style="width:16px;height:16px;color:var(--text-muted);"></i><span style="font-size:13px;font-weight:600;color:var(--text-primary);">' + t("對話","会话","Chat") + '</span></div>' +
             '<i data-lucide="chevron-down" class="collapse-icon" style="width:16px;height:16px;color:var(--text-muted);transition:transform 0.2s;"></i>' +
           '</div>' +
           '<div class="collapsible-body" style="padding:16px;display:none;">' +
             '<div style="margin-bottom:16px;">' +
-              '<label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px;">Chat Wallpaper</label>' +
+              '<label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px;">' + t("對話背景","会话背景","Chat Wallpaper") + '</label>' +
               '<div style="display:flex;align-items:center;gap:12px;">' +
-                '<button id="btn-upload-wallpaper" style="padding:8px 12px;background:var(--bg-base);border:1px solid var(--border-subtle);border-radius:8px;color:var(--text-primary);cursor:pointer;font-size:13px;font-weight:500;"><i data-lucide="image" style="width:14px;height:14px;margin-right:6px;vertical-align:middle;"></i>Choose Image</button>' +
-                (s.chatWallpaper ? '<button id="btn-clear-wallpaper" style="padding:8px 12px;background:transparent;border:none;color:var(--accent-danger);cursor:pointer;font-size:13px;font-weight:500;">Remove</button>' : '') +
+                '<button id="btn-upload-wallpaper" style="padding:8px 12px;background:var(--bg-base);border:1px solid var(--border-subtle);border-radius:8px;color:var(--text-primary);cursor:pointer;font-size:13px;font-weight:500;"><i data-lucide="image" style="width:14px;height:14px;margin-right:6px;vertical-align:middle;"></i>' + t("選擇圖片","选择图片","Choose Image") + '</button>' +
+                (s.chatWallpaper ? '<button id="btn-clear-wallpaper" style="padding:8px 12px;background:transparent;border:none;color:var(--accent-danger);cursor:pointer;font-size:13px;font-weight:500;">' + t("移除","移除","Remove") + '</button>' : '') +
               '</div>' +
-              (s.chatWallpaper ? '<div style="margin-top:8px;font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + window.Sanitize.escapeHtml(s.chatWallpaper) + '">Custom wallpaper applied</div>' : '') +
+              (s.chatWallpaper ? '<div style="margin-top:8px;font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + window.Sanitize.escapeHtml(s.chatWallpaper) + '">' + t("已套用自訂背景","已应用自定义背景","Custom wallpaper applied") + '</div>' : '') +
             '</div>' +
             '<div style="margin-bottom:16px;">' +
-              '<label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px;">Background Pattern</label>' +
+              '<label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px;">' + t("背景圖樣","背景图案","Background Pattern") + '</label>' +
               '<select id="set-pattern" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border-subtle);background:var(--bg-base);color:var(--text-primary);outline:none;font-size:13px;">' +
                 '<option '+(s.bgPattern==='None'?'selected':'')+'>None</option><option '+(s.bgPattern==='Dots'?'selected':'')+'>Dots</option><option '+(s.bgPattern==='Grid'?'selected':'')+'>Grid</option><option '+(s.bgPattern==='Diagonal Stripes'?'selected':'')+'>Diagonal Stripes</option><option '+(s.bgPattern==='Crosshatch'?'selected':'')+'>Crosshatch</option><option '+(s.bgPattern==='Circles'?'selected':'')+'>Circles</option>' +
               '</select>' +
             '</div>' +
             '<label style="display:flex;align-items:center;gap:12px;font-size:13px;color:var(--text-primary);cursor:pointer;padding:8px 0;border-top:1px solid var(--border-subtle);">' +
               '<input id="set-enter-send" type="checkbox" '+(s.enterToSend!==false?'checked':'')+' style="accent-color:var(--accent-primary);">' +
-              '<div><div>Enter to Send</div><div style="font-size:11px;color:var(--text-muted);font-weight:400;">Press Enter to send, Shift+Enter for new line</div></div>' +
+              '<div><div>' + t("按 Enter 傳送","按 Enter 发送","Enter to Send") + '</div><div style="font-size:11px;color:var(--text-muted);font-weight:400;">' + t("Enter 傳送，Shift+Enter 換行","Enter 发送，Shift+Enter 换行","Press Enter to send, Shift+Enter for new line") + '</div></div>' +
             '</label>' +
             '<label style="display:flex;align-items:center;gap:12px;font-size:13px;color:var(--text-primary);cursor:pointer;padding:8px 0;border-top:1px solid var(--border-subtle);">' +
               '<input id="set-chat-avatars" type="checkbox" '+(s.showChatAvatars!==false?'checked':'')+' style="accent-color:var(--accent-primary);">' +
-              '<div><div>Show Avatars</div><div style="font-size:11px;color:var(--text-muted);font-weight:400;">Display user avatars next to messages</div></div>' +
+              '<div><div>' + t("顯示頭像","显示头像","Show Avatars") + '</div><div style="font-size:11px;color:var(--text-muted);font-weight:400;">' + t("在訊息旁顯示頭像","在消息旁显示头像","Display user avatars next to messages") + '</div></div>' +
             '</label>' +
             '<label style="display:flex;align-items:center;gap:12px;font-size:13px;color:var(--text-primary);cursor:pointer;padding:8px 0;border-top:1px solid var(--border-subtle);">' +
               '<input id="set-group-created" type="checkbox" '+(s.showGroupCreated!==false?'checked':'')+' style="accent-color:var(--accent-primary);">' +
-              '<div><div>Show Group Created Date</div><div style="font-size:11px;color:var(--text-muted);font-weight:400;">Show when a group was created in its info</div></div>' +
+              '<div><div>' + t("顯示群組建立日期","显示群组创建日期","Show Group Created Date") + '</div><div style="font-size:11px;color:var(--text-muted);font-weight:400;">' + t("在群組資訊中顯示建立日期","在群组信息中显示创建日期","Show when a group was created in its info") + '</div></div>' +
             '</label>' +
             '<label style="display:flex;align-items:center;gap:12px;font-size:13px;color:var(--text-primary);cursor:pointer;padding:8px 0;border-top:1px solid var(--border-subtle);">' +
               '<input id="set-image-previews" type="checkbox" '+(s.showImagePreviews!==false?'checked':'')+' style="accent-color:var(--accent-primary);">' +
-              '<div><div>Image Previews</div><div style="font-size:11px;color:var(--text-muted);font-weight:400;">Show inline image previews in chat</div></div>' +
+              '<div><div>' + t("圖片預覽","图片预览","Image Previews") + '</div><div style="font-size:11px;color:var(--text-muted);font-weight:400;">' + t("在對話中預覽圖片","在会话中预览图片","Show inline image previews in chat") + '</div></div>' +
             '</label>' +
             '<label style="display:flex;align-items:center;gap:12px;font-size:13px;color:var(--text-primary);cursor:pointer;padding:8px 0;border-top:1px solid var(--border-subtle);">' +
               '<input id="set-link-previews" type="checkbox" '+(s.showLinkPreviews!==false?'checked':'')+' style="accent-color:var(--accent-primary);">' +
-              '<div><div>Link Previews</div><div style="font-size:11px;color:var(--text-muted);font-weight:400;">Show rich previews for shared links</div></div>' +
+              '<div><div>' + t("連結預覽","链接预览","Link Previews") + '</div><div style="font-size:11px;color:var(--text-muted);font-weight:400;">' + t("預覽分享的連結","预览分享的链接","Show rich previews for shared links") + '</div></div>' +
             '</label>' +
             // ⚠ THE DESKTOP NEVER HAD THIS ROW; THE MOBILE DID, and it belongs with
             // the other message-appearance toggles rather than under Text & Layout.
@@ -569,15 +579,15 @@ window.SettingsModal = {
             // The rule lives in components.css, so it does something in BOTH UIs.
             '<label style="display:flex;align-items:center;gap:12px;font-size:13px;color:var(--text-primary);cursor:pointer;padding:8px 0;border-top:1px solid var(--border-subtle);">' +
               '<input id="set-classic-bubbles" type="checkbox" '+(s.classicBubbles===true?'checked':'')+' style="accent-color:var(--accent-primary);">' +
-              '<div><div>Classic Bubbles</div><div style="font-size:11px;color:var(--text-muted);font-weight:400;">Colour your own messages with the accent</div></div>' +
+              '<div><div>' + t("經典氣泡","经典气泡","Classic Bubbles") + '</div><div style="font-size:11px;color:var(--text-muted);font-weight:400;">' + t("用強調色顯示自己傳送的訊息","用强调色显示自己发送的消息","Colour your own messages with the accent") + '</div></div>' +
             '</label>' +
             '<label style="display:flex;align-items:center;gap:12px;font-size:13px;color:var(--text-primary);cursor:pointer;padding:8px 0;border-top:1px solid var(--border-subtle);">' +
               '<input id="set-compact-spacing" type="checkbox" '+(s.experimentalCompactSpacing?'checked':'')+' style="accent-color:var(--accent-primary);">' +
-              '<div><div>Compact Spacing</div><div style="font-size:11px;color:var(--text-muted);font-weight:400;">Tighter message layout with reduced padding</div></div>' +
+              '<div><div>' + t("緊湊間距","紧凑间距","Compact Spacing") + '</div><div style="font-size:11px;color:var(--text-muted);font-weight:400;">' + t("減少訊息之間的空白","减少消息之间的空白","Tighter message layout with reduced padding") + '</div></div>' +
             '</label>' +
             '<label style="display:flex;align-items:center;gap:12px;font-size:13px;color:var(--text-primary);cursor:pointer;padding:8px 0;border-top:1px solid var(--border-subtle);">' +
               '<input id="set-swipe-reply" type="checkbox" '+(s.swipeToReply!==false?'checked':'')+' style="accent-color:var(--accent-primary);">' +
-              '<div><div>Swipe to Reply</div><div style="font-size:11px;color:var(--text-muted);font-weight:400;">Swipe or drag left on a message to reply</div></div>' +
+              '<div><div>' + t("滑動回覆","滑动回复","Swipe to Reply") + '</div><div style="font-size:11px;color:var(--text-muted);font-weight:400;">' + t("向左滑動或拖曳訊息以回覆","向左滑动或拖动消息以回复","Swipe or drag left on a message to reply") + '</div></div>' +
             '</label>' +
           '</div>' +
         '</div>';
@@ -900,15 +910,15 @@ window.SettingsModal = {
 
         // Dashboard
         '<div style="margin-bottom:20px;">' +
-          '<h4 style="font-size:14px;font-weight:600;color:var(--text-primary);margin:0 0 12px;">Dashboard</h4>' +
+          '<h4 style="font-size:14px;font-weight:600;color:var(--text-primary);margin:0 0 12px;">' + t("概況","概况","Dashboard") + '</h4>' +
           '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px;">' +
             '<div style="padding:14px;background:var(--bg-base);border-radius:10px;text-align:center;border:1px solid var(--border-subtle);">' +
               '<div style="font-size:26px;font-weight:700;color:var(--accent-success);">' + peerCount + '</div>' +
-              '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Online Peers</div>' +
+              '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">' + t("線上裝置","在线设备","Online Peers") + '</div>' +
             '</div>' +
             '<div style="padding:14px;background:var(--bg-base);border-radius:10px;text-align:center;border:1px solid var(--border-subtle);">' +
               '<div style="font-size:26px;font-weight:700;color:var(--accent-primary);">' + totalPeers + '</div>' +
-              '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Total Friends</div>' +
+              '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">' + t("已儲存裝置","已保存设备","Total Friends") + '</div>' +
             '</div>' +
             '<div style="padding:14px;background:var(--bg-base);border-radius:10px;text-align:center;border:1px solid var(--border-subtle);">' +
               '<div style="font-size:26px;font-weight:700;color:var(--accent-warning);">' + groupCount + '</div>' +
@@ -916,14 +926,14 @@ window.SettingsModal = {
             '</div>' +
             '<div style="padding:14px;background:var(--bg-base);border-radius:10px;text-align:center;border:1px solid var(--border-subtle);">' +
               '<div style="font-size:26px;font-weight:700;' + (n.mode === 'LAN Auto-Discovery' ? 'color:var(--text-primary);' : 'color:var(--accent-primary);') + '">' + (n.mode === 'LAN Auto-Discovery' ? 'LAN' : 'Custom') + '</div>' +
-              '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Network Mode</div>' +
+              '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">' + t("連線模式","连接模式","Network Mode") + '</div>' +
             '</div>' +
           '</div>' +
           // Peer list
           '<div style="padding:12px 14px;background:var(--bg-base);border-radius:10px;border:1px solid var(--border-subtle);">' +
-            '<div style="font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:8px;">Online Peers</div>' +
+            '<div style="font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:8px;">' + t("線上裝置","在线设备","Online Peers") + '</div>' +
             (peerCount === 0
-              ? '<div style="display:flex;flex-direction:column;align-items:center;padding:16px 0;color:var(--text-muted);gap:8px;"><i data-lucide="radio" style="width:28px;height:28px;opacity:0.3;"></i><div style="font-size:13px;">No peers online</div></div>'
+              ? '<div style="display:flex;flex-direction:column;align-items:center;padding:16px 0;color:var(--text-muted);gap:8px;"><i data-lucide="radio" style="width:28px;height:28px;opacity:0.3;"></i><div style="font-size:13px;">' + t("沒有線上裝置","没有在线设备","No peers online") + '</div></div>'
               : '<div style="display:flex;flex-direction:column;gap:5px;">' + state.friends.filter(function(f) { return f.status === 'online'; }).map(function(f) {
                 return '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;background:var(--bg-surface);">' +
                   // ⚠ `var(--presence-online)`, not a hardcoded #22c55e — that hex was
@@ -942,7 +952,7 @@ window.SettingsModal = {
 
         // Network Map Visualizer
         collapsible('Network Map', 'share-2',
-          '<div style="text-align:center;font-size:12px;color:var(--text-muted);margin-bottom:8px;">Interactive view of connected peers</div>' +
+          '<div style="text-align:center;font-size:12px;color:var(--text-muted);margin-bottom:8px;">' + t("已連接裝置的互動檢視","已连接设备的交互视图","Interactive view of connected peers") + '</div>' +
           '<div id="network-map-container" style="width:100%;height:240px;background:var(--bg-surface);border-radius:8px;border:1px solid var(--border-subtle);position:relative;overflow:hidden;">' +
             '<canvas id="network-map-canvas" style="width:100%;height:100%;"></canvas>' +
           '</div>',
@@ -974,7 +984,7 @@ window.SettingsModal = {
           // a self-serve answer instead of a support message.
           '<div style="display:flex;align-items:center;gap:10px;margin:-4px 0 12px;padding-left:2px;">' +
             '<button id="net-relay-test" style="padding:5px 12px;border-radius:7px;border:1px solid var(--border-subtle);' +
-              'background:transparent;color:var(--text-secondary);font-size:11px;font-weight:600;cursor:pointer;">Test relay</button>' +
+              'background:transparent;color:var(--text-secondary);font-size:11px;font-weight:600;cursor:pointer;">' + t("測試中繼","测试中继","Test relay") + '</button>' +
             '<span id="net-relay-status" style="font-size:11px;color:var(--text-muted);"></span>' +
           '</div>',
           true
@@ -987,7 +997,7 @@ window.SettingsModal = {
           inputRow('net-size', 'Max File Transfer Size', n.maxFileSize, 'MB') +
           '<div style="border-top:1px solid var(--border-subtle);margin:8px 0;"></div>' +
           inputRow('net-bandwidth', 'Bandwidth Limit', n.netBandwidthLimit, 'KB/s') +
-          '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Set to 0 for unlimited transfer speed</div>',
+          '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">' + t("設為 0 表示不限速","设为 0 表示不限速","Set to 0 for unlimited transfer speed") + '</div>',
           false
         ) +
 
@@ -995,7 +1005,7 @@ window.SettingsModal = {
         collapsible(window.I18n.t('s7'), 'settings-2',
           toggleRow('net-rtc', 'Enable WebRTC Fallback', 'Use WebRTC when direct connection fails', n.webrtcFallback) +
           selectRow('net-log', 'Connection Log Level', [{val:'None',label:'None'},{val:'Error',label:'Error'},{val:'Info',label:'Info'},{val:'Debug',label:'Debug'}], n.logLevel) +
-          '<div style="padding-top:8px;"><button id="net-clear" style="padding:10px 24px;background:transparent;color:var(--accent-danger);border-radius:8px;border:1px solid var(--accent-danger);font-weight:600;cursor:pointer;width:fit-content;">Clear Network Cache</button></div>',
+          '<div style="padding-top:8px;"><button id="net-clear" style="padding:10px 24px;background:transparent;color:var(--accent-danger);border-radius:8px;border:1px solid var(--accent-danger);font-weight:600;cursor:pointer;width:fit-content;">' + t("清除網路快取","清除网络缓存","Clear Network Cache") + '</button></div>',
           false
         );
 
@@ -1141,7 +1151,7 @@ window.SettingsModal = {
         (dndActive
           ? '<div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;margin-bottom:16px;">' +
               '<i data-lucide="moon" style="width:18px;height:18px;color:#ef4444;flex-shrink:0;"></i>' +
-              '<span style="font-size:13px;color:#ef4444;font-weight:500;">Do Not Disturb is enabled — all notifications are muted.</span>' +
+              '<span style="font-size:13px;color:#ef4444;font-weight:500;">' + t("已啟用勿擾，所有通知均已靜音。","已启用勿扰，所有通知均已静音。","Do Not Disturb is enabled — all notifications are muted.") + '</span>' +
             '</div>'
           : ''
         ) +
@@ -1149,18 +1159,18 @@ window.SettingsModal = {
         // Section: General
         '<div class="settings-collapsible" style="margin-bottom:12px;border-radius:10px;border:1px solid var(--border-subtle);overflow:hidden;">' +
           '<div class="collapsible-header" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg-base);cursor:pointer;user-select:none;" onclick="var b=this.nextElementSibling;var i=this.querySelector(\'.collapse-icon\');if(b.style.display===\'none\'){b.style.display=\'block\';i.style.transform=\'rotate(0deg)\'}else{b.style.display=\'none\';i.style.transform=\'rotate(-90deg)\'}">' +
-            '<div style="display:flex;align-items:center;gap:8px;"><i data-lucide="bell" style="width:16px;height:16px;color:var(--text-muted);"></i><span style="font-size:13px;font-weight:600;color:var(--text-primary);">General</span></div>' +
+            '<div style="display:flex;align-items:center;gap:8px;"><i data-lucide="bell" style="width:16px;height:16px;color:var(--text-muted);"></i><span style="font-size:13px;font-weight:600;color:var(--text-primary);">' + t("一般","常规","General") + '</span></div>' +
             '<i data-lucide="chevron-down" class="collapse-icon" style="width:16px;height:16px;color:var(--text-muted);transition:transform 0.2s;"></i>' +
           '</div>' +
           '<div class="collapsible-body" style="display:block;">' +
             '<div style="padding:4px 16px 16px;">' +
               '<label style="display:flex;align-items:center;gap:12px;padding:12px 0;font-size:14px;color:var(--text-primary);cursor:pointer;border-bottom:1px solid var(--border-subtle);">' +
                 '<input id="notify-preview" type="checkbox" '+(s.notifyPreview?'checked':'')+'>' +
-                '<div><div>Message Previews</div><div style="font-size:12px;color:var(--text-muted);font-weight:400;">Show message content in notification toasts</div></div>' +
+                '<div><div>' + t("訊息預覽","消息预览","Message Previews") + '</div><div style="font-size:12px;color:var(--text-muted);font-weight:400;">' + t("在通知中顯示訊息內容","在通知中显示消息内容","Show message content in notification toasts") + '</div></div>' +
               '</label>' +
               '<label style="display:flex;align-items:center;gap:12px;padding:12px 0;font-size:14px;color:var(--text-primary);cursor:pointer;">' +
                 '<input id="notify-dnd" type="checkbox" '+(s.notifyDnd?'checked':'')+'>' +
-                '<div><div>Do Not Disturb</div><div style="font-size:12px;color:var(--text-muted);font-weight:400;">Mute all notification sounds and toasts</div></div>' +
+                '<div><div>' + t("勿擾模式","勿扰模式","Do Not Disturb") + '</div><div style="font-size:12px;color:var(--text-muted);font-weight:400;">' + t("關閉所有通知音效與提示","关闭所有通知音效和提示","Mute all notification sounds and toasts") + '</div></div>' +
               '</label>' +
             '</div>' +
           '</div>' +
@@ -1185,21 +1195,21 @@ window.SettingsModal = {
         // Section: Sound
         '<div class="settings-collapsible" style="margin-bottom:12px;border-radius:10px;border:1px solid var(--border-subtle);overflow:hidden;">' +
           '<div class="collapsible-header" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg-base);cursor:pointer;user-select:none;" onclick="var b=this.nextElementSibling;var i=this.querySelector(\'.collapse-icon\');if(b.style.display===\'none\'){b.style.display=\'block\';i.style.transform=\'rotate(0deg)\'}else{b.style.display=\'none\';i.style.transform=\'rotate(-90deg)\'}">' +
-            '<div style="display:flex;align-items:center;gap:8px;"><i data-lucide="volume-2" style="width:16px;height:16px;color:var(--text-muted);"></i><span style="font-size:13px;font-weight:600;color:var(--text-primary);">Sound</span></div>' +
+            '<div style="display:flex;align-items:center;gap:8px;"><i data-lucide="volume-2" style="width:16px;height:16px;color:var(--text-muted);"></i><span style="font-size:13px;font-weight:600;color:var(--text-primary);">' + t("音效","声音","Sound") + '</span></div>' +
             '<i data-lucide="chevron-down" class="collapse-icon" style="width:16px;height:16px;color:var(--text-muted);transition:transform 0.2s;"></i>' +
           '</div>' +
           '<div class="collapsible-body" style="display:none;">' +
             '<div style="padding:4px 16px 16px;">' +
               '<label style="display:flex;align-items:center;gap:12px;padding:12px 0;font-size:14px;color:var(--text-primary);cursor:pointer;">' +
                 '<input id="notify-sound" type="checkbox" '+(s.notifySound?'checked':'')+'>' +
-                '<div><div>Play Sound</div><div style="font-size:12px;color:var(--text-muted);font-weight:400;">Play a notification sound when new messages arrive</div></div>' +
-                '<button id="btn-test-sound" style="margin-left:auto;padding:6px 12px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-base);color:var(--text-secondary);cursor:pointer;font-size:11px;">Test</button>' +
+                '<div><div>' + t("播放音效","播放声音","Play Sound") + '</div><div style="font-size:12px;color:var(--text-muted);font-weight:400;">' + t("收到新訊息時播放提示音","收到新消息时播放提示音","Play a notification sound when new messages arrive") + '</div></div>' +
+                '<button id="btn-test-sound" style="margin-left:auto;padding:6px 12px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-base);color:var(--text-secondary);cursor:pointer;font-size:11px;">' + t("測試","测试","Test") + '</button>' +
               '</label>' +
 
               // Volume slider
               '<div style="padding:8px 0 4px;">' +
                 '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
-                  '<label style="font-size:13px;color:var(--text-primary);font-weight:500;">Volume</label>' +
+                  '<label style="font-size:13px;color:var(--text-primary);font-weight:500;">' + t("音量","音量","Volume") + '</label>' +
                   '<span id="volume-value" style="font-size:12px;color:var(--text-muted);min-width:32px;text-align:right;">' + (s.notifyVolume != null ? s.notifyVolume : 80) + '%</span>' +
                 '</div>' +
                 '<input id="notify-volume" type="range" min="0" max="100" value="' + (s.notifyVolume != null ? s.notifyVolume : 80) + '" style="width:100%;height:4px;accent-color:var(--accent-primary);cursor:pointer;">' +
@@ -1208,7 +1218,7 @@ window.SettingsModal = {
               // Sound type select
               '<div style="padding:8px 0 4px;">' +
                 '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
-                  '<label for="notify-sound-type" style="font-size:13px;color:var(--text-primary);font-weight:500;">Sound</label>' +
+                  '<label for="notify-sound-type" style="font-size:13px;color:var(--text-primary);font-weight:500;">' + t("音效","声音","Sound") + '</label>' +
                 '</div>' +
                 '<select id="notify-sound-type" style="width:100%;padding:8px 10px;border-radius:6px;border:1px solid var(--border-subtle);background:var(--bg-base);color:var(--text-primary);font-size:13px;cursor:pointer;">' +
                   '<option value="chime"' + (s.notifySoundType === 'chime' ? ' selected' : '') + '>Chime</option>' +
@@ -1259,7 +1269,7 @@ window.SettingsModal = {
           var banner = document.createElement('div');
           banner.className = 'dnd-banner';
           banner.style.cssText = 'display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;margin-bottom:16px;';
-          banner.innerHTML = '<i data-lucide="moon" style="width:18px;height:18px;color:#ef4444;flex-shrink:0;"></i><span style="font-size:13px;color:#ef4444;font-weight:500;">Do Not Disturb is enabled — all notifications are muted.</span>';
+          banner.innerHTML = '<i data-lucide="moon" style="width:18px;height:18px;color:#ef4444;flex-shrink:0;"></i><span style="font-size:13px;color:#ef4444;font-weight:500;">' + t("已啟用勿擾，所有通知均已靜音。","已启用勿扰，所有通知均已静音。","Do Not Disturb is enabled — all notifications are muted.") + '</span>';
           content.insertBefore(banner, content.querySelector('.settings-collapsible'));
           if (window.lucide) window.lucide.createIcons({ root: banner });
         } else if (!isDnd && existing) {
@@ -1293,7 +1303,7 @@ window.SettingsModal = {
       if (!state.settings.enableExperimental) {
         content.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text-muted);text-align:center;gap:8px;padding:40px;">' +
           '<i data-lucide="lock" style="width:32px;height:32px;opacity:0.3;"></i>' +
-          '<div style="font-size:15px;font-weight:600;color:var(--text-secondary);">Experimental Features Disabled</div>' +
+          '<div style="font-size:15px;font-weight:600;color:var(--text-secondary);">' + t("實驗功能已停用","实验功能已停用","Experimental Features Disabled") + '</div>' +
           '<div style="font-size:13px;line-height:1.5;">Enable "Experimental Features" in Advanced settings to access Security options.</div>' +
         '</div>';
         return;
@@ -1302,13 +1312,13 @@ window.SettingsModal = {
         var pinEnabled = window.orbitAPI ? window.orbitAPI.pinStatus() : false;
         var html =
           '<h3 style="font-family:var(--font-display);font-size:24px;margin-bottom:8px;">Security <span style="display:inline-block;font-size:8px;font-weight:700;color:#fff;background:var(--accent-warning);border-radius:3px;padding:1px 5px;text-transform:uppercase;line-height:1.4;vertical-align:middle;margin-left:6px;">EXPERIMENTAL</span></h3>' +
-          '<div style="font-size:13px;color:var(--text-muted);margin-bottom:24px;line-height:1.5;">Manage your account security settings.</div>' +
+          '<div style="font-size:13px;color:var(--text-muted);margin-bottom:24px;line-height:1.5;">' + t("管理本機安全性設定。","管理本机安全设置。","Manage your account security settings.") + '</div>' +
 
           '<div style="background:var(--bg-base);border-radius:12px;padding:20px;border:1px solid var(--border-subtle);">' +
             '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">' +
               '<div>' +
-                '<div style="font-size:15px;font-weight:600;color:var(--text-primary);">App Lock (PIN)</div>' +
-                '<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Protect LocalLink with a PIN code on launch</div>' +
+                '<div style="font-size:15px;font-weight:600;color:var(--text-primary);">' + t("應用程式鎖定（PIN）","应用锁定（PIN）","App Lock (PIN)") + '</div>' +
+                '<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">' + t("啟動 LocalLink 時需要 PIN 碼","启动 LocalLink 时需要 PIN 码","Protect LocalLink with a PIN code on launch") + '</div>' +
               '</div>' +
               // ⚠ One shared switch — geometry, off-colour and knob travel all live
               // in §9c of styles/redesign.css. State comes from `checked`, so the
@@ -1320,26 +1330,26 @@ window.SettingsModal = {
             '</div>' +
             (pinEnabled
               ? '<div id="pin-change-area" style="border-top:1px solid var(--border-subtle);padding-top:16px;">' +
-                  '<button id="btn-change-pin" style="padding:10px 20px;border-radius:10px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-primary);font-size:13px;font-weight:500;cursor:pointer;transition:background 0.15s;">Change PIN</button>' +
+                  '<button id="btn-change-pin" style="padding:10px 20px;border-radius:10px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-primary);font-size:13px;font-weight:500;cursor:pointer;transition:background 0.15s;">' + t("變更 PIN","更改 PIN","Change PIN") + '</button>' +
                 '</div>'
               : '<div id="pin-setup-area">' +
                   '<div style="margin-bottom:12px;">' +
-                    '<label style="font-size:13px;font-weight:500;color:var(--text-secondary);display:block;margin-bottom:6px;">Set PIN (4-8 digits)</label>' +
+                    '<label style="font-size:13px;font-weight:500;color:var(--text-secondary);display:block;margin-bottom:6px;">' + t("設定 PIN（4–8 位數字）","设置 PIN（4–8 位数字）","Set PIN (4-8 digits)") + '</label>' +
                     '<input id="pin-new" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" placeholder="Enter PIN" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border-subtle);background:var(--bg-hover);color:var(--text-primary);font-size:15px;outline:none;box-sizing:border-box;letter-spacing:4px;text-align:center;">' +
                   '</div>' +
                   '<div style="margin-bottom:16px;">' +
-                    '<label style="font-size:13px;font-weight:500;color:var(--text-secondary);display:block;margin-bottom:6px;">Confirm PIN</label>' +
+                    '<label style="font-size:13px;font-weight:500;color:var(--text-secondary);display:block;margin-bottom:6px;">' + t("確認 PIN","确认 PIN","Confirm PIN") + '</label>' +
                     '<input id="pin-confirm" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" placeholder="Re-enter PIN" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border-subtle);background:var(--bg-hover);color:var(--text-primary);font-size:15px;outline:none;box-sizing:border-box;letter-spacing:4px;text-align:center;">' +
                   '</div>' +
                   '<div id="pin-setup-error" style="font-size:12px;color:var(--accent-danger);margin-bottom:8px;min-height:16px;"></div>' +
-                  '<button id="btn-save-pin" style="padding:10px 24px;border-radius:10px;border:none;background:var(--accent-primary);color:white;font-size:13px;font-weight:500;cursor:pointer;transition:opacity 0.15s;">Save PIN</button>' +
+                  '<button id="btn-save-pin" style="padding:10px 24px;border-radius:10px;border:none;background:var(--accent-primary);color:white;font-size:13px;font-weight:500;cursor:pointer;transition:opacity 0.15s;">' + t("儲存 PIN","保存 PIN","Save PIN") + '</button>' +
                 '</div>'
             ) +
           '</div>' +
 
           '<div style="margin-top:16px;padding:16px;background:var(--accent-soft);border-radius:12px;border:1px solid var(--accent-primary);">' +
             '<div style="font-size:12px;color:var(--text-muted);line-height:1.5;">' +
-              '<strong style="color:var(--accent-primary);">Note:</strong> PIN lock is an experimental feature. It protects access to LocalLink on this device but does not encrypt your messages or data. ' +
+              '<strong style="color:var(--accent-primary);">' + t("注意：","注意：","Note:") + '</strong> PIN lock is an experimental feature. It protects access to LocalLink on this device but does not encrypt your messages or data. ' +
               'If you forget your PIN, use "Forgot PIN" on the lock screen to reset it (your account data stays intact).' +
             '</div>' +
           '</div>';
@@ -1449,7 +1459,7 @@ window.SettingsModal = {
         return '<label style="display:flex;align-items:center;gap:12px;padding:12px 0;font-size:14px;color:var(--text-muted);cursor:not-allowed;opacity:0.5;">' +
           '<input id="' + id + '" type="checkbox" style="width:18px;height:18px;accent-color:var(--accent-primary);cursor:not-allowed;" disabled>' +
           '<div><div>' + label + '</div>' +
-          (desc ? '<div style="font-size:12px;color:var(--text-muted);font-weight:400;">Enable developer mode to access this setting.</div></div>' : '</div>') +
+          (desc ? '<div style="font-size:12px;color:var(--text-muted);font-weight:400;">' + t("啟用開發者模式以使用此設定。","启用开发者模式以使用此设置。","Enable developer mode to access this setting.") + '</div></div>' : '</div>') +
           '</label>';
       };
 
@@ -1459,13 +1469,13 @@ window.SettingsModal = {
         // Warning banner
         '<div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);border-radius:10px;margin-bottom:16px;">' +
           '<i data-lucide="alert-triangle" style="width:18px;height:18px;color:#f59e0b;flex-shrink:0;"></i>' +
-          '<span style="font-size:13px;color:#f59e0b;font-weight:500;">These settings are intended for debugging and development. Changing them may affect performance and stability.</span>' +
+          '<span style="font-size:13px;color:#f59e0b;font-weight:500;">' + t("這些設定供開發與除錯使用，變更可能影響效能與穩定性。","这些设置供开发和调试使用，更改可能影响性能与稳定性。","These settings are intended for debugging and development. Changing them may affect performance and stability.") + '</span>' +
         '</div>' +
 
         // Section: Developer Tools
         '<div class="settings-collapsible" style="margin-bottom:12px;border-radius:10px;border:1px solid var(--border-subtle);overflow:hidden;">' +
           '<div class="collapsible-header" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg-base);cursor:pointer;user-select:none;" onclick="var b=this.nextElementSibling;var i=this.querySelector(\'.collapse-icon\');if(b.style.display===\'none\'){b.style.display=\'block\';i.style.transform=\'rotate(0deg)\'}else{b.style.display=\'none\';i.style.transform=\'rotate(-90deg)\'}">' +
-            '<div style="display:flex;align-items:center;gap:8px;"><i data-lucide="terminal" style="width:16px;height:16px;color:var(--text-muted);"></i><span style="font-size:13px;font-weight:600;color:var(--text-primary);">Developer Tools</span></div>' +
+            '<div style="display:flex;align-items:center;gap:8px;"><i data-lucide="terminal" style="width:16px;height:16px;color:var(--text-muted);"></i><span style="font-size:13px;font-weight:600;color:var(--text-primary);">' + t("開發者工具","开发者工具","Developer Tools") + '</span></div>' +
             '<i data-lucide="chevron-down" class="collapse-icon" style="width:16px;height:16px;color:var(--text-muted);transition:transform 0.2s;"></i>' +
           '</div>' +
           '<div class="collapsible-body" style="display:block;">' +
@@ -1478,7 +1488,7 @@ window.SettingsModal = {
         // Section: Experimental Features
         '<div class="settings-collapsible" style="margin-bottom:12px;border-radius:10px;border:1px solid var(--border-subtle);overflow:hidden;">' +
           '<div class="collapsible-header" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg-base);cursor:pointer;user-select:none;" onclick="var b=this.nextElementSibling;var i=this.querySelector(\'.collapse-icon\');if(b.style.display===\'none\'){b.style.display=\'block\';i.style.transform=\'rotate(0deg)\'}else{b.style.display=\'none\';i.style.transform=\'rotate(-90deg)\'}">' +
-            '<div style="display:flex;align-items:center;gap:8px;"><i data-lucide="flask-round" style="width:16px;height:16px;color:var(--text-muted);"></i><span style="font-size:13px;font-weight:600;color:var(--text-primary);">Experimental Features</span></div>' +
+            '<div style="display:flex;align-items:center;gap:8px;"><i data-lucide="flask-round" style="width:16px;height:16px;color:var(--text-muted);"></i><span style="font-size:13px;font-weight:600;color:var(--text-primary);">' + t("實驗功能","实验功能","Experimental Features") + '</span></div>' +
             '<i data-lucide="chevron-down" class="collapse-icon" style="width:16px;height:16px;color:var(--text-muted);transition:transform 0.2s;"></i>' +
           '</div>' +
           // ⚠ EXPANDED BY DEFAULT, like Developer Tools above it. It used to be
@@ -1504,7 +1514,7 @@ window.SettingsModal = {
               '<label style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;cursor:pointer;">' +
                 '<div>' +
                   '<div style="font-size:14px;color:var(--text-primary);">New look' + betaBadge + '</div>' +
-                  '<div style="font-size:12px;color:var(--text-muted);font-weight:400;">The redesigned UI. Still being improved, so the original look stays the default.</div>' +
+                  '<div style="font-size:12px;color:var(--text-muted);font-weight:400;">' + t("新版介面仍在改進，預設保留原有外觀。","新版界面仍在改进，默认保留原有外观。","The redesigned UI. Still being improved, so the original look stays the default.") + '</div>' +
                 '</div>' +
                 // ⚠ A <span>, not a <label>: the row IS the label, and a label inside
                 // a label is invalid. See §9c in components.css.
@@ -1540,7 +1550,7 @@ window.SettingsModal = {
         // Section: Debug & Diagnostics
         '<div class="settings-collapsible" style="margin-bottom:12px;border-radius:10px;border:1px solid var(--border-subtle);overflow:hidden;">' +
           '<div class="collapsible-header" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg-base);cursor:pointer;user-select:none;" onclick="var b=this.nextElementSibling;var i=this.querySelector(\'.collapse-icon\');if(b.style.display===\'none\'){b.style.display=\'block\';i.style.transform=\'rotate(0deg)\'}else{b.style.display=\'none\';i.style.transform=\'rotate(-90deg)\'}">' +
-            '<div style="display:flex;align-items:center;gap:8px;"><i data-lucide="search" style="width:16px;height:16px;color:var(--text-muted);"></i><span style="font-size:13px;font-weight:600;color:var(--text-primary);">Debug & Diagnostics</span></div>' +
+            '<div style="display:flex;align-items:center;gap:8px;"><i data-lucide="search" style="width:16px;height:16px;color:var(--text-muted);"></i><span style="font-size:13px;font-weight:600;color:var(--text-primary);">' + t("除錯與診斷","调试与诊断","Debug & Diagnostics") + '</span></div>' +
             '<i data-lucide="chevron-down" class="collapse-icon" style="width:16px;height:16px;color:var(--text-muted);transition:transform 0.2s;"></i>' +
           '</div>' +
           '<div class="collapsible-body" style="display:none;">' +
@@ -1797,11 +1807,11 @@ window.SettingsModal = {
             '<div style="display:flex;align-items:flex-start;gap:16px;">' +
               '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:2px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>' +
               '<div style="flex:1;">' +
-                '<div style="font-weight:600;color:var(--text-primary);font-size:15px;">Export Backup</div>' +
-                '<div style="font-size:13px;color:var(--text-secondary);margin-top:4px;line-height:1.4;">Export all your messages, groups, friends, settings, and avatars into a single backup file (.orzip or .zip).</div>' +
+                '<div style="font-weight:600;color:var(--text-primary);font-size:15px;">' + t("匯出備份","导出备份","Export Backup") + '</div>' +
+                '<div style="font-size:13px;color:var(--text-secondary);margin-top:4px;line-height:1.4;">' + t("將訊息、群組、裝置、設定及頭像匯出為備份檔（.orzip 或 .zip）。","将消息、群组、设备、设置和头像导出为备份文件（.orzip 或 .zip）。","Export all your messages, groups, friends, settings, and avatars into a single backup file (.orzip or .zip).") + '</div>' +
                 '<div style="display:flex;gap:10px;margin-top:14px;">' +
-                  '<button id="btn-backup-orzip" class="btn btn-primary" style="padding:10px 20px;border-radius:10px;background:var(--accent-primary);color:white;border:none;cursor:pointer;font-weight:600;">Backup as .orzip</button>' +
-                  '<button id="btn-backup-zip" class="btn btn-secondary" style="padding:10px 20px;border-radius:10px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-secondary);cursor:pointer;font-weight:500;">Backup as .zip</button>' +
+                  '<button id="btn-backup-orzip" class="btn btn-primary" style="padding:10px 20px;border-radius:10px;background:var(--accent-primary);color:white;border:none;cursor:pointer;font-weight:600;">' + t("備份為 .orzip","备份为 .orzip","Backup as .orzip") + '</button>' +
+                  '<button id="btn-backup-zip" class="btn btn-secondary" style="padding:10px 20px;border-radius:10px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-secondary);cursor:pointer;font-weight:500;">' + t("備份為 .zip","备份为 .zip","Backup as .zip") + '</button>' +
                 '</div>' +
               '</div>' +
             '</div>' +
@@ -1810,10 +1820,10 @@ window.SettingsModal = {
             '<div style="display:flex;align-items:flex-start;gap:16px;">' +
               '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:2px;"><path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9"/></svg>' +
               '<div style="flex:1;">' +
-                '<div style="font-weight:600;color:var(--text-primary);font-size:15px;">Restore from Backup</div>' +
-                '<div style="font-size:13px;color:var(--text-secondary);margin-top:4px;line-height:1.4;">Restore your data from a previously created backup file. This will replace all current data.</div>' +
+                '<div style="font-weight:600;color:var(--text-primary);font-size:15px;">' + t("從備份還原","从备份恢复","Restore from Backup") + '</div>' +
+                '<div style="font-size:13px;color:var(--text-secondary);margin-top:4px;line-height:1.4;">' + t("從備份還原資料，這將取代目前的所有資料。","从备份恢复数据，这将替换当前所有数据。","Restore your data from a previously created backup file. This will replace all current data.") + '</div>' +
                 '<div style="margin-top:14px;">' +
-                  '<button id="btn-restore" class="btn btn-danger" style="padding:10px 20px;border-radius:10px;background:var(--accent-danger);color:white;border:none;cursor:pointer;font-weight:600;">Restore Backup</button>' +
+                  '<button id="btn-restore" class="btn btn-danger" style="padding:10px 20px;border-radius:10px;background:var(--accent-danger);color:white;border:none;cursor:pointer;font-weight:600;">' + t("還原備份","恢复备份","Restore Backup") + '</button>' +
                   '<span id="restore-status" style="margin-left:12px;font-size:13px;color:var(--text-muted);display:none;"></span>' +
                 '</div>' +
               '</div>' +
@@ -1823,10 +1833,10 @@ window.SettingsModal = {
             '<div style="display:flex;align-items:flex-start;gap:16px;">' +
               '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:2px;"><path d="M9 12l2 2 4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>' +
               '<div style="flex:1;">' +
-                '<div style="font-weight:600;color:var(--text-primary);font-size:15px;">Database Health</div>' +
-                '<div style="font-size:13px;color:var(--text-secondary);margin-top:4px;line-height:1.4;">Check your database integrity and verify all tables are healthy.</div>' +
+                '<div style="font-weight:600;color:var(--text-primary);font-size:15px;">' + t("資料庫健全性","数据库健康状况","Database Health") + '</div>' +
+                '<div style="font-size:13px;color:var(--text-secondary);margin-top:4px;line-height:1.4;">' + t("檢查資料庫完整性及資料表狀態。","检查数据库完整性和数据表状态。","Check your database integrity and verify all tables are healthy.") + '</div>' +
                 '<div style="margin-top:14px;">' +
-                  '<button id="btn-db-health" style="padding:10px 20px;border-radius:10px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-secondary);cursor:pointer;font-weight:500;">Run Health Check</button>' +
+                  '<button id="btn-db-health" style="padding:10px 20px;border-radius:10px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-secondary);cursor:pointer;font-weight:500;">' + t("執行檢查","运行检查","Run Health Check") + '</button>' +
                   '<span id="health-status" style="margin-left:12px;font-size:13px;color:var(--text-muted);display:none;"></span>' +
                 '</div>' +
               '</div>' +
@@ -1834,10 +1844,10 @@ window.SettingsModal = {
           '</div>' +
           '<div id="db-repair-section" style="padding:20px;background:var(--bg-hover);border-radius:12px;border:1px solid var(--border-subtle);">' +
               '<div style="flex:1;">' +
-                '<div style="font-weight:600;color:var(--text-primary);font-size:15px;">Database Repair</div>' +
-                '<div style="font-size:13px;color:var(--text-secondary);margin-top:4px;line-height:1.4;">Repair database integrity, rebuild indexes, and remove orphaned records.</div>' +
+                '<div style="font-weight:600;color:var(--text-primary);font-size:15px;">' + t("資料庫修復","数据库修复","Database Repair") + '</div>' +
+                '<div style="font-size:13px;color:var(--text-secondary);margin-top:4px;line-height:1.4;">' + t("修復資料庫、重建索引並移除孤立記錄。","修复数据库、重建索引并移除孤立记录。","Repair database integrity, rebuild indexes, and remove orphaned records.") + '</div>' +
                 '<div style="margin-top:14px;">' +
-                  '<button id="btn-db-repair" style="padding:10px 20px;border-radius:10px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-secondary);cursor:pointer;font-weight:500;">Run Repair</button>' +
+                  '<button id="btn-db-repair" style="padding:10px 20px;border-radius:10px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-secondary);cursor:pointer;font-weight:500;">' + t("執行修復","运行修复","Run Repair") + '</button>' +
                   '<span id="repair-status" style="margin-left:12px;font-size:13px;color:var(--text-muted);display:none;"></span>' +
                 '</div>' +
               '</div>' +
@@ -1855,7 +1865,7 @@ window.SettingsModal = {
             '<p style="margin-top:8px;font-size:13px;color:var(--text-secondary);">When enabled, message content is encrypted with AES-256-GCM before leaving your device. Only the intended recipient can decrypt it. Currently works for direct messages. <span style="color:var(--accent-warning);">Requires both you and the recipient to have E2EE enabled.</span></p>' +
           '</div>' +
           '<div style="padding:16px;background:var(--bg-hover);border-radius:12px;border:1px solid var(--border-subtle);">' +
-            '<label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:8px;">Delete attachments after</label>' +
+            '<label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:8px;">' + t("附件保留時間","附件保留时间","Delete attachments after") + '</label>' +
             '<select id="set-delete-after" style="width:100%;padding:12px;border-radius:8px;border:1px solid var(--border-subtle);background:var(--bg-base);color:var(--text-primary);outline:none;">' +
               optionsHtml +
             '</select>' +
@@ -1865,16 +1875,16 @@ window.SettingsModal = {
                 '<option value="1"' + (isCustom && currentDelete < 60 ? ' selected' : '') + '>Minutes</option>' +
                 '<option value="60"' + (isCustom && currentDelete >= 60 ? ' selected' : '') + '>Hours</option>' +
               '</select>' +
-              '<button id="btn-custom-done" style="padding:10px 20px;background:var(--accent-primary);color:white;border-radius:8px;border:none;font-weight:600;cursor:pointer;">Done</button>' +
+              '<button id="btn-custom-done" style="padding:10px 20px;background:var(--accent-primary);color:white;border-radius:8px;border:none;font-weight:600;cursor:pointer;">' + t("完成","完成","Done") + '</button>' +
             '</div>' +
             '<p style="margin-top:8px;font-size:12px;color:var(--text-muted);">Attachments older than this will be automatically removed from the database. Max: 24 hours (1440 minutes).</p>' +
           '</div>' +
            '<div id="load-all-data-section" style="padding:20px;background:var(--bg-hover);border-radius:12px;border:1px solid var(--border-subtle);">' +
             '<div style="flex:1;">' +
-              '<div style="font-weight:600;color:var(--text-primary);font-size:15px;">Load All Stored Data</div>' +
+              '<div style="font-weight:600;color:var(--text-primary);font-size:15px;">' + t("載入所有已儲存資料","加载所有已保存数据","Load All Stored Data") + '</div>' +
               '<div style="font-size:13px;color:var(--text-secondary);margin-top:4px;line-height:1.4;">Load all messages, images, and files from the database into memory. Use this to ensure all historical data is available for search and gallery.</div>' +
               '<div style="margin-top:14px;">' +
-                '<button id="btn-load-all-data" style="padding:10px 20px;border-radius:10px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-secondary);cursor:pointer;font-weight:500;">Load All Data</button>' +
+                '<button id="btn-load-all-data" style="padding:10px 20px;border-radius:10px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-secondary);cursor:pointer;font-weight:500;">' + t("載入所有資料","加载所有数据","Load All Data") + '</button>' +
                 '<span id="load-all-msg" style="margin-left:12px;font-size:13px;color:var(--text-muted);display:none;"></span>' +
               '</div>' +
             '</div>' +
@@ -1883,15 +1893,15 @@ window.SettingsModal = {
             '<div style="display:flex;align-items:flex-start;gap:16px;">' +
               '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:2px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>' +
               '<div style="flex:1;">' +
-                '<div style="font-weight:600;color:var(--text-primary);font-size:15px;">Export Chat History</div>' +
-                '<div style="font-size:13px;color:var(--text-secondary);margin-top:4px;line-height:1.4;">Export the complete message history of a single chat as a JSON or text file.</div>' +
+                '<div style="font-weight:600;color:var(--text-primary);font-size:15px;">' + t("匯出對話記錄","导出会话记录","Export Chat History") + '</div>' +
+                '<div style="font-size:13px;color:var(--text-secondary);margin-top:4px;line-height:1.4;">' + t("將單一對話的完整記錄匯出為 JSON 或文字檔。","将单个会话的完整记录导出为 JSON 或文本文件。","Export the complete message history of a single chat as a JSON or text file.") + '</div>' +
                 '<div style="margin-top:14px;">' +
                   '<select id="export-chat-select" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border-subtle);background:var(--bg-base);color:var(--text-primary);outline:none;font-size:13px;margin-bottom:10px;">' +
                     '<option value="">Select a chat...</option>' +
                   '</select>' +
                   '<div style="display:flex;gap:10px;">' +
-                    '<button id="btn-export-json" class="btn btn-primary" style="padding:10px 20px;border-radius:10px;background:var(--accent-primary);color:white;border:none;cursor:pointer;font-weight:600;">Export as JSON</button>' +
-                    '<button id="btn-export-txt" class="btn btn-secondary" style="padding:10px 20px;border-radius:10px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-secondary);cursor:pointer;font-weight:500;">Export as TXT</button>' +
+                    '<button id="btn-export-json" class="btn btn-primary" style="padding:10px 20px;border-radius:10px;background:var(--accent-primary);color:white;border:none;cursor:pointer;font-weight:600;">' + t("匯出為 JSON","导出为 JSON","Export as JSON") + '</button>' +
+                    '<button id="btn-export-txt" class="btn btn-secondary" style="padding:10px 20px;border-radius:10px;border:1px solid var(--border-subtle);background:transparent;color:var(--text-secondary);cursor:pointer;font-weight:500;">' + t("匯出為 TXT","导出为 TXT","Export as TXT") + '</button>' +
                   '</div>' +
                 '</div>' +
               '</div>' +
@@ -1899,9 +1909,9 @@ window.SettingsModal = {
           '</div>' +
            '<div style="padding:20px;background:var(--bg-hover);border-radius:12px;border:1px solid var(--border-subtle);">' +
             '<div style="flex:1;">' +
-              '<div style="font-weight:600;color:var(--text-primary);font-size:15px;">Storage Management</div>' +
-              '<div style="font-size:13px;color:var(--text-secondary);margin-top:4px;margin-bottom:14px;line-height:1.4;">Permanently delete local storage files to free up disk space.</div>' +
-              '<button id="btn-clear-attachments" style="padding:10px 20px;background:var(--accent-danger);color:white;border-radius:10px;border:none;font-weight:600;cursor:pointer;">Clear All Saved Attachments</button>' +
+              '<div style="font-weight:600;color:var(--text-primary);font-size:15px;">' + t("儲存空間管理","存储管理","Storage Management") + '</div>' +
+              '<div style="font-size:13px;color:var(--text-secondary);margin-top:4px;margin-bottom:14px;line-height:1.4;">' + t("永久刪除本機儲存檔案以釋放空間。","永久删除本机存储文件以释放空间。","Permanently delete local storage files to free up disk space.") + '</div>' +
+              '<button id="btn-clear-attachments" style="padding:10px 20px;background:var(--accent-danger);color:white;border-radius:10px;border:none;font-weight:600;cursor:pointer;">' + t("清除所有已儲存附件","清除所有已保存附件","Clear All Saved Attachments") + '</button>' +
               '<span id="clear-msg" style="margin-left:16px;font-size:13px;color:var(--accent-success);"></span>' +
             '</div>' +
           '</div>' +

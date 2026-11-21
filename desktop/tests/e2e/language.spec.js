@@ -23,3 +23,23 @@ test('language defaults to Traditional Chinese, switches and survives restart', 
   await expect(page.locator('#settings-content')).toContainText('Device name');
  }finally{await app.close();}
 });
+test('appearance and retained legacy settings translate without changing preference values',async()=>{
+ const {app,page}=await launchApp(tmpUserDataDir('settings-translations'),[],{keepBootState:true});
+ try{
+  await page.evaluate(()=>window.SettingsModal.open('appearance'));
+  await expect(page.locator('#settings-content')).toContainText('文字大小');
+  await chooseSetting(page,'ll-font','Large');
+  expect(await page.evaluate(()=>window.orbitAPI.dbGetSetting('settings').fontSize)).toBe('Large');
+  await page.screenshot({path:path.resolve('../artifacts/appearance-round3.png')});
+  await page.evaluate(()=>window.orbitAPI.dbSetSetting('locallink.transport','orbit'));
+  for(const [locale,network,backup,theme] of [['zh-Hant','已儲存裝置','匯出備份','文字與版面'],['zh-Hans','已保存设备','导出备份','文字与布局'],['en','Total Friends','Export Backup','Text & Layout']]){
+   await page.evaluate(locale=>window.I18n.set(locale),locale);
+   for(const [tab,text] of [['network',network],['data',backup],['appearance',theme]]){
+    await page.evaluate(tab=>window.SettingsModal.renderTab(tab),tab);
+    await expect(page.locator('#settings-content')).toContainText(text);
+    await expect(page.locator('#settings-content')).not.toContainText("' + t(");
+   }
+   expect(await page.locator('#set-font').inputValue()).toBe('Large');
+  }
+ }finally{await app.close();}
+});

@@ -17,6 +17,12 @@ try{
  assert.equal(db.db.prepare('SELECT value FROM settings WHERE key=?').get('locallink.transfers'),undefined);
  assert.equal(db.transfers.list({query:'100%'}).length,1);
  assert.equal(db.transfers.list({query:'_'}).length,0);
+ db.transfers.save({id:'photo',peerId:'laptop',name:'PHOTO.JPG',status:'delivered',direction:'outgoing',startedAt:100});
+ db.transfers.save({id:'zip',peerId:'phone',name:'folder.zip',status:'failed',direction:'outgoing',startedAt:200});
+ assert.deepEqual(db.transfers.list({from:100,to:200}).map(r=>r.id),['photo']);
+ assert.deepEqual(db.transfers.list({peerId:'phone',status:'failed',direction:'outgoing',kind:'archive'}).map(r=>r.id),['zip']);
+ assert.deepEqual(db.transfers.list({kind:'image'}).map(r=>r.id),['photo']);
+ assert.deepEqual(db.transfers.list({kind:'text',direction:'incoming'}).map(r=>r.id),['old']);
  for(const call of [null,JSON.stringify({type:'video',duration:30})]){
   db.db.prepare('INSERT OR REPLACE INTO messages(id,chatId,sender,text,timestamp,call) VALUES (?,?,?,?,?,?)').run('m','phone','me','hello',123,call);
   const target=path.join(root,'backup.orzip');db.exportBackupAsOrzip(target);
