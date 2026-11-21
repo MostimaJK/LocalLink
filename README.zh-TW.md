@@ -2,17 +2,17 @@
 
 [English](README.md)
 
-LocalLink 透過區域網路分享檔案、資料夾和文字。**桌面版 1.0.4** 支援 Windows x64、Apple Silicon Mac 與 Intel Mac。
+LocalLink 透過區域網路分享檔案、資料夾和文字。**桌面版 1.0.5** 支援 Windows x64、Apple Silicon Mac 與 Intel Mac。
 
 ## 下載
 
-請從 [1.0.4 發行頁](https://github.com/MostimaJK/LocalLink/releases/tag/v1.0.4) 選擇套件。Windows 可選 Setup 安裝版或 Portable 免安裝版。Apple Silicon Mac 請選 arm64.dmg，Intel Mac 請選 x64.dmg，開啟後將 LocalLink 拖入「應用程式」。
+請從 [1.0.5 發行頁](https://github.com/MostimaJK/LocalLink/releases/tag/v1.0.5) 選擇套件。Windows 可選 Setup 安裝版或 Portable 免安裝版。Apple Silicon Mac 請選 arm64.dmg，Intel Mac 請選 x64.dmg，開啟後將 LocalLink 拖入「應用程式」。
 
 SHA256SUMS.txt 列出四個套件的校驗值。Windows 版本尚未簽章，Mac 版本採臨時簽章，尚未經 Apple 公證。
 
 ## 功能
 
-傳送資料夾時可查看掃描與打包進度，並在上傳前取消。附近裝置探索暫時無法使用時，可在「連接裝置」複製本機位址與連接埠，改用手動連線。詳見[發行說明](docs/RELEASE-NOTES-1.0.4.md)。
+傳送資料夾時可查看掃描與打包進度，並在上傳前取消。附近裝置探索暫時無法使用時，可在「連接裝置」複製本機位址與連接埠，改用手動連線。詳見[發行說明](docs/RELEASE-NOTES-1.0.5.md)。
 
 附近裝置探索、收藏與備註；檔案、圖片、資料夾 ZIP 與文字；進度、取消、重試、歷史、備份、接收目錄、配對授權、收發限速及網卡資訊。
 
@@ -36,7 +36,7 @@ npm start
 
 Windows 亦可執行 Start-LocalLink.bat。
 
-點選「與手機互傳」，用手機掃碼後輸入電腦上顯示的六位配對碼。每次限一個瀏覽器。收起 QR 面板後仍可從標題列選擇檔案或管理共享。未配對的 QR 碼於 15 分鐘後失效；配對後可持續互傳，直到按「結束共享」或完全退出 LocalLink。最小化或隱藏到系統匣時仍可繼續傳輸。每次最多上傳 100 個檔案，合計 1 GiB。
+點選「與手機互傳」，用手機掃碼後輸入電腦上顯示的六位配對碼。預設最多八個瀏覽器可在 15 分鐘內掃同一個碼加入臨時群組。可在開始前取消多台手機共享。群組可傳送文字，檔案由電腦中轉，各接收者自行接受或拒絕。所有已配對的手機都能下載電腦選取的檔案，各手機的上傳請求分別確認。收起 QR 面板後仍可從標題列選擇檔案或管理共享。未配對的 QR 碼於 15 分鐘後失效；配對後可持續互傳，直到按「結束共享」或完全退出 LocalLink。最小化或隱藏到系統匣時仍可繼續傳輸。每次最多上傳 100 個檔案，合計 1 GiB。
 
 部署 HTTPS 時，在啟動前將 `LOCALLINK_SHARE_HOST` 設為手機可解析至所選區域網路位址的主機名稱，`LOCALLINK_SHARE_CERT` 設為 PEM 憑證鏈路徑，`LOCALLINK_SHARE_KEY` 設為 PEM 私鑰路徑。手機須信任簽發機構。設定有誤時無法啟動共享。尚未設定 TLS 時，每次使用未加密 HTTP 都需手動確認，僅適合在可信任的私人網路傳送非敏感檔案。
 

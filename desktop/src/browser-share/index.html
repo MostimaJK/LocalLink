@@ -1,9 +1,29 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LocalLink</title>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#eef3fa"><title>LocalLink</title>
 <style>
-:root{color-scheme:light dark;font:16px/1.5 system-ui,sans-serif}body{max-width:36rem;margin:auto;padding:24px 18px}header{font-size:1.1rem;font-weight:650}h1{font-size:1.65rem;margin:1.5rem 0 .5rem}h2{font-size:1.15rem}section{margin:1.5rem 0;padding:1rem;border:1px solid #8886;border-radius:14px}input{max-width:100%;font:inherit}ul{list-style:none;padding:0}li{padding:.65rem 0;border-bottom:1px solid #8884;overflow-wrap:anywhere}a{color:LinkText}#status{white-space:pre-line}
-</style></head><body><header>LocalLink</header><main><h1 id="title"></h1><p id="hint"></p>
-<form hidden id="pair"><label for="pin" id="pin-label"></label> <input required id="pin" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" size="6" autocomplete="off"><button id="confirm"></button><p role="status" id="pair-status"></p></form>
-<section hidden id="downloads"><h2 id="incoming"></h2><p id="empty"></p><ul id="files"></ul></section>
-<section hidden id="uploads"><h2><label id="outgoing" for="pick"></label></h2><input type="file" multiple id="pick"><p aria-live="polite" id="status"></p></section>
+:root{color-scheme:light dark;--bg:#eef3fa;--card:#fff;--ink:#19283c;--muted:#53677e;--blue:#125fb1;--line:#b9c8d8;--mine:#d7eaff;font:16px/1.45 system-ui,sans-serif;color:var(--ink);background:var(--bg)}
+@media(prefers-color-scheme:dark){:root{--bg:#111922;--card:#202d3b;--ink:#edf4ff;--muted:#b1c1d2;--blue:#185fa9;--line:#46596d;--mine:#203f60}}
+*{box-sizing:border-box}[hidden]{display:none!important}body{margin:0}main{max-width:40rem;margin:auto;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;padding:0 16px}header{padding:18px 0 12px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}header b{color:white;background:var(--blue);padding:7px 11px;border-radius:12px}#title{font-size:1.06rem;margin:0}small,label,#empty,#hint{color:var(--muted)}button,input,textarea{font:inherit}button,.action{min-height:44px;border:0;border-radius:13px;padding:10px 15px;font-weight:600;background:var(--blue);color:white;cursor:pointer}button:disabled{opacity:.6}.secondary{background:var(--bg);color:var(--ink)}
+#pair{margin:auto 0;padding:24px 18px;background:var(--card);border-radius:24px}#pin-label{display:block;margin-bottom:12px}.pin-row,.compose{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:stretch}#pin{width:100%;min-width:0;height:48px;text-align:center;letter-spacing:.28em;font:650 1.2rem ui-monospace,monospace;border:1px solid var(--line);border-radius:13px;color:var(--ink);background:var(--bg)}#pin::placeholder{opacity:.45}#pair-status:empty,#status:empty{display:none}
+#downloads{flex:1;padding:14px 0}ul{list-style:none;padding:0;margin:0}li{margin:8px 0;padding:12px 15px;background:var(--card);border-radius:16px;overflow-wrap:anywhere}li.mine{margin-left:12%;background:var(--mine)}li p{margin:4px 0;white-space:pre-wrap;user-select:text}li button,li a{display:inline-block;margin:7px 6px 0 0}li a{color:var(--ink)}#uploads{position:sticky;bottom:0;padding:10px 0 max(12px,env(safe-area-inset-bottom));background:var(--bg);border-top:1px solid var(--line)}textarea{resize:vertical;min-width:0;padding:11px 13px;border-radius:14px;background:var(--card);color:var(--ink);border:1px solid var(--line)}#attach{position:relative;display:inline-flex;align-items:center;margin:6px 0 0;min-height:44px;color:var(--ink);font-weight:600;cursor:pointer}#pick{position:absolute;inset:0;opacity:0;width:100%;cursor:pointer}#hint,#status{font-size:.85rem;margin:4px 0}#members{margin-left:auto;font-size:.84rem;color:var(--muted)}
+main{height:100vh;height:100dvh;min-height:0;padding:0 max(16px,env(safe-area-inset-right)) 0 max(16px,env(safe-area-inset-left))}
+header{padding-top:max(14px,env(safe-area-inset-top));flex:none}
+#downloads{min-height:0;overflow:auto;overscroll-behavior:contain;scroll-padding:12px}
+#messages{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+li{margin:0;max-width:88%;min-width:5rem;box-shadow:0 1px 3px #152c4610;border-radius:18px;corner-shape:squircle}
+li.mine{align-self:flex-end;margin:0}
+#uploads{position:static;flex:none;display:grid;gap:8px;padding:10px 0 max(12px,env(safe-area-inset-bottom))}
+.attach-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+#attach{margin:0;flex:none;border:1px solid var(--line);border-radius:999px;background:var(--card);padding:0 15px;color:var(--ink);font-size:.9rem}
+#attach:focus-within{outline:2px solid var(--blue);outline-offset:2px}
+.compose{padding:4px;background:var(--card);border:1px solid var(--line);border-radius:19px;align-items:end}
+#draft{resize:none;max-height:6.5em;min-height:44px;background:transparent;border:0;outline:0}
+.compose:focus-within{border-color:var(--blue)}
+#send{border-radius:15px}
+.preview{display:block;width: min(192px,100%);height:128px;object-fit:contain;border-radius:12px;margin:6px 0}
+.decision-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:6px}.decision-actions button{margin:7px 0 0}
+</style></head><body><main><header><b aria-hidden="true">L</b><h1 id="title">LocalLink</h1><span id="members"></span></header>
+<form hidden id="pair"><label for="pin" id="pin-label"></label><div class="pin-row"><input required id="pin" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="······" autocomplete="one-time-code"><button id="confirm"></button></div><p role="status" id="pair-status"></p></form>
+<section hidden id="downloads"><p id="empty"></p><div id="files"><ul id="messages" aria-live="polite"></ul></div></section>
+<section hidden id="uploads"><div class="attach-row"><small id="hint"></small><label id="attach"><span id="outgoing"></span><input type="file" multiple id="pick"></label></div><p aria-live="polite" id="status"></p><form class="compose" id="compose"><textarea rows="1" maxlength="8192" required id="draft"></textarea><button id="send"></button></form></section>
 </main><script src="page.js"></script></body></html>

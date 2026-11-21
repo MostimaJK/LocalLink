@@ -783,6 +783,7 @@ window.ChatPanel = {
   },
 
   renderChat(state) {
+    if(state.activeChatId?.startsWith('web-room:')){window.BrowserGroup.render(this.container);return;}
     if(state.activeChatId?.startsWith('locallink-view:')){window.TransferCenter.render(this.container,state.activeChatId.split(':')[1]);return;}
     if (state.activeTab !== 'dms') {
       this.container.style.display = 'none';
@@ -2260,18 +2261,21 @@ window.ChatPanel = {
     // Cancel transfer buttons
     // Drag and drop file uploads
     this.container.addEventListener('dragover', function(e) {
+      if(e.target.closest?.('.ll-group-chat,.ll-conversation,.ll-center'))return;
       e.preventDefault();
       e.stopPropagation();
       self.container.classList.add('drag-active');
     });
 
     this.container.addEventListener('dragleave', function(e) {
+      if(e.target.closest?.('.ll-group-chat,.ll-conversation,.ll-center'))return;
       e.preventDefault();
       e.stopPropagation();
       self.container.classList.remove('drag-active');
     });
 
     this.container.addEventListener('drop', function(e) {
+      if(e.target.closest?.('.ll-group-chat,.ll-conversation,.ll-center'))return;
       e.preventDefault();
       e.stopPropagation();
       self.container.classList.remove('drag-active');

@@ -1,6 +1,6 @@
 {
   "name": "orbit-workspace",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "private": true,
   "description": "LocalLink development workspace",
   "scripts": {

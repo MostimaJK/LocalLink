@@ -786,7 +786,7 @@ window.SidebarMiddle = {
     };
     let html = '<div style="padding:0 16px 12px;display:flex;gap:6px;flex-wrap:wrap">';
     [['nearby',window.I18n.t('s12')],['favorites',window.I18n.t('s13')],['history',window.LocalSendPanel.text('全部裝置','全部设备','All devices')]].forEach(([id, label]) => {
-      html += '<button data-device-scope="' + id + '" aria-pressed="' + (scope === id) + '" style="padding:7px 10px;border-radius:8px;border:1px solid var(--border-subtle);color:var(--text-primary);background:' + (scope === id ? 'var(--bg-hover)' : 'transparent') + '">' + label + ' ' + sets[id].length + '</button>';
+      html += '<button data-device-scope="' + id + '" aria-pressed="' + (scope === id) + '" style="padding:7px 10px;border-radius:8px;border:1px solid var(--border-subtle);color:var(--text-primary);background:' + (scope === id ? 'var(--bg-hover)' : 'transparent') + '">' + label + ' ' + (sets[id].length+(id==='favorites'?0:window.BrowserGroup?.count()||0)) + '</button>';
     });
     html += '</div><p id="ll-device-refresh-status" role="status" class="ll-device-refresh-status" hidden></p><div style="padding:0 16px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px"><button id="btn-add-friend" style="color:var(--accent-primary)"><span data-i18n="s15">连接设备</span></button><button id="btn-all-friends" style="color:var(--text-muted)"><span data-i18n="s16">全部记录</span></button><button type="button" data-phone-share class="ll-device-refresh"><i data-lucide="qr-code" aria-hidden="true"></i></button><button type="button" data-device-refresh class="ll-device-refresh"><i data-lucide="refresh-cw"></i></button></div>';
     const hint = {nearby:window.I18n.t('s38'), favorites:window.I18n.t('s39'), history:window.I18n.t('s40')};
@@ -797,9 +797,10 @@ window.SidebarMiddle = {
     rows.forEach(friend => {
       html += '<div class="ll-device-row '+(state.activeChatId===friend.userId?'is-selected':'')+'"><div style="flex:1;min-width:0">' + self._buildFriendRowHtml(friend, state, {reopen:true}) + '</div><button data-favorite-id="' + window.Sanitize.escapeHtml(friend.userId) + '" aria-label="' + (devices.isFavorite(friend) ? '取消收藏' : '收藏设备') + '" aria-pressed="' + devices.isFavorite(friend) + '" style="padding:8px;color:var(--accent-primary)"><i data-lucide="star" style="width:18px;height:18px;' + (devices.isFavorite(friend) ? 'fill:currentColor;' : '') + '"></i></button></div>';
     });
-    if (!rows.length) html += '<div style="padding:24px 16px;color:var(--text-muted);font-size:13px">' + (query ? window.I18n.t('s41') : scope === 'nearby' ? window.I18n.t('s44') : scope === 'favorites' ? window.I18n.t('s43') : window.I18n.t('s42')) + '</div>';
+    if (!rows.length && !(scope!=='favorites' && window.BrowserGroup?.count())) html += '<div style="padding:24px 16px;color:var(--text-muted);font-size:13px">' + (query ? window.I18n.t('s41') : scope === 'nearby' ? window.I18n.t('s44') : scope === 'favorites' ? window.I18n.t('s43') : window.I18n.t('s42')) + '</div>';
     listContainer.innerHTML = html;
     lucide.createIcons({root:listContainer});
+    window.BrowserGroup?.sidebar(listContainer,scope,query);
     const shareButton = listContainer.querySelector('[data-phone-share]');
     shareButton.title = window.I18n.t('s22');
     shareButton.setAttribute('aria-label', shareButton.title);

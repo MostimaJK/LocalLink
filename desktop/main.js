@@ -222,10 +222,16 @@ let localSendError = null;
 let mainWindow = null;
 let browserShare = null;
 let shareGeneration = 0;
+const shareCleanups=new Set();
 function stopBrowserShare() {
   shareGeneration++;
-  browserShare?.stop();
+  const cleanup=browserShare?.stop();
   browserShare = null;
+  if(cleanup){
+    shareCleanups.add(cleanup);
+    cleanup.then(()=>shareCleanups.delete(cleanup),()=>shareCleanups.delete(cleanup));
+  }
+  return cleanup;
 }
 let tray = null;
 let isQuitting = false;
@@ -711,7 +717,7 @@ app.whenReady().then(() => {
 
   ipcMain.on('relaunch-app', () => {
     app.relaunch();
-    app.exit(0);
+    app.quit();
   });
 
   // Authoritative app version. preload's `version` field reads
@@ -1604,16 +1610,14 @@ app.whenReady().then(() => {
             if(result.response!==1)return false;
             saveDeviceTrust(peer.id,{paired:true,autoReceive:false,alias:peer.alias});return true;
           },
-          accept: async offer => {
+          accept: async (offer, response) => {
             if(updatePreparing)return false;
             const trusted=offer.authenticatedPeerId&&globalDb.getSetting('locallink.trust.'+offer.authenticatedPeerId,{});
             if(trusted?.paired===true&&trusted.autoReceive===true)return true;
-            const result = await dialog.showMessageBox(mainWindow, {type:'question',title:'LocalLink',message:llText('接收檔案？','接收文件？','Receive files?'),detail:offer.alias+' ('+offer.ip+')\n'+offer.files.map(f=>f.name+' · '+f.size+' bytes').join('\n')+'\n\n'+receiveDir(),buttons:[llText('拒絕','拒绝','Reject'),llText('接收','接收','Receive')],defaultId:0,cancelId:0,noLink:true,...(trusted?.paired===true?{checkboxLabel:llText('以後自動接收此裝置的內容','以后自动接收此设备的内容','Automatically receive from this device in future'),checkboxChecked:false}:{})});
-            if(result.response===1&&result.checkboxChecked&&offer.authenticatedPeerId){
-              const current=globalDb.getSetting('locallink.trust.'+offer.authenticatedPeerId,{});
-              if(current.paired===true)saveDeviceTrust(offer.authenticatedPeerId,{...current,autoReceive:true});
-            }
-            return result.response === 1;
+            const answer = await requestReceipt(offer, response, trusted?.paired === true);
+            if (answer.remember && globalDb.getSetting('locallink.trust.'+offer.authenticatedPeerId, {}).paired === true)
+              saveDeviceTrust(offer.authenticatedPeerId, {...trusted, autoReceive:true});
+            return answer.accept;
           },
           result: record => {
             globalDb.transfers.save(record);
@@ -1710,6 +1714,35 @@ app.whenReady().then(() => {
 
   const llText=(tw,cn,en)=>{const lang=globalDb.getSetting('locallink.language','en');return lang==='en'?en:lang==='zh-Hans'?cn:tw;};
   const receiveDir=()=>globalDb.getSetting('locallink.receiveDir',path.join(app.getPath('downloads'),'LocalLink'));
+  const receiptRequests = new Map();
+  function requestReceipt(offer, response, mayRemember = false) {
+    const contents = mainWindow?.webContents;
+    if (!contents || contents.isDestroyed() || response.destroyed || updatePreparing)
+      return Promise.resolve({accept:false});
+    const id = uuidv4();
+    return new Promise(resolve => {
+      const dismiss = () => finish(false);
+      const timer = setTimeout(dismiss, 90000);
+      function finish(accept, remember = false) {
+        if (!receiptRequests.delete(id)) return;
+        clearTimeout(timer);
+        response.off('close', dismiss);
+        contents.off('render-process-gone', dismiss);
+        contents.off('destroyed', dismiss);
+        if (!contents.isDestroyed()) contents.send('locallink-receipt-closed', id);
+        resolve({accept, remember:accept && mayRemember && remember});
+      }
+      receiptRequests.set(id, finish);
+      response.once('close', dismiss);
+      contents.once('render-process-gone', dismiss);
+      contents.once('destroyed', dismiss);
+      contents.send('locallink-receipt', {id, peerId:offer.peerId, alias:offer.alias, files:offer.files, total:offer.total, mayRemember, ip:offer.ip});
+    });
+  }
+  ipcMain.handle('locallink-decide-receipt', (event, decision) => {
+    if (event.sender !== mainWindow?.webContents || event.senderFrame !== event.sender.mainFrame) return;
+    receiptRequests.get(decision?.id)?.(decision.accept === true, decision.remember === true);
+  });
   const shareAddresses = () => Object.entries(os.networkInterfaces()).flatMap(([name,entries]) =>
     (entries || []).filter(a => a.family === 'IPv4' && !a.internal)
       .map(a => ({address:a.address, name, virtual:VIRTUAL_IFACE_RE.test(name)})))
@@ -1717,13 +1750,21 @@ app.whenReady().then(() => {
   ipcMain.handle('locallink-web-share', async (event, request) => {
     if (event.sender !== mainWindow?.webContents || event.senderFrame !== event.sender.mainFrame) return {ok:false};
     if (request.action === 'state') return {ok:true, addresses:shareAddresses(), tls:require('./lib/browser-share').usesTLS(), session:browserShare && !browserShare.closed ? browserShare.snapshot() : null};
-    if (request.action === 'stop') { stopBrowserShare(); return {ok:true}; }
+    if (request.action === 'message') return {ok:browserShare?.snapshot().roomId === request.roomId && browserShare?.message(request.text) === true};
+    if (request.action === 'stop') { await stopBrowserShare(); return {ok:true}; }
     if (request.action === 'start') {
       if (browserShare && !browserShare.closed) return {ok:true};
       const generation = ++shareGeneration;
       if (updatePreparing || !shareAddresses().some(row => row.address === request.address)) return {ok:false};
       const share = await require('./lib/browser-share').startShare({
-        address:request.address, receiveDir, allowHttp:request.allowHttp === true,
+        address:request.address, receiveDir, allowHttp:request.allowHttp === true, multiple:request.multiple !== false,
+        previewPath:async file=>{
+          const image=await nativeImage.createThumbnailFromPath(file,{width:192,height:192});
+          if(image.isEmpty())return null;
+          return image.toPNG();
+        },
+        accept: (offer, response) => requestReceipt({...offer, alias:llText('手機瀏覽器','手机浏览器','Phone browser')+(offer.number ? ' #'+offer.number : '')}, response).then(answer => answer.accept),
+        onChanged() { if (!event.sender.isDestroyed()) event.sender.send('locallink-room-changed'); },
         onPaired() { if (!event.sender.isDestroyed()) event.sender.send('locallink-web-share-paired'); },
         onStopped() { if (!event.sender.isDestroyed()) event.sender.send('locallink-web-share-ended'); },
         record(row) {
@@ -1735,12 +1776,25 @@ app.whenReady().then(() => {
       browserShare = share;
       return {ok:true};
     }
-    if (request.action === 'add') {
+    if (request.action === 'add' || request.action === 'drop') {
+      if(request.roomId && browserShare?.snapshot().roomId !== request.roomId)return {ok:false};
       const share = browserShare;
       if (!share || share.closed) return {ok:false};
-      const picked = await dialog.showOpenDialog(mainWindow,{properties:['openFile','multiSelections']});
+      let paths;
+      if(request.action==='drop'){
+        if(request.roomId!==share.snapshot().roomId || !Array.isArray(request.paths) || !request.paths.length ||
+           !request.paths.every(p=>typeof p==='string' && path.isAbsolute(p)))return {ok:false};
+        paths=request.paths;
+      }else{
+        const picked=await dialog.showOpenDialog(mainWindow,{properties:['openFile','multiSelections']});
+        paths=picked.filePaths;
+      }
       if (share.closed || share !== browserShare) return {ok:false};
-      return {ok:true, files:await share.add(picked.filePaths)};
+      const outcome={};
+      const files=await share.add(paths,outcome);
+      if(share.closed || share!==browserShare)return {ok:false};
+      if(!event.sender.isDestroyed())event.sender.send('locallink-room-changed');
+      return {ok:true,files,skipped:outcome.skipped};
     }
     return {ok:false};
   });
@@ -2392,8 +2446,17 @@ app.whenReady().then(() => {
   });
 });
 
-app.on('before-quit', () => {
+let waitingForShareCleanup=false;
+app.on('before-quit', event => {
   stopBrowserShare();
+  if(shareCleanups.size){
+    event.preventDefault();
+    if(!waitingForShareCleanup){
+      waitingForShareCleanup=true;
+      Promise.allSettled([...shareCleanups]).then(()=>{waitingForShareCleanup=false;app.quit();});
+    }
+    return;
+  }
   isQuitting = true;
   if(localSendInstance)localSendInstance.stop();
   if (transferInstance) transferInstance.destroy();

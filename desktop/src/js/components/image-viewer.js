@@ -27,7 +27,7 @@ window.ImageViewer = {
     this.container.innerHTML = `
       <div style="height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 var(--spacing-lg); background: linear-gradient(rgba(0,0,0,0.8), transparent); color: white;">
         <div style="display: flex; align-items: center; gap: 12px;">
-          <img src="icons/app/orbit.ico" style="width: 24px; height: 24px; object-fit: contain;">
+          <img src="icons/app/locallink.ico" style="width: 24px; height: 24px; object-fit: contain;">
           <div style="font-family: var(--font-display); font-weight: 600;" id="iv-title">Image Preview</div>
         </div>
         <div style="display: flex; align-items: center; gap: 16px;">

@@ -8,7 +8,7 @@
   function paint() {
     if (!state) return;
     const s = state.session;
-    const label = s?.paired ? t('手機已配對','手机已配对','Phone paired') : t('等待掃碼','等待扫码','Awaiting scan');
+    const label = s?.multiple && s.paired ? t('已配對','已配对','Paired')+' · '+s.pairedCount : s?.paired ? t('手機已配對','手机已配对','Phone paired') : t('等待掃碼','等待扫码','Awaiting scan');
     bar.hidden = !s;
     bar.querySelector('.share-label').textContent = label;
     bar.querySelector('.share-indicator').title = t('管理手機共享','管理手机共享','Manage phone sharing');
@@ -20,6 +20,7 @@
     dialog.dataset.phase = !s ? 'idle' : s.paired ? 'paired' : 'waiting';
     q('.share-badge span').textContent = s ? label : t('尚未共享','尚未共享','Sharing off');
     q('.share-interface').hidden = !!s;
+    q('.share-multiple').hidden = !!s;
     const select = q('select');
     if (JSON.stringify(state.addresses) !== select.dataset.addresses) {
       const previous = select.value;
@@ -33,9 +34,10 @@
     }
     q('.share-hint').textContent = !s
       ? (state.tls ? t('透過 HTTPS 加密傳輸。','通过 HTTPS 加密传输。','Transfers use encrypted HTTPS.') : t('HTTP 未加密，請僅在可信任的私人網路使用。','HTTP 未加密，请仅在可信的私人网络使用。','HTTP is unencrypted. Start only on a trusted private network.'))
+      : s.multiple ? (s.url ? t('其他手機可掃同一個碼。所選檔案對所有已配對手機可見。','其他手机可扫同一个码。所选文件对所有已配对手机可见。','Other phones can scan this code. All paired phones can download selected files.') : t('邀請已關閉。已配對的手機仍可互傳。','邀请已关闭。已配对的手机仍可互传。','Invitations closed. Paired phones can still transfer files.'))
       : s.paired ? t('可收起此面板，從標題列繼續選擇檔案。','可收起此面板，从标题栏继续选择文件。','Dismiss this panel and choose files from the title bar.')
       : t('用手機掃碼並輸入配對碼。未配對的邀請 15 分鐘後失效。','用手机扫码并输入配对码。未配对的邀请 15 分钟后失效。','Scan and enter the code on your phone. Unused invitations expire after 15 minutes.');
-    q('.share-code').hidden = !s || s.paired;
+    q('.share-code').hidden = !s?.url;
     if (s?.url && q('.share-code').dataset.url !== s.url) {
       const qr = window.qrcode(0,'M'); qr.addData(s.url); qr.make();
       const img = new Image(); img.alt = t('配對 QR 碼','配对二维码','Pairing QR code'); img.src=qr.createDataURL(5);
@@ -55,7 +57,7 @@
   }
   async function refresh() {
     const id=++serial, result=await invoke('state');
-    if(id===serial && result.ok){state=result;paint();}
+    if(id===serial && result.ok){state=result;paint();window.BrowserGroup?.update(result.session);}
   }
   async function action(name, options) {
     if(busy)return;
@@ -64,6 +66,11 @@
     try {
       const result=await invoke(name,options);
       if(!result.ok)throw new Error();
+      if(result.skipped){
+        const msg=window.LocalSendPanel.skippedFiles(result.skipped);
+        if(dialog?.open)dialog.querySelector('.share-error').textContent=msg;
+        else window.Toast?.show('LocalLink',msg);
+      }
       await refresh();
     } catch {
       const msg=t('操作失敗，請檢查網路設定後重試。','操作失败，请检查网络设置后重试。','Action failed. Check network settings and try again.');
@@ -82,14 +89,18 @@
     dialog.innerHTML=`<header><span class="share-mark">${icon('smartphone')}</span><div><h2 id="ll-share-title">${window.I18n.t('s22')}</h2><div class="share-badge"><i></i><span></span></div></div><button class="share-hide" aria-label="${hide}" title="${hide}">${icon('x')}</button></header>
       <div class="share-code" hidden></div><div class="share-pin" hidden><span>${t('配對碼','配对码','Pairing code')}</span><b></b></div>
       <div class="share-interface"><label for="ll-share-address">${icon('network')}${t('本機位址','本机地址','Computer address')}</label><select id="ll-share-address"></select></div>
+      <label class="share-multiple"><input type="checkbox" checked> ${t('允許多台手機加入並下載所選檔案','允许多台手机加入并下载所选文件','Allow multiple phones to join and download selected files')}</label>
       <details class="share-files" hidden><summary></summary><ul></ul></details>
       <p class="share-hint"></p><p class="share-error" role="alert"></p>
       <footer><button class="share-stop" hidden>${icon('square')}${t('結束共享','结束共享','End sharing')}</button><button class="share-start" disabled>${icon('qr-code')}${t('開始共享','开始共享','Start sharing')}</button><button class="share-add" hidden>${icon('file-plus-2')}${t('選擇檔案','选择文件','Choose files')}</button></footer>`;
     const current=dialog;
-    current.onclose=()=>{if(window.LocalLinkSelect.active?.trigger.closest('dialog')===current)window.LocalLinkSelect.close();current.remove();if(dialog===current)dialog=null;};
+    const inbox=document.getElementById('ll-receipts');
+    current.querySelector('footer').before(inbox);
+    current.onclose=()=>{if(inbox.parentNode===current)document.getElementById('chat-container').before(inbox);if(window.LocalLinkSelect.active?.trigger.closest('dialog')===current)window.LocalLinkSelect.close();current.remove();if(dialog===current)dialog=null;};
     current.querySelector('.share-hide').onclick=()=>current.close();
-    current.querySelector('.share-start').onclick=()=>action('start',{address:current.querySelector('select').value,allowHttp:!state.tls});
+    current.querySelector('.share-start').onclick=()=>action('start',{address:current.querySelector('select').value,allowHttp:!state.tls,multiple:current.querySelector('.share-multiple input').checked});
     current.querySelector('.share-stop').onclick=()=>action('stop');
+    window.LocalSendPanel.bindFileDrop(current,()=>!!state?.session && !busy,paths=>action('drop',{paths,roomId:state.session.roomId}));
     current.querySelector('.share-add').onclick=()=>action('add');
     document.body.append(current);current.showModal();window.LocalLinkSelect.enhance(current);lucide.createIcons({root:current});
     try { await refresh();
@@ -98,7 +109,7 @@
   };
   bar.querySelector('.share-indicator').onclick=window.showBrowserShare;
   bar.querySelector('.share-quick-add').onclick=()=>action('add');
-  for(const event of ['locallink-web-share-ended','locallink-web-share-paired'])window.orbitAPI.on(event,refresh);
+  for(const event of ['locallink-web-share-ended','locallink-web-share-paired','locallink-room-changed'])window.orbitAPI.on(event,refresh);
   window.addEventListener('locallink-language-change',paint);
   window.addEventListener('DOMContentLoaded',refresh);
 })();

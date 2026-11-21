@@ -8,7 +8,7 @@ const {startShare} = require('../lib/browser-share');
 
 (async () => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(),'ll-share-tls-'));
-  const options = {address:'127.0.0.1',receiveDir:()=>dir,record(){}};
+  const options = {address:'127.0.0.1',receiveDir:()=>dir,multiple:false,record(){},accept:async()=>true};
   let share;
   try {
     for (const key of ['HOST','CERT','KEY']) delete process.env['LOCALLINK_SHARE_'+key];
@@ -49,9 +49,77 @@ const {startShare} = require('../lib/browser-share');
     const auth={Origin:headers.Origin,Cookie:cookie.split(';')[0]};
     assert.equal((await request('files','GET',auth)).statusCode,200);
     const data=Buffer.from([0,48,255]);
-    assert.equal((await request('upload','POST',{...auth,'X-File-Name':'sample.bin','X-File-Size':data.length},pem.cert,data)).statusCode,201);
+    const uploadHeaders={...auth,'X-File-Name':'sample.bin','X-File-Size':data.length};
+    assert.equal((await request('upload','POST',uploadHeaders,pem.cert,data)).statusCode,403);
+    const offer=await request('offer','POST',auth,pem.cert,JSON.stringify([{name:'sample.bin',size:data.length}]));
+    assert.equal(offer.statusCode,200);
+    uploadHeaders['X-Upload-Token']=JSON.parse(offer.body)[0];
+    assert.equal((await request('upload','POST',uploadHeaders,pem.cert,data)).statusCode,201);
+    assert.equal((await request('upload','POST',uploadHeaders,pem.cert,data)).statusCode,403);
     const [file]=await share.add([path.join(dir,'sample.bin')]);
+    assert.equal((await request(file.id,'GET',auth)).statusCode,403);
+    await request('decision','POST',{...auth,'X-File-Id':file.id,'X-Decision':'accept'});
     assert.deepEqual((await request(file.id,'GET',auth)).body,data);
-    console.log('PASS explicit HTTP, pairing lockout, certificate verification, HTTPS-only mode and one browser per session');
+    share.stop();
+    share=await startShare({...options,multiple:true});
+    const pairPhone=async()=>{
+      const origin=new URL(share.url).origin;
+      const res=await request('pair','POST',{Origin:origin,'X-Pair-Code':share.code});
+      assert.equal(res.statusCode,204);
+      return {Origin:origin,Cookie:res.headers['set-cookie'][0].split(';')[0]};
+    };
+    const phones=await Promise.all([pairPhone(),pairPhone()]);
+    assert.notEqual(phones[0].Cookie,phones[1].Cookie);
+    assert.equal(share.snapshot().url,share.url);
+    const names=['first.txt','second.txt'];
+    const uploads=await Promise.all(phones.map(async(auth,i)=>{
+      const offer=await request('offer','POST',auth,pem.cert,JSON.stringify([{name:names[i],size:1}]));
+      assert.equal(offer.statusCode,200);
+      return {...auth,'X-Upload-Token':JSON.parse(offer.body)[0],'X-File-Name':names[i],'X-File-Size':1};
+    }));
+    assert.equal((await request('upload','POST',{...uploads[0],Cookie:phones[1].Cookie},pem.cert,'x')).statusCode,403);
+    await Promise.all(uploads.map(async(headers,i)=>{
+      assert.equal((await request('upload','POST',headers,pem.cert,String(i))).statusCode,201);
+      assert.equal(await fs.readFile(path.join(dir,names[i]),'utf8'),String(i));
+    }));
+    const [shared]=await share.add([path.join(dir,'sample.bin')]);
+    for(const auth of phones) { await request('decision','POST',{...auth,'X-File-Id':shared.id,'X-Decision':'accept'}); assert.deepEqual((await request(shared.id,'GET',auth)).body,data); }
+    // Re-open with a host which declines every incoming file.
+    share.stop();
+    share=await startShare({...options,multiple:true,accept:async()=>false});
+    const [author,reader,other]=await Promise.all([pairPhone(),pairPhone(),pairPhone()]);
+    const groupFile={name:'relay-only.txt',size:5,pixels:{width:1,height:1,rgb:'////'}};
+    const offering=request('offer','POST',author,pem.cert,JSON.stringify([groupFile]));
+    const getRoom=async auth=>JSON.parse((await request('room','GET',auth)).body);
+    let pending;
+    for(let n=0;n<100&&!pending;n++){
+      pending=(await getRoom(reader)).files[0];
+      if(!pending)await new Promise(resolve=>setTimeout(resolve,10));
+    }
+    assert.equal(pending.hasPreview,true);
+    const preview=await request('preview/'+pending.id,'GET',reader);
+    assert.equal(preview.headers['content-type'],'image/png');
+    assert.equal(preview.body.readUInt32BE(16),1);
+    assert.equal((await request(pending.id,'GET',reader)).statusCode,403);
+    const decide=(auth,value)=>request('decision','POST',{...auth,'X-File-Id':pending.id,'X-Decision':value});
+    assert.equal((await decide(other,'reject')).statusCode,204);
+    assert.equal((await decide(reader,'accept')).statusCode,204);
+    const token=JSON.parse((await offering).body)[0];
+    assert.equal((await request('upload','POST',{...author,'X-Upload-Token':token,'X-File-Name':groupFile.name,'X-File-Size':5},pem.cert,'group')).statusCode,201);
+    assert.equal((await request(pending.id,'GET',reader)).body.toString(),'group');
+    assert.equal((await request(pending.id,'GET',other)).statusCode,403);
+    assert.equal((await fs.readdir(dir)).includes(groupFile.name),false);
+    assert.equal((await request('message','POST',author,pem.cert,'分享文字')).statusCode,204);
+    assert.equal((await getRoom(reader)).messages.at(-1).text,'分享文字');
+    const rooms=(await fs.readdir(os.tmpdir())).filter(name=>name.startsWith('locallink-room-'));
+    const staged=await Promise.all(rooms.map(async name=>{
+      const dir=path.join(os.tmpdir(),name);
+      return (await fs.readdir(dir).catch(()=>[])).includes(pending.id)?dir:null;
+    }));
+    const cached=staged.find(Boolean);
+    assert.ok(cached);
+    await share.stop();
+    await assert.rejects(fs.stat(cached),{code:'ENOENT'});
+    console.log('PASS single and multi-phone pairing, isolated simultaneous uploads and shared downloads');
   } finally {share?.stop();await fs.rm(dir,{recursive:true,force:true});}
 })().catch(error=>{console.error(error);process.exitCode=1;});

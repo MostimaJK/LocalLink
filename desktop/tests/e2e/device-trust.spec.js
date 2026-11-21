@@ -67,14 +67,14 @@ test('authenticated pairing enables receive consent once; revocation restores pr
   const discovery=await page.evaluate(address=>window.orbitAPI.invoke('locallink-discover',address),'127.0.0.1:'+sender.port);
   expect(discovery.ok).toBe(true);
   const receiver=[...sender.peers.values()][0],senderId='localsend:'+sender.fingerprint;
-  await sender.sendMessage(receiver.id,'Not trusted yet');
-  expect(await app.evaluate(()=>globalThis.__trustPrompts)).toEqual([null]);
+  await Promise.all([sender.sendMessage(receiver.id,'Not trusted yet'),page.locator('.ll-receipt-accept').click()]);
+  expect(await app.evaluate(()=>globalThis.__trustPrompts)).toEqual([]);
   expect(await page.evaluate(id=>window.orbitAPI.dbGetSetting('locallink.trust.'+id,{}),senderId)).toEqual({});
   expect((await sender.request(receiver,'locallink-pair',{info:sender.info()})).paired).toBe(true);
   await page.evaluate(id=>window.store.setState({activeChatId:id}),senderId);
   await expect(page.locator('#ll-trust-shield')).toHaveClass(/ll-trusted/);
-  await sender.sendMessage(receiver.id,'Remember my permission');
-  expect(await app.evaluate(()=>globalThis.__trustPrompts.at(-1))).toBe('Automatically receive from this device in future');
+  await Promise.all([sender.sendMessage(receiver.id,'Remember my permission'),(async()=>{await page.locator('.ll-receipt-card input').check();await page.locator('.ll-receipt-accept').click();})()]);
+  expect(await app.evaluate(()=>globalThis.__trustPrompts.at(-1))).toBe(null);
   expect(await page.evaluate(id=>window.orbitAPI.dbGetSetting('locallink.trust.'+id).autoReceive,senderId)).toBe(true);
   const count=await app.evaluate(()=>globalThis.__trustPrompts.length);
   const file=path.join(senderDir,'trusted-file.txt');fs.writeFileSync(file,'original bytes');
@@ -85,8 +85,8 @@ test('authenticated pairing enables receive consent once; revocation restores pr
   expect(await app.evaluate(()=>globalThis.__trustPrompts.length)).toBe(count);
   await page.evaluate(id=>window.orbitAPI.invoke('locallink-set-trust',{peerId:id,action:'revoke'}),senderId);
   await expect(page.locator('#ll-trust-shield')).not.toHaveClass(/ll-trusted/);
-  await sender.sendMessage(receiver.id,'Confirm again');
-  expect(await app.evaluate(()=>globalThis.__trustPrompts.length)).toBe(count+2);
+  await Promise.all([sender.sendMessage(receiver.id,'Confirm again'),page.locator('.ll-receipt-accept').click()]);
+  expect(await app.evaluate(()=>globalThis.__trustPrompts.length)).toBe(count+1);
   expect(await app.evaluate(()=>globalThis.__trustPrompts.at(-1))).toBe(null);
  }finally{if(app)await app.close();sender.stop();}
 });

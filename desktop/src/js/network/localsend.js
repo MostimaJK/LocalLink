@@ -132,7 +132,7 @@ class LocalSend {
     const body=await jsonBody(req);
     if(typeof body.text!=='string'||!body.text.trim()||Buffer.byteLength(body.text)>65536)return reply(400);
     const peer=this.observe(body.info,ip);if(!peer)return reply(400);
-    const allowed=await this.opts.accept({authenticatedPeerId:peer.id===authenticatedPeerId?authenticatedPeerId:null,alias:peer.alias,ip,files:[{name:body.text.slice(0,160),size:Buffer.byteLength(body.text)}],total:Buffer.byteLength(body.text)});
+    const allowed=await this.opts.accept({peerId:peer.id,authenticatedPeerId:peer.id===authenticatedPeerId?authenticatedPeerId:null,alias:peer.alias,ip,files:[{name:body.text.slice(0,160),size:Buffer.byteLength(body.text)}],total:Buffer.byteLength(body.text)},res);
     if(!allowed||this.closed||res.destroyed)return reply(403);
     const task={id:crypto.randomUUID(),peerId:peer.id,name:'Message',kind:'text',text:body.text,direction:'incoming',startedAt:Date.now(),size:Buffer.byteLength(body.text),bytes:Buffer.byteLength(body.text)};
     this.publish(task,'received');return reply(200,{received:true});
@@ -147,7 +147,7 @@ class LocalSend {
     let total=0;
     for(const [id,f] of entries){if(!id||id.length>128||!safeName(f.fileName)||!Number.isSafeInteger(f.size)||f.size<0||f.size>this.opts.maxBytes|| (f.sha256 && !/^[0-9a-f]{64}$/i.test(f.sha256)))return reply(400);total+=f.size;}
     if(!Number.isSafeInteger(total)||total>this.opts.maxBytes)return reply(400);
-    const allowed=await this.opts.accept({authenticatedPeerId:'localsend:'+normalize(body.info.fingerprint)===authenticatedPeerId?authenticatedPeerId:null,alias:String(body.info?.alias||ip).slice(0,100),ip,files:entries.map(([,f])=>({name:f.fileName,size:f.size})),total});
+    const allowed=await this.opts.accept({peerId:'localsend:'+normalize(body.info.fingerprint),authenticatedPeerId:'localsend:'+normalize(body.info.fingerprint)===authenticatedPeerId?authenticatedPeerId:null,alias:String(body.info?.alias||ip).slice(0,100),ip,files:entries.map(([,f])=>({name:f.fileName,size:f.size})),total},res);
     if(!allowed||this.closed||res.destroyed)return reply(403);
     const sessionId=crypto.randomUUID();const files=new Map();
     for(const [id,f] of entries)files.set(id,{...f,token:crypto.randomUUID(),state:'ready',task:{id:crypto.randomUUID(),peerId:'localsend:'+normalize(body.info.fingerprint),name:f.fileName,size:f.size,direction:'incoming',startedAt:Date.now()+files.size,bytes:0}});

@@ -1,6 +1,6 @@
 {
   "name": "orbit-beta",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "LocalLink device-to-device file transfer",
   "author": "LocalLink contributors",
   "main": "main.js",

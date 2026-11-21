@@ -2,21 +2,21 @@
 
 [繁體中文](README.zh-TW.md)
 
-LocalLink shares files, folders and text across a local network. **Desktop release 1.0.4** is available for Windows x64 and macOS.
+LocalLink shares files, folders and text across a local network. **Desktop release 1.0.5** is available for Windows x64 and macOS.
 
 ## Download
 
-Choose a package from the [1.0.4 release](https://github.com/MostimaJK/LocalLink/releases/tag/v1.0.4).
+Choose a package from the [1.0.5 release](https://github.com/MostimaJK/LocalLink/releases/tag/v1.0.5).
 
 | Computer | Package |
 | --- | --- |
-| Windows x64 | `LocalLink-Setup-1.0.4.exe` or `LocalLink-1.0.4-Portable.exe` |
-| Mac with Apple silicon | `LocalLink-1.0.4-arm64.dmg` |
-| Intel Mac | `LocalLink-1.0.4-x64.dmg` |
+| Windows x64 | `LocalLink-Setup-1.0.5.exe` or `LocalLink-1.0.5-Portable.exe` |
+| Mac with Apple silicon | `LocalLink-1.0.5-arm64.dmg` |
+| Intel Mac | `LocalLink-1.0.5-x64.dmg` |
 
 The release includes SHA256SUMS.txt for all four packages. Windows builds are unsigned. Mac builds use ad-hoc signatures and have not been notarized by Apple. On Mac, open the matching DMG and drag LocalLink to Applications.
 
-Folder transfers now show scan and packing progress and support cancellation. If nearby discovery is unavailable, open **Connect device** to copy the address and port for a manual connection. [Release notes](docs/RELEASE-NOTES-1.0.4.md)
+Folder transfers now show scan and packing progress and support cancellation. If nearby discovery is unavailable, open **Connect device** to copy the address and port for a manual connection. [Release notes](docs/RELEASE-NOTES-1.0.5.md)
 
 ## Features
 
@@ -42,7 +42,7 @@ npm start
 
 Windows users can also run `Start-LocalLink.bat`.
 
-Choose **Share with phone**, scan the QR and enter the six digits shown on the computer. One browser can pair per session. Dismiss the QR panel to continue using the desktop app. Use the sharing indicator in the title bar to reopen the panel, or choose files there directly. An unused pairing code expires after 15 minutes. After pairing, sharing continues until you select End sharing or quit LocalLink. Minimizing the app or hiding it in the tray keeps sharing active. Each session accepts up to 100 uploads totaling 1 GiB.
+Choose **Share with phone**, scan the QR and enter the six digits shown on the computer. By default up to eight browsers can scan the same QR within 15 minutes. Turn off **Allow multiple phones** before starting for a private session. Members share a temporary group chat. Each recipient chooses whether to accept a file; the computer relays group uploads. All paired phones can download the files you select. Upload approvals are separate for each browser. Dismiss the QR panel to continue using the desktop app. Use the sharing indicator in the title bar to reopen the panel, or choose files there directly. An unused pairing code expires after 15 minutes. After pairing, sharing continues until you select End sharing or quit LocalLink. Minimizing the app or hiding it in the tray keeps sharing active. Each session accepts up to 100 uploads totaling 1 GiB.
 
 HTTPS deployments set `LOCALLINK_SHARE_HOST` to a hostname that resolves on the phone to the selected LAN address, `LOCALLINK_SHARE_CERT` to its PEM certificate chain and `LOCALLINK_SHARE_KEY` to its PEM private key before launching LocalLink. The phone must trust the certificate issuer. An invalid configuration stops sharing. Without TLS configuration, starting unencrypted HTTP requires explicit confirmation each session. Use HTTP only on a trusted private network for non-sensitive files.
 
@@ -61,4 +61,4 @@ The manual **Build and test macOS candidates** workflow builds on both architect
 
 ## Licensing
 
-Based on Orbit, inspired by LocalSend; no official affiliation. Retained [MIT license](LICENSE), [dependency notices](desktop/THIRD-PARTY-NOTICES.txt) and [security policy](SECURITY.md). See the [1.0.4 release notes](docs/RELEASE-NOTES-1.0.4.md).
+Based on Orbit, inspired by LocalSend; no official affiliation. Retained [MIT license](LICENSE), [dependency notices](desktop/THIRD-PARTY-NOTICES.txt) and [security policy](SECURITY.md). See the [1.0.5 release notes](docs/RELEASE-NOTES-1.0.5.md).

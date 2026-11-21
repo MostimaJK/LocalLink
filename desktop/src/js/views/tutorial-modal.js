@@ -133,7 +133,7 @@ window.TutorialModal = {
 
     var icons = ['message-circle', 'file-up', 'wifi', 'users', 'search', 'shield', 'sparkles'];
     var iconHtml = this.currentPage === 0
-      ? '<img src="icons/app/orbit_256.png" style="width:36px;height:36px;">'
+      ? '<img src="icons/app/locallink.png" style="width:36px;height:36px;">'
       : '<i data-lucide="' + icons[this.currentPage - 1] + '" style="width:32px;height:32px;color:var(--accent-primary);"></i>';
 
     return '' +

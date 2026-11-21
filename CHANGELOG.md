@@ -1,5 +1,9 @@
 # LocalLink Changelog
 
+## v1.0.5 — Desktop release
+
+Multi-phone browser rooms, inline transfer consent and image previews. [Release notes](docs/RELEASE-NOTES-1.0.5.md)
+
 ## v1.0.4 — Desktop release
 
 Native Windows 11 window corners and proxy-aware update downloads. [Release notes](docs/RELEASE-NOTES-1.0.4.md)

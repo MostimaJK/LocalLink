@@ -89,6 +89,26 @@ window.LocalSendPanel = {
   dialog.onclose=()=>{window.LocalLinkSelect.close();dialog.remove();};
   document.body.appendChild(dialog);render();window.LocalLinkSelect.enhance(dialog);dialog.showModal();dialog.querySelector('input[type=search],input').focus();
  },
+ skippedFiles(count){
+  return count ? this.text('未加入的項目','未加入的项目','Items skipped')+' · '+count+' ('+this.text('重複、非一般檔案或已達上限','重复、非普通文件或已达上限','duplicates, unavailable files or limit reached')+')' : '';
+ },
+ bindFileDrop(surface,canDrop,onFiles){
+  surface.ondragover=event=>{
+   if(!event.dataTransfer.types.includes('Files'))return;
+   event.preventDefault();event.stopPropagation();
+   const enabled=canDrop();
+   event.dataTransfer.dropEffect=enabled?'copy':'none';
+   surface.classList.toggle('ll-drop-ready',enabled);
+  };
+  surface.ondragleave=event=>{
+   if(!surface.contains(event.relatedTarget))surface.classList.remove('ll-drop-ready');
+  };
+  surface.ondrop=event=>{
+   if(!event.dataTransfer.types.includes('Files'))return;
+   event.preventDefault();event.stopPropagation();surface.classList.remove('ll-drop-ready');
+   if(canDrop())onFiles([...event.dataTransfer.files].map(file=>window.orbitAPI.getPathForFile(file)).filter(Boolean));
+  };
+ },
  render(peer,host){
   const t=this.text.bind(this), esc=window.Sanitize.escapeHtml;
   const old=host.querySelector('.ll-timeline');
@@ -180,12 +200,9 @@ window.LocalSendPanel = {
   host.querySelector('#ll-newer-records')?.addEventListener('click',()=>{this.offsets.set(peer.userId,Math.max(0,offset-limit));this.render(peer,host);});
   host.querySelectorAll('[data-retry]').forEach(button=>button.onclick=async()=>{const r=records.find(r=>r.id===button.dataset.retry);let pin;if(r?.error?.includes('HTTP 401')){pin=await this.askPin();if(pin===null)return;}run('locallink-retry-transfer',{id:button.dataset.retry,pin});});
   host.querySelectorAll('[data-cancel]').forEach(button=>button.onclick=async()=>{button.disabled=true;await window.orbitAPI.invoke('locallink-cancel-transfer',button.dataset.cancel);});
-  host.ondragover=event=>{event.preventDefault();event.dataTransfer.dropEffect=nearby&&!busy?'copy':'none';};
-  host.ondrop=event=>{
-   event.preventDefault();if(!nearby||this.busy.has(peer.userId))return;
-   const paths=[...event.dataTransfer.files].map(file=>window.orbitAPI.getPathForFile(file)).filter(Boolean);
+  this.bindFileDrop(host.querySelector('.ll-conversation'),()=>nearby&&!this.busy.has(peer.userId),paths=>{
    if(paths.length)run('locallink-send-paths',{peerId:peer.userId,paths});
-  };
+  });
   host.querySelectorAll('[data-open],[data-folder]').forEach(button=>button.onclick=async()=>{
    try{const result=await window.orbitAPI.invoke('locallink-open-transfer',{id:button.dataset.open||button.dataset.folder,folder:!!button.dataset.folder});if(!result.ok)throw new Error(result.error);}
    catch(error){this.feedback.set(peer.userId,error.message);if(stillActive())host.querySelector('#localsend-feedback').textContent=error.message;}
