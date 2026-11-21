@@ -1,3 +1,5 @@
+> 当前能力与限制以 [第二轮交付](IMPLEMENTATION-ROUND-2.md) 为准；本页保留早期协议预览设计记录。
+
 # LocalSend 协议预览版实现记录
 
 2026-11-21。参考 https://github.com/localsend/protocol 的 v2.2，采用自行实现的适配器，没有复制 LocalSend 客户端代码。

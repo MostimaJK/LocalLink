@@ -1,5 +1,5 @@
 appId: com.orbit.desktop
-productName: Orbit
+productName: LocalLink
 directories:
   output: dist/
 
@@ -10,6 +10,9 @@ files:
   - "!.agent/**"
   - "!.github/**"
   - "!android/**"
+  - "!tests/**"
+  - "!test-results/**"
+  - "!playwright-report/**"
   - "!.gemini/**"
 
 # shared/ lives OUTSIDE the app directory (desktop/), so `files` cannot reach it.
@@ -28,7 +31,7 @@ win:
     - target: nsis
       arch:
         - x64
-  icon: src/icons/app/orbit.ico
+  icon: src/icons/app/locallink.ico
   requestedExecutionLevel: asInvoker
 
 nsis:
@@ -44,13 +47,13 @@ mac:
       arch:
         - x64
         - arm64
-  icon: src/icons/app/orbit_1024.png
-  category: public.app-category.social-networking
+  icon: src/icons/app/locallink.png
+  category: public.app-category.utilities
   darkModeSupport: true
 
 dmg:
-  title: "Orbit ${version}"
-  artifactName: "Orbit-${version}-${arch}.dmg"
+  title: "LocalLink ${version}"
+  artifactName: "LocalLink-${version}-${arch}.dmg"
 
 # --- Linux ---
 linux:
@@ -61,16 +64,16 @@ linux:
     - target: deb
       arch:
         - x64
-  icon: src/icons/app/orbit_1024.png
-  category: Network;InstantMessaging;Chat
-  synopsis: "P2P chat without the cloud"
-  description: "Modern peer-to-peer messaging for your local network. No server required."
+  icon: src/icons/app/locallink.png
+  category: Network;FileTransfer
+  synopsis: "Private device-to-device file transfer"
+  description: "Local network file transfer with a chronological device conversation."
 
 appImage:
-  artifactName: "Orbit-${version}-${arch}.AppImage"
+  artifactName: "LocalLink-${version}-${arch}.AppImage"
 
 deb:
-  artifactName: "Orbit-${version}-${arch}.deb"
+  artifactName: "LocalLink-${version}-${arch}.deb"
   depends:
     - libgtk-3-0
     - libnotify4

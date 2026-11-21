@@ -38,7 +38,8 @@ window.SidebarLeft = {
 
   render() {
     var s = (window.store.getState().settings || {}).sidebarButtons || {};
-    var showActivity = s.activity !== false;
+    var localSend=window.orbitAPI.dbGetSetting('locallink.transport','localsend')==='localsend';
+    var showActivity = !localSend && s.activity !== false;
     var showGallery = s.gallery !== false;
     var showStorage = s.storage !== false;
     var showFolders = (window.store.getState().settings || {}).enableExperimental === true;
@@ -79,6 +80,9 @@ window.SidebarLeft = {
         </button>
       </div>
     `;
+    const lang=window.I18n?.locale||'zh-Hant',t=(tw,cn,en)=>lang==='en'?en:lang==='zh-Hans'?cn:tw;
+    const labels={'btn-nav-dms':t('裝置與傳輸','设备与传输','Devices and transfers'),'btn-nav-gallery':localSend?t('傳輸記錄','传输记录','Transfer history'):t('媒體庫','媒体库','Gallery'),'btn-nav-storage':t('記錄與備份','记录与备份','History and backup'),'btn-nav-settings':t('設定','设置','Settings'),'btn-profile':t('本裝置','本设备','This device')};
+    for(const [id,label] of Object.entries(labels)){const b=this.container.querySelector('#'+id);if(b){b.title=label;b.setAttribute('aria-label',label);}}
     // Re-initialize icons for newly added HTML
     lucide.createIcons({ root: this.container });
   },
@@ -106,7 +110,9 @@ window.SidebarLeft = {
           btns.forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
           
-          if (btn.id === 'btn-nav-gallery') {
+          if (btn.id === 'btn-nav-gallery' && window.orbitAPI.dbGetSetting('locallink.transport','localsend')==='localsend') {
+            window.LocalSendPanel.history();btn.classList.remove('active');this.container.querySelector('#btn-nav-dms')?.classList.add('active');
+          } else if (btn.id === 'btn-nav-gallery') {
             window.store.setState({ activeTab: 'gallery' });
           } else {
             // Return to the transfer home without discarding per-device history.

@@ -4,6 +4,7 @@ window.LocalLinkDevices = {
   observe(peer) {
     if (!peer || !peer.userId || peer.userId === 'local-echo') return;
     this.nearby.set(this.key(peer.userId), Date.now());
+    if(peer.deviceType)window.orbitAPI.dbSetSetting(this.key(peer.userId),{...this.get(peer),detectedType:peer.deviceType});
     window.store.addOrUpdatePeer(peer);
   },
   isNearby(peer, now = Date.now()) {
@@ -19,7 +20,25 @@ window.LocalLinkDevices = {
   key(id) { return 'locallink.device.' + window.store.getState().currentUser.userId + '.' + id; },
   get(peer) { return window.orbitAPI.dbGetSetting(this.key(peer.userId), {}) || {}; },
   name(peer) { if (peer.userId === 'local-echo') return 'Local demo (Echo)'; return this.get(peer).alias || peer.username || 'Unnamed device'; },
-  icon(peer) { return {phone:'smartphone', desktop:'monitor', laptop:'laptop', tablet:'tablet'}[this.get(peer).type] || 'monitor-smartphone'; },
+  icon(peer) { const meta=this.get(peer);const type=meta.type&&meta.type!=='unknown'?meta.type:peer.deviceType||meta.detectedType;return {phone:'smartphone',mobile:'smartphone',desktop:'monitor',laptop:'laptop',tablet:'tablet',server:'server',headless:'server',web:'globe'}[type]||'monitor-smartphone'; },
+  connectDialog(){
+    if(document.getElementById('ll-connect-dialog'))return;
+    const t=window.LocalSendPanel.text.bind(window.LocalSendPanel),esc=window.Sanitize.escapeHtml;
+    const dialog=document.createElement('dialog');dialog.id='ll-connect-dialog';dialog.className='ll-connect-dialog';
+    dialog.innerHTML=`<form><button type="button" class="ll-dialog-close" aria-label="${t('關閉','关闭','Close')}">×</button><h2>${t('連接裝置','连接设备','Connect device')}</h2>
+    <label for="ll-device-address">${t('裝置 IP 位址','设备 IP 地址','Device IP address')}</label><input id="ll-device-address" placeholder="192.168.1.10:53317" required autocomplete="off" spellcheck="false">
+    <p id="ll-connect-error" role="status"></p><button class="ll-send" id="ll-connect-submit">${t('尋找裝置','查找设备','Find device')}</button></form>`;
+    dialog.querySelector('.ll-dialog-close').onclick=()=>dialog.close();
+    dialog.onclose=()=>dialog.remove();
+    dialog.querySelector('form').onsubmit=async event=>{
+      event.preventDefault();const button=dialog.querySelector('#ll-connect-submit');button.disabled=true;
+      const result=await window.orbitAPI.invoke('locallink-discover',dialog.querySelector('input').value.trim());
+      if(!dialog.isConnected)return;button.disabled=false;
+      if(result.ok){dialog.close();window.store.setState({activeChatId:result.peer.id});}
+      else dialog.querySelector('#ll-connect-error').textContent=window.LocalSendPanel.errorLabel(result.error);
+    };
+    document.body.appendChild(dialog);dialog.showModal();dialog.querySelector('input').focus();
+  },
   validateName(value) {
     if (typeof value !== 'string' || !value.trim() || Array.from(value.trim()).length > 32 || /[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u.test(value)) {
       throw new Error('Device name must contain 1–32 characters without control characters.');

@@ -33,6 +33,7 @@ class OrbitDatabase {
   }
 
   initStatements() {
+    this.transfers = new (require('./transfers'))(this.db);
     this.stmts = {
       // Users
       getUser: this.db.prepare('SELECT * FROM users WHERE userId = ?'),
@@ -675,6 +676,7 @@ class OrbitDatabase {
 
   // --- Settings ---
   getSetting(key, def) {
+    if(key === 'locallink.transfers')return this.transfers.list({all:true}).reverse();
     const row = this.stmts.getSetting.get(key);
     if (!row) return def;
     try {
@@ -685,6 +687,7 @@ class OrbitDatabase {
   }
 
   setSetting(key, value) {
+    if(key === 'locallink.transfers'){this.transfers.replace(value);return;}
     this.stmts.setSetting.run({
       key: key,
       value: JSON.stringify(value)
@@ -746,7 +749,8 @@ class OrbitDatabase {
                 sender: m.sender,
                 text: m.text || '',
                 timestamp: m.timestamp,
-                replyTo: m.replyTo != null ? String(m.replyTo) : null
+                replyTo: m.replyTo != null ? String(m.replyTo) : null,
+                call: m.call == null ? null : typeof m.call === 'string' ? m.call : JSON.stringify(m.call)
               });
               
               if (m.attachments && Array.isArray(m.attachments)) {
@@ -946,10 +950,11 @@ class OrbitDatabase {
   // --- Backup & Restore ---
   buildBackupPackage() {
     const backup = {
-      version: 1,
+      version: 2,
       createdAt: new Date().toISOString(),
       userDataPath: this.userDataPath,
       data: {
+        transfers: this.transfers.list({all:true}),
         users: this.db.prepare('SELECT * FROM users').all(),
         friends: this.db.prepare('SELECT * FROM friends').all(),
         messages: this.db.prepare('SELECT * FROM messages ORDER BY chatId, timestamp').all(),
@@ -970,14 +975,14 @@ class OrbitDatabase {
     return { path: destPath, size: compressed.length };
   }
 
-  exportBackupAsZip(destPath) {
-    const archiver = require('archiver');
+  async exportBackupAsZip(destPath) {
+    const {ZipArchive} = await import('archiver');
     const backup = this.buildBackupPackage();
     const json = JSON.stringify(backup, null, 2);
 
     return new Promise((resolve, reject) => {
       const output = fs.createWriteStream(destPath);
-      const archive = archiver('zip', { zlib: { level: 9 } });
+      const archive = new ZipArchive({ zlib: { level: 9 } });
       output.on('close', () => resolve({ path: destPath, size: archive.pointer() }));
       archive.on('error', reject);
       archive.pipe(output);
@@ -1005,37 +1010,10 @@ class OrbitDatabase {
 
   validateBackupZip(filePath) {
     try {
-      const fs2 = require('fs');
-      const buffer = fs2.readFileSync(filePath);
-      const { inflateRawSync } = require('zlib');
-      // Parse zip central directory to find and extract backup.json
-      const { execSync } = require('child_process');
-      const tmpDir = path.join(this.userDataPath, 'temp', '.backup_tmp_' + Date.now());
-      if (!fs2.existsSync(tmpDir)) fs2.mkdirSync(tmpDir, { recursive: true });
-      try {
-        // Try unzip command
-        const result = execSync('"'+__dirname+'/../../node_modules/.bin/unzip" -o "' + filePath + '" -d "' + tmpDir + '" 2>nul || tar -xf "' + filePath + '" -C "' + tmpDir + '"', { stdio: 'pipe', timeout: 30000 });
-        const jsonPath = path.join(tmpDir, 'backup.json');
-        if (!fs2.existsSync(jsonPath)) {
-          // Remove tmp dir
-          this._rmdir(tmpDir);
-          return { valid: false, error: 'backup.json not found in archive' };
-        }
-        const json = fs2.readFileSync(jsonPath, 'utf-8');
-        const backup = JSON.parse(json);
-        if (!backup.version || !backup.data) {
-          this._rmdir(tmpDir);
-          return { valid: false, error: 'Invalid backup structure' };
-        }
-        this._rmdir(tmpDir);
-        return { valid: true, backup };
-      } catch (e2) {
-        this._rmdir(tmpDir);
-        return { valid: false, error: 'Failed to extract zip: ' + e2.message };
-      }
-    } catch (e) {
-      return { valid: false, error: e.message };
-    }
+      const backup=require('./backup-zip')(filePath);
+      if(!backup.version||!backup.data)return {valid:false,error:'Invalid backup structure'};
+      return {valid:true,backup};
+    }catch(error){return {valid:false,error:error.message};}
   }
 
   validateBackup(filePath) {
@@ -1095,7 +1073,8 @@ class OrbitDatabase {
             sender: m.sender,
             text: m.text,
             timestamp: m.timestamp,
-            replyTo: m.replyTo != null ? String(m.replyTo) : null
+            replyTo: m.replyTo != null ? String(m.replyTo) : null,
+            call: m.call == null ? null : typeof m.call === 'string' ? m.call : JSON.stringify(m.call)
           }));
         }
 
@@ -1124,8 +1103,11 @@ class OrbitDatabase {
         // Restore settings
         if (data.settings) {
           const stmt = this.db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (@key, @value)');
-          data.settings.forEach(s => stmt.run(s));
+          data.settings.filter(s=>s.key!=='locallink.transfers').forEach(s => stmt.run(s));
         }
+        const legacy=data.settings?.find(s=>s.key==='locallink.transfers');
+        this.transfers.replace(data.transfers || (legacy?JSON.parse(legacy.value):[]));
+        this.transfers.interrupt();
       })();
 
       return { ok: true };

@@ -50,7 +50,7 @@ window.SidebarMiddle = {
       '<div class="search-container" style="padding: 16px; padding-bottom: 8px;">' +
         '<div class="search-input-wrapper" data-debug="Search: query=\\"\\" results=0" style="position: relative; display: flex; align-items: center;">' +
           '<i data-lucide="search" style="position: absolute; left: 12px; width: 16px; color: var(--text-muted);"></i>' +
-          '<input type="text" class="search-input" placeholder="搜索设备 / 消息" style="width: 100%; padding: 8px 12px 8px 36px; border-radius: 8px; border: 1px solid var(--border-subtle); background: var(--bg-surface); color: var(--text-primary); outline: none;">' +
+          '<input type="text" class="search-input" placeholder="搜索设备 / 文件" style="width: 100%; padding: 8px 12px 8px 36px; border-radius: 8px; border: 1px solid var(--border-subtle); background: var(--bg-surface); color: var(--text-primary); outline: none;">' +
           '<button id="btn-toggle-sidebar" title="Toggle Sidebar" style="background:transparent; border:none; cursor:pointer; color:var(--text-muted); padding:4px; margin-left:4px; flex-shrink:0;"><i data-lucide="chevrons-left" style="width:18px;height:18px;"></i></button>' +
         '</div>' +
       '</div>' +
@@ -63,7 +63,11 @@ window.SidebarMiddle = {
       '</div>';
     lucide.createIcons({ root: this.container });
     this.attachEvents();
-    
+    if(window.orbitAPI.dbGetSetting('locallink.transport','localsend')==='localsend'){
+      const groups=this.container.querySelector('[data-view="groups"]');
+      if(!window.store.getState().groups?.length)groups.hidden=true;
+      else groups.textContent=window.I18n.locale==='en'?'Previous groups':window.I18n.locale==='zh-Hans'?'旧群组':'舊群組';
+    }
     // Initial render
     var state = window.store.getState();
     if (state.activeView === 'groups') {
@@ -791,7 +795,8 @@ window.SidebarMiddle = {
     const hint = {nearby:window.I18n.t('s38'), favorites:window.I18n.t('s39'), history:window.I18n.t('s40')};
     html += '<p style="padding:0 16px 12px;font-size:12px;color:var(--text-muted);line-height:1.6">' + hint[scope] + '</p>';
     const query = (this.container.querySelector('.search-input').value || '').toLowerCase();
-    const rows = sets[scope].filter(f => (devices.name(f) + ' ' + f.username).toLowerCase().includes(query));
+    const matchedPeers=new Set(query?window.orbitAPI.sendSync('locallink-list-transfers',{query,limit:1000}).map(r=>r.peerId):[]);
+    const rows = sets[scope].filter(f => (devices.name(f) + ' ' + f.username).toLowerCase().includes(query)||matchedPeers.has(f.userId));
     rows.forEach(friend => {
       html += '<div style="display:flex;align-items:center"><div style="flex:1;min-width:0">' + self._buildFriendRowHtml(friend, state, {reopen:true}) + '</div><button data-favorite-id="' + window.Sanitize.escapeHtml(friend.userId) + '" aria-label="' + (devices.isFavorite(friend) ? '取消收藏' : '收藏设备') + '" aria-pressed="' + devices.isFavorite(friend) + '" style="padding:8px;color:var(--accent-primary)"><i data-lucide="star" style="width:18px;height:18px;' + (devices.isFavorite(friend) ? 'fill:currentColor;' : '') + '"></i></button></div>';
     });
@@ -807,7 +812,7 @@ window.SidebarMiddle = {
       if (peer) devices.toggleFavorite(peer);
     });
     listContainer.querySelector('#btn-add-friend').onclick = () => this.showAddFriendModal();
-    listContainer.querySelector('#btn-all-friends').onclick = () => this.showAllFriendsModal();
+    listContainer.querySelector('#btn-all-friends').onclick = () => window.orbitAPI.dbGetSetting('locallink.transport','localsend')==='localsend'?window.LocalSendPanel.history():this.showAllFriendsModal();
   },
 
   _buildFriendRowHtml(friend, state, opts) {
@@ -1315,6 +1320,7 @@ window.SidebarMiddle = {
     },
 
     showAddFriendModal() {
+    if(window.orbitAPI.dbGetSetting('locallink.transport','localsend')==='localsend'){window.LocalLinkDevices.connectDialog();return;}
     var activeTab = 'ip';      // 'ip' | 'qr'
     var qrHandle = null;       // live inline QR scanner, if the QR tab is open
 

@@ -81,7 +81,7 @@ window.SettingsModal = {
       { tab: 'notifications', icon: 'bell', label: window.I18n.t('s4') },
       { tab: 'data', icon: 'database', label: window.I18n.t('s5') },
       { tab: 'security', icon: 'shield', label: window.I18n.t('s6'), experimental: true },
-      { tab: 'advanced', icon: 'sliders-horizontal', label: window.I18n.t('s7') },
+      { tab: 'advanced', icon: 'sliders-horizontal', label: window.orbitAPI.dbGetSetting('locallink.transport','localsend')==='localsend'?(window.I18n.locale==='en'?'Diagnostics':window.I18n.locale==='zh-Hans'?'诊断':'診斷'):window.I18n.t('s7') },
       { tab: 'about', icon: 'info', label: window.I18n.t('s8') }
     ].filter(function (it) { return !it.experimental || showSecurity; }).map(function (it) {
       return '<button class="settings-tab' + (it.tab === 'account' ? ' active' : '') + '" data-tab="' + it.tab + '">' +
@@ -823,14 +823,37 @@ window.SettingsModal = {
         input.click();
       });
       
+    } else if (tabName === 'data' && window.orbitAPI.dbGetSetting('locallink.transport','localsend') === 'localsend') {
+      content.innerHTML=`<h3 class="ll-settings-title">${t('傳輸記錄與備份','传输记录与备份','History and backup')}</h3>
+        <section class="ll-settings-card"><div class="ll-settings-card-head"><i data-lucide="history"></i>${t('傳輸記錄','传输记录','Transfer history')}</div><div class="ll-settings-card-body"><button class="ll-primary-button" id="ll-show-history">${t('查看全部記錄','查看全部记录','View all records')}</button></div></section>
+        <section class="ll-settings-card"><div class="ll-settings-card-head"><i data-lucide="archive"></i>${t('檔案備份','文件备份','File backup')}</div><div class="ll-settings-card-body"><p class="ll-settings-copy">${t('備份記錄，或連同原檔案一起匯出。不包含本裝置身分。','备份记录，或连同原文件一起导出。不包含本设备身份。','Export records, optionally with original files. Device identity is excluded.')}</p><div class="ll-file-actions"><button id="ll-export-records">${t('僅記錄','仅记录','Records only')}</button><button id="ll-export-files">${t('記錄與原檔案','记录与原文件','Records and files')}</button><button id="ll-import-records">${t('匯入備份','导入备份','Import backup')}</button></div><p id="ll-backup-result" role="status"></p></div></section>`;
+      content.querySelector('#ll-show-history').onclick=()=>window.LocalSendPanel.history();
+      const backup=async(channel,arg)=>{
+        const buttons=[...content.querySelectorAll('.ll-file-actions button')];buttons.forEach(b=>b.disabled=true);
+        const message=content.querySelector('#ll-backup-result');message.textContent=t('處理中…','处理中…','Working…');
+        try{const result=await window.orbitAPI.invoke(channel,arg);message.textContent=result.error||(result.ok?t('完成','完成','Completed')+' · '+result.count+' · '+result.path+(result.missing?' · '+t('找不到的檔案','找不到的文件','Missing files')+': '+result.missing:''):'');}
+        catch(error){message.textContent=error.message;}finally{buttons.forEach(b=>b.disabled=false);}
+      };
+      content.querySelector('#ll-export-records').onclick=()=>backup('locallink-export-transfers',false);
+      content.querySelector('#ll-export-files').onclick=()=>backup('locallink-export-transfers',true);
+      content.querySelector('#ll-import-records').onclick=()=>backup('locallink-import-transfers');
     } else if (tabName === 'network' && window.orbitAPI.dbGetSetting('locallink.transport','localsend') === 'localsend') {
       content.innerHTML=`<h3 class="ll-settings-title">${t('網路','网络','Network')}</h3>
         <section class="ll-settings-card"><div class="ll-settings-card-head"><i data-lucide="wifi"></i>${t('區域網路傳輸','局域网传输','Local network transfer')}</div>
         <div class="ll-settings-card-body"><dl class="ll-about-facts">
           <div><dt>${t('接收方式','接收方式','Receiving')}</dt><dd>${t('每次確認','每次确认','Ask each time')}</dd></div>
           <div><dt>${t('單次傳輸上限','单次传输上限','Session limit')}</dt><dd>500 MB</dd></div>
-          <div><dt>${t('儲存位置','保存位置','Save location')}</dt><dd>Downloads / LocalLink</dd></div>
-        </dl></div></section>`;
+          <div><dt>${t('儲存位置','保存位置','Save location')}</dt><dd id="ll-receive-path">…</dd></div>
+        </dl><div class="ll-file-actions"><button id="ll-choose-directory">${t('變更資料夾','更改目录','Change folder')}</button><button id="ll-open-directory">${t('開啟資料夾','打开目录','Open folder')}</button><button id="ll-rediscover">${t('重新搜尋','重新搜索','Discover again')}</button></div><p id="ll-network-result" role="status"></p></div></section>`;
+      const showResult=result=>{if(!content.querySelector('#ll-network-result'))return;if(result.path)content.querySelector('#ll-receive-path').textContent=result.path;content.querySelector('#ll-network-result').textContent=result.error||'';};
+      window.orbitAPI.invoke('locallink-storage').then(showResult);
+      content.querySelector('#ll-choose-directory').onclick=()=>window.orbitAPI.invoke('locallink-choose-directory').then(showResult);
+      content.querySelector('#ll-open-directory').onclick=()=>window.orbitAPI.invoke('locallink-open-directory').then(showResult);
+      content.querySelector('#ll-rediscover').onclick=async()=>{
+        window.orbitAPI.networkStart(window.store.getState().currentUser);
+        const result=await window.orbitAPI.invoke('locallink-rediscover');showResult(result);
+        if(result.ok)content.querySelector('#ll-network-result').textContent=t('已重新搜尋','已重新搜索','Discovery restarted');
+      };
     } else if (tabName === 'network') {
       var n = state.networkSettings;
       var peerCount = state.friends ? state.friends.filter(function(f) { return f.status === 'online'; }).length : 0;
@@ -1103,6 +1126,10 @@ window.SettingsModal = {
         }
       });
       content.querySelector('#net-bandwidth').addEventListener('change', function(e) { updateNetwork('netBandwidthLimit', parseInt(e.target.value, 10) || 0); });
+    } else if (tabName === 'notifications' && window.orbitAPI.dbGetSetting('locallink.transport','localsend') === 'localsend') {
+      content.innerHTML=`<h3 class="ll-settings-title">${t('通知','通知','Notifications')}</h3><section class="ll-settings-card"><div class="ll-settings-card-body"><label class="ll-setting-row" for="ll-transfer-notifications">${t('傳輸結果通知','传输结果通知','Transfer result notifications')}<input id="ll-transfer-notifications" type="checkbox"></label></div></section>`;
+      const input=content.querySelector('input');input.checked=window.orbitAPI.dbGetSetting('locallink.transferNotifications',true);
+      input.onchange=()=>window.orbitAPI.dbSetSetting('locallink.transferNotifications',input.checked);
     } else if (tabName === 'notifications') {
       var s = state.settings;
       var dndActive = s.notifyDnd;
@@ -1397,6 +1424,15 @@ window.SettingsModal = {
         }
       })();
 
+    } else if (tabName === 'advanced' && window.orbitAPI.dbGetSetting('locallink.transport','localsend') === 'localsend') {
+      content.innerHTML=`<h3 class="ll-settings-title">${t('診斷','诊断','Diagnostics')}</h3><section class="ll-settings-card"><div class="ll-settings-card-head"><i data-lucide="network"></i>LocalSend</div><div class="ll-settings-card-body"><dl class="ll-about-facts"><div><dt>${t('服務狀態','服务状态','Service status')}</dt><dd id="ll-diagnostic-status"></dd></div><div><dt>IP</dt><dd id="ll-diagnostic-addresses"></dd></div><div><dt>${t('接收埠','接收端口','Receive port')}</dt><dd id="ll-diagnostic-port"></dd></div></dl><button class="ll-primary-button" id="ll-diagnostic-retry">${t('重試連線','重试连接','Retry connection')}</button></div></section>`;
+      const load=()=>window.orbitAPI.invoke('locallink-diagnostics').then(result=>{
+        if(!content.querySelector('#ll-diagnostic-status'))return;
+        content.querySelector('#ll-diagnostic-status').textContent=result.running?t('運作中','运行中','Running'):result.error||t('尚未啟動','尚未启动','Not running');
+        content.querySelector('#ll-diagnostic-addresses').textContent=result.addresses.join(', ');
+        content.querySelector('#ll-diagnostic-port').textContent=result.port||'—';
+      });load();
+      content.querySelector('#ll-diagnostic-retry').onclick=async()=>{window.orbitAPI.networkStart(window.store.getState().currentUser);await window.orbitAPI.invoke('locallink-rediscover');load();};
     } else if (tabName === 'advanced') {
       var s = state.settings || {};
 
@@ -2475,7 +2511,8 @@ window.SettingsModal = {
     }
     this.container.style.display = 'none';
     this.isOpen = false;
-    if(this.returnFocus?.isConnected)this.returnFocus.focus({preventScroll:true});
+    const trigger=this.returnFocus?.isConnected?this.returnFocus:document.getElementById(this.returnFocus?.id);
+    trigger?.focus({preventScroll:true});
   }
 };
 

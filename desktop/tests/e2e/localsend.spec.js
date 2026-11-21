@@ -44,7 +44,7 @@ test('file conversation preserves order, direction, status, history and scroll',
   });
   await expect(cards).toHaveCount(3);
   await expect(page.locator('[data-transfer-id="c"]')).toContainText('傳輸失敗');
-  await expect(page.locator('[data-transfer-id="a"] .ll-file-path')).toBeVisible();
+  await expect(page.locator('[data-transfer-id="a"] [data-folder]')).toBeVisible();
   await page.evaluate(()=>{
    const rows=window.orbitAPI.dbGetSetting('locallink.transfers',[]);
    for(let i=0;i<15;i++)rows.push({...rows[0],id:'extra'+i,startedAt:rows[2].startedAt+60000*(i+1)});

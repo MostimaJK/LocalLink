@@ -288,6 +288,7 @@ window.I18n = {
   if(peer?.userId.startsWith('localsend:'))window.LocalSendPanel.render(peer,window.ChatPanel.container);
   // Re-render only navigation and settings; preserve composer drafts and history.
   window.SidebarMiddle.render();
+  window.SidebarLeft.render();window.SidebarLeft.attachEvents();window.SidebarLeft.renderAvatar(state.currentUser);
   window.SettingsModal.render();
   window.SettingsModal.renderTab('account');
   this.apply();
