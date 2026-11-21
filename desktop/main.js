@@ -661,6 +661,7 @@ app.whenReady().then(() => {
     icon: path.join(__dirname, 'src/icons/app/locallink.ico'),
     titleBarStyle: 'hidden',
   });
+  require('./lib/update-restart').acknowledge(app,mainWindow);
   mainWindow.loadFile(path.join(__dirname, 'src/index.html'));
 
   // Handle window controls
@@ -781,7 +782,8 @@ app.whenReady().then(() => {
      GitHub serves release assets from github.com and REDIRECTS to
      objects.githubusercontent.com, so both hosts are allowed and fetch follows
      the redirect. Everything here treats the release payload as untrusted input. */
-  const _downloadedFiles = new Set();
+  const _downloadedFiles = new Map();
+  let updatePreparing=false;
   let _activeDownload = null;
 
   // Extracted to desktop/lib/update-assets.js so it can be tested; the logic is
@@ -933,7 +935,7 @@ app.whenReady().then(() => {
       controller.signal.throwIfAborted();
       fs.renameSync(part, dest);
       send({ received, total, percent: 100, done: true });
-      _downloadedFiles.add(dest);
+      _downloadedFiles.set(dest,sha256);
       return { ok: true, path: dest, name, size: received, sha256, verified };
     } catch (e) {
       try { fs.rmSync(part, { force: true }); } catch (e2) { /* ignore */ }
@@ -956,8 +958,33 @@ app.whenReady().then(() => {
     if (typeof file !== 'string' || !_downloadedFiles.has(file)) {
       return { ok: false, error: 'not a downloaded file' };
     }
+    if(await _sha256File(file)!==_downloadedFiles.get(file))return {ok:false,error:'checksum mismatch'};
     const err = await shell.openPath(file);
     return err ? { ok: false, error: err } : { ok: true };
+  });
+
+  ipcMain.handle('update-install',async(event,file)=>{
+    if(process.platform!=='win32'||!app.isPackaged)return {ok:false,error:'packaged-windows-only'};
+    if(updatePreparing)return {ok:false,error:'update-in-progress'};
+    if(typeof file!=='string'||!_downloadedFiles.has(file))return {ok:false,error:'unverified-update'};
+    const active=async()=>!!(localSendInstance?.pending||localSendInstance?.sessions.size||localSendInstance?.outgoing.size||transferInstance?.activeReceives.size||transferInstance?.sendSessions.size||globalDb.transfers.list({statuses:['queued','preparing','awaiting','receiving','verifying','transferring','confirming'],limit:1}).length||await mainWindow.webContents.executeJavaScript('Boolean(window.CallManager?.activeCall || window.CallManager?.incomingCallData)'));
+    if(await active())return {ok:false,error:'active-transfers'};
+    updatePreparing=true;let job;
+    try{
+      const portable=!!process.env.PORTABLE_EXECUTABLE_FILE;
+      const match=path.basename(file).match(portable?/^LocalLink-(\d+\.\d+\.\d+(?:-[\w.]+)?)-Portable\.exe$/i:/^LocalLink-Setup-(\d+\.\d+\.\d+(?:-[\w.]+)?)\.exe$/i);
+      if(!match)throw Error('Wrong update package');
+      const updater=require('./lib/update-restart');
+      job=await updater.prepare({file,sha256:_downloadedFiles.get(file),target:process.env.PORTABLE_EXECUTABLE_FILE||process.execPath,userData:app.getPath('userData'),portable,version:match[1]});
+      if(await active())throw Error('active-transfers');
+      await updater.start(job);
+      if(await active())throw Error('active-transfers');
+      setImmediate(()=>app.quit());
+      return {ok:true};
+    }catch(error){
+      if(job)fs.writeFileSync(path.join(job.job,'cancel'),'1');
+      updatePreparing=false;return {ok:false,error:error.message};
+    }
   });
 
   ipcMain.handle('update-reveal-file', (event, file) => {
@@ -1548,11 +1575,13 @@ app.whenReady().then(() => {
           peer: peer => emit('locallink-lan-seen', peer),
           error: error => emit('locallink-transfer-error', error),
           pair: async peer => {
+            if(updatePreparing)return false;
             const result=await dialog.showMessageBox(mainWindow,{type:'question',title:'LocalLink',message:llText('配對此裝置？','配对此设备？','Pair this device?'),detail:peer.alias+'\n'+peer.ip+'\nSHA-256: '+peer.fingerprint,buttons:[llText('取消','取消','Cancel'),llText('配對','配对','Pair')],defaultId:0,cancelId:0});
             if(result.response!==1)return false;
             saveDeviceTrust(peer.id,{paired:true,autoReceive:false,alias:peer.alias});return true;
           },
           accept: async offer => {
+            if(updatePreparing)return false;
             const trusted=offer.authenticatedPeerId&&globalDb.getSetting('locallink.trust.'+offer.authenticatedPeerId,{});
             if(trusted?.paired===true&&trusted.autoReceive===true)return true;
             const result = await dialog.showMessageBox(mainWindow, {type:'question',title:'LocalLink',message:llText('接收檔案？','接收文件？','Receive files?'),detail:offer.alias+' ('+offer.ip+')\n'+offer.files.map(f=>f.name+' · '+f.size+' bytes').join('\n')+'\n\n'+receiveDir(),buttons:[llText('拒絕','拒绝','Reject'),llText('接收','接收','Receive')],defaultId:0,cancelId:0,noLink:true,...(trusted?.paired===true?{checkboxLabel:llText('以後自動接收此裝置的內容','以后自动接收此设备的内容','Automatically receive from this device in future'),checkboxChecked:false}:{})});
@@ -1679,6 +1708,7 @@ app.whenReady().then(() => {
     return {ok:true};
   });
   const sendPaths=async(peerId,paths,pin,text)=>{
+    if(updatePreparing)return {ok:false,error:'Update in progress'};
     if(!localSendInstance)return {ok:false,error:llText('傳輸服務尚未啟動','传输服务尚未启动','Transport is not running')};
     const peer=localSendInstance.peers.get(peerId);
     if(!peer)return {ok:false,error:llText('找不到此裝置','找不到此设备','Device is not nearby')};
@@ -1752,6 +1782,7 @@ app.whenReady().then(() => {
     mainWindow?.webContents.send('locallink-history-changed');return {ok:!errors.length,count,error:errors.join('\n')};
   });
   ipcMain.handle('locallink-send-content',async(event,request)=>{
+    if(updatePreparing)return {ok:false,error:'Update in progress'};
     try{
       const dir=path.join(app.getPath('userData'),'locallink-outbox');fs.mkdirSync(dir,{recursive:true});
       const stamp=Date.now()+'-'+require('crypto').randomBytes(4).toString('hex');let dest;

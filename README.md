@@ -17,8 +17,8 @@ Windows binaries are unsigned. Only run downloads from a source you trust.
 Version 1.0.1 adds a blue trusted-device shield, receive-permission switches and
 a trusted-device manager. See the [release notes](docs/RELEASE-NOTES-1.0.1.md).
 Settings → About now offers GitHub update checks and checksum-verified downloads.
-Startup checks are opt-in; the release repository must be public. Portable updates
-are replaced manually after exiting. See [update details](docs/GITHUB-UPDATES.md).
+Startup checks are opt-in. Both Windows packages offer **Update and restart** after a verified download.
+Received files save directly into your chosen folder, with numbered names when files already exist. See [update details](docs/GITHUB-UPDATES.md).
 
 ## Features
 

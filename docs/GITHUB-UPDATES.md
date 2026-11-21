@@ -1,32 +1,36 @@
 # GitHub updates
 
-Settings → About → Check for updates reads releases from `MostimaJK/LocalLink`.
-The repository must be public for unauthenticated clients. No GitHub credentials
-are bundled. A private repository, API rate limit or network error is reported as
-a failed check, never as “up to date”.
+Settings → About → Check for updates reads public releases from `MostimaJK/LocalLink`.
+No GitHub credentials are bundled. Network errors and rate limits are reported as
+failed checks, never as “up to date”.
 
-- Checking on startup is opt-in, delayed 10 seconds and throttled to once per six hours.
-- Published prereleases are included and labelled; drafts are excluded.
-- Versions are compared numerically. Publish a higher version (for example 1.0.1)
-  to update 1.0.0 clients; replacing assets under the same tag is not an update.
-- Upload both `LocalLink-Setup-VERSION.exe` and `LocalLink-VERSION-Portable.exe`,
-  plus `SHA256SUMS.txt` with SHA-256 entries for those exact filenames.
-- Downloads go to Downloads/LocalLink Updates. Streaming avoids buffering the
-  whole EXE. Cancellation is supported. Missing or incorrect checksums block installation.
-- Installer users can run the verified installer. Finish active transfers first;
-  this feature does not silently quit the application or install in the background.
-- Portable users open the download folder, quit the old app, replace the EXE and
-  launch the new one. In-place automatic portable replacement is not implemented.
-- Existing user data remains in the existing app-data directory.
+- Startup checks are opt-in, delayed 10 seconds and throttled to once per six hours.
+- Published prereleases are labelled; drafts are excluded. Versions are compared numerically.
+- Publish both `LocalLink-Setup-VERSION.exe` and `LocalLink-VERSION-Portable.exe`,
+  plus `SHA256SUMS.txt` for those exact filenames.
+- Downloads stream to Downloads/LocalLink Updates. Cancellation is supported.
+  Missing or incorrect checksums block installation; the staged file is checked again.
+- Choose **Update and restart** after downloading. Active transfers or calls block
+  this action so they are not interrupted.
+- Setup: a helper waits for the app to quit, runs the installer silently into the
+  current installation directory, then launches the updated app with the same data path.
+- Portable: a helper waits for exit, replaces the original EXE in its existing
+  location and starts it again. The directory must be writable. The previous EXE
+  remains as `.previous-<id>` for recovery. If startup is not acknowledged within
+  90 seconds, the helper attempts to restore and launch that backup.
+- Update job logs are in `<userData>/locallink-updates/<id>`. Installer failures
+  are reported but do not have the portable binary rollback mechanism.
+- Manual download/replacement remains available. User data stays in the existing
+  app-data directory. No automatic reboot of Windows is performed.
 
-The original 1.0.0 binaries did not contain this feature. The November 21, 2026
-rebuild adds it while retaining version 1.0.0. Download this rebuild manually;
-same-version asset replacements do not trigger an update notification.
+The refreshed 1.0.1 packages introduce this restart flow. **Existing 1.0.1 clients
+must download this rebuild manually once**: replacing assets under the same tag
+does not trigger a newer-version notification. Subsequent higher-version releases
+can use the in-app update flow.
 
-Validation: version/transport unit suite; isolated Electron test for About UI,
-three languages, installer/portable selection, real main-process download handler
-with a fixture HTTP response, SHA-256 success and mismatch, and wrong-repository
-rejection, cancellation, unavailable releases and same-version checks. The full
-shared unit suite and General settings regression also pass.
-Full real-GitHub upgrade installation awaits a public higher-version
-release. Fixture tests do not execute installers or discover LAN devices.
+Validation includes checksum rejection, Unicode paths, waiting for exit, portable
+replacement/relaunch and failed-start rollback with isolated executable fixtures.
+Packaged smoke tests use real Windows executables and isolated app data; download
+responses are supplied locally rather than downloading a higher public version.
+Full shared unit and desktop release regression tests also pass. This does not
+certify every antivirus configuration, filesystem, or machine-wide installation.

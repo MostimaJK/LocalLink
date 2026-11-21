@@ -136,15 +136,18 @@ class LocalSend {
   if(!file||file.token!==url.searchParams.get('token'))return reply(403);
   if(file.state!=='ready')return reply(409);
   file.state='receiving';file.req=req;session.expires=Date.now()+this.idleMs;
-  const task=file.task;task.transferStartedAt=Date.now();let dir,partial;
+  const task=file.task;task.transferStartedAt=Date.now();let dir,partial,dest,tempRoot;
   this.publish(task,'receiving');
   const sha=crypto.createHash('sha256');let received=0;
   try{
    fs.mkdirSync(session.receiveDir,{recursive:true});
    const disk=fs.statfsSync(session.receiveDir);
    if(Number(disk.bavail)*Number(disk.bsize)<file.size)throw new Error('Not enough disk space');
-   dir=fs.mkdtempSync(path.join(session.receiveDir,'transfer-'));
-   partial=path.join(dir,'.partial');const dest=path.join(dir,file.fileName);
+   tempRoot=path.join(session.receiveDir,'.locallink-partials');
+   fs.mkdirSync(tempRoot,{recursive:true});
+   if(fs.lstatSync(tempRoot).isSymbolicLink())throw new Error('Invalid temporary directory');
+   dir=fs.mkdtempSync(path.join(tempRoot,'transfer-'));
+   partial=path.join(dir,'.partial');
    const transport=this;
    await pipeline(req,this.downloadBudget.stream(),new Transform({transform(chunk,enc,cb){
     received+=chunk.length;if(received>file.size)return cb(new Error('Size exceeded'));
@@ -156,7 +159,9 @@ class LocalSend {
    if(received!==file.size||(file.sha256&&normalize(file.sha256)!==sha.digest('hex'))){
     const error=new Error('File integrity check failed');error.statusCode=422;throw error;
    }
-   fs.renameSync(partial,dest);file.state='complete';task.path=dest;task.bytes=received;
+   dest=await require('./receive-file').publishFile(partial,session.receiveDir,file.fileName);
+   if(['cancelled','failed'].includes(task.status)){await fs.promises.unlink(dest);dest=null;throw new Error(task.error||'Cancelled');}
+   file.state='complete';task.path=dest;task.bytes=received;
    if(file.fileType==='text/plain'&&typeof file.preview==='string'&&received<=1024*1024){task.kind='text';task.text=fs.readFileSync(dest,'utf8');}
    this.publish(task,'received');reply(200);
   }catch(error){
@@ -164,6 +169,9 @@ class LocalSend {
    if(!['cancelled','failed'].includes(task.status)){task.error=error.message;this.publish(task,'failed');}
    if(!res.destroyed)reply(error.statusCode||500);
   }finally{
+   if(partial)try{fs.unlinkSync(partial);}catch{}
+   if(dir)try{fs.rmdirSync(dir);}catch{}
+   if(tempRoot)try{fs.rmdirSync(tempRoot);}catch{}
    file.req=null;
    if([...session.files.values()].every(f=>['complete','failed','cancelled'].includes(f.state)))this.sessions.delete(sid);
    else if(![...session.files.values()].some(f=>f.state==='receiving'))session.expires=Date.now()+10*60*1000;

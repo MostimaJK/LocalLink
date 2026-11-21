@@ -50,6 +50,7 @@ contextBridge.exposeInMainWorld('orbitAPI', {
   },
   // Only files downloaded by the main process are accepted by these.
   openDownloadedFile: (file) => ipcRenderer.invoke('update-open-file', file),
+  installUpdate: (file) => ipcRenderer.invoke('update-install', file),
   revealDownloadedFile: (file) => ipcRenderer.invoke('update-reveal-file', file),
   electronVersion: process.versions.electron,
   nodeVersion: process.versions.node,

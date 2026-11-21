@@ -47,9 +47,7 @@ window.UpdateNotice = {
       <button id="update-modal-close" aria-label="${t('關閉','关闭','Close')}" style="position:absolute;right:16px;top:12px" class="ll-action-button">×</button>
       <h3 id="ll-update-title">LocalLink ${esc(result.latest)}</h3>
       <p>${t('目前版本','当前版本','Current version')}: ${esc(result.current)}${result.prerelease ? ' · '+t('預覽版','预览版','Prerelease') : ''}</p>
-      <p>${window.orbitAPI.portable
-        ? t('免安裝版：下載後退出舊版，將新檔案放到原位置並啟動。設定與記錄會保留。','免安装版：下载后退出旧版，将新文件放到原位置并启动。设置与记录会保留。','Portable: quit the old app, replace its EXE with the download, then launch it. Settings and history are retained.')
-        : t('下載並校驗完成後，退出 LocalLink，再執行安裝程式。','下载并校验完成后，退出 LocalLink，再运行安装程序。','After download and verification, quit LocalLink and run the installer.')}</p>
+      <p>${t('校驗完成後可更新並重新啟動，設定與記錄會保留。請先完成傳輸與通話。','校验完成后可更新并重启，设置与记录会保留。请先完成传输和通话。','After verification, update and restart while keeping settings and history. Finish transfers and calls first.')}</p>
       <ul>${(result.highlights || []).map(note=>`<li>${esc(note)}</li>`).join('')}</ul>
       <p>${esc(result.asset?.name)} ${result.asset?.size ? '('+(result.asset.size/1048576).toFixed(1)+' MiB)' : ''}</p>
       <p id="update-download-status" role="status" aria-live="polite"></p>
@@ -57,7 +55,7 @@ window.UpdateNotice = {
       <div class="ll-file-actions" style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
         <button class="ll-action-button" id="update-modal-notes">${t('發行說明','发行说明','Release notes')}</button>
         <button class="ll-action-button" id="update-reveal-file" hidden>${t('開啟資料夾','打开文件夹','Open folder')}</button>
-        <button class="ll-action-button" id="update-open-file" hidden>${t('執行安裝程式','运行安装程序','Run installer')}</button>
+        <button class="ll-action-button" id="update-open-file" hidden>${t('更新並重新啟動','更新并重启','Update and restart')}</button>
         <button class="ll-action-button" id="update-modal-download">${t('下載更新','下载更新','Download update')}</button>
       </div></section>`;
     document.body.appendChild(overlay); this._modal = overlay;
@@ -91,14 +89,19 @@ window.UpdateNotice = {
         button.hidden = true;
         find('update-reveal-file').hidden = false;
         find('update-reveal-file').onclick = () => window.orbitAPI.revealDownloadedFile(out.path);
-        // Portable updates are replaced manually after exit; do not launch two copies.
-        if (!window.orbitAPI.portable) {
-          find('update-open-file').hidden = false;
-          find('update-open-file').onclick = async () => {
-            const opened = await window.orbitAPI.openDownloadedFile(out.path);
-            if (!opened?.ok) status.textContent = t('無法啟動，請從資料夾執行。','无法启动，请从文件夹运行。','Could not launch. Open the installer from its folder.');
-          };
-        }
+        find('update-open-file').hidden = false;
+        find('update-open-file').onclick = async () => {
+          const install=find('update-open-file');install.disabled=true;
+          try {
+            const opened=await window.orbitAPI.installUpdate(out.path);
+            if(!opened?.ok) status.textContent=opened?.error==='active-transfers'
+              ? t('請先完成或取消傳輸，並結束通話，再更新。','请先完成或取消传输，并结束通话，再更新。','Finish or cancel transfers and end calls before updating.')
+              : opened?.error==='packaged-windows-only'
+                ? t('請在 Windows 安裝版或免安裝版中使用自動更新。','请在 Windows 安装版或免安装版中使用自动更新。','Automatic replacement requires a packaged Windows app.')
+                : t('無法更新，程式未退出。請確認資料夾可寫入，或從資料夾手動更新。','无法更新，程序未退出。请确认文件夹可写入，或从文件夹手动更新。','Could not update; the app is still open. Check folder permissions or update manually from the download folder.');
+          } catch(error){status.textContent=t('更新失敗，請重試。','更新失败，请重试。','Update failed. Please retry.');}
+          finally{install.disabled=false;}
+        };
       } catch (error) { status.textContent = t('下載失敗，請重試。','下载失败，请重试。','Download failed. Please retry.'); }
       finally {
         unsubscribe(); this._busy = false; button.disabled = false;
