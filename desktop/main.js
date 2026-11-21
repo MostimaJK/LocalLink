@@ -661,7 +661,9 @@ app.whenReady().then(() => {
     minWidth: Math.min(860, windowWidth),
     minHeight: Math.min(600, windowHeight),
     frame: isMac,
-    transparent: !isMac,
+    // Opaque Windows windows can use the compositor's native corner mask.
+    transparent: process.platform !== 'win32' && !isMac,
+    roundedCorners: true,
     backgroundColor: '#0E0F14',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -782,7 +784,7 @@ app.whenReady().then(() => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15000);
     try {
-      const res = await fetch(url, {
+      const res = await net.fetch(url, {
         signal: controller.signal,
         headers: { 'Accept': 'application/vnd.github+json', 'User-Agent': 'LocalLink/' + app.getVersion() }
       });
@@ -910,7 +912,18 @@ app.whenReady().then(() => {
     };
 
     try {
-      const res = await fetch(url, {
+      let expected;
+      try {
+        const manifest = await net.fetch(manifestUrl, {signal:AbortSignal.any([controller.signal, AbortSignal.timeout(30000)])});
+        if (!manifest.ok) throw new Error();
+        expected = _manifestHash(await manifest.text(),name);
+      } catch {
+        controller.signal.throwIfAborted();
+        throw new Error('manifest unavailable');
+      }
+      if (!expected) throw new Error('missing checksum');
+      const digest = crypto.createHash('sha256');
+      const res = await net.fetch(url, {
         signal: controller.signal,
         redirect: 'follow',
         headers: { 'User-Agent': 'LocalLink/' + app.getVersion() }
@@ -924,6 +937,7 @@ app.whenReady().then(() => {
       const { pipeline } = require('node:stream/promises');
       await pipeline(res.body, async function* (source) {
         for await (const chunk of source) {
+        digest.update(chunk);
         received += chunk.length;
         const now = Date.now();
         if (now - lastEmit > 150) {
@@ -935,32 +949,13 @@ app.whenReady().then(() => {
       }, fs.createWriteStream(part), { signal: controller.signal });
       if (total && total !== received) throw new Error('incomplete download');
 
-      const sha256 = await _sha256File(part);
-
-      // Fail closed: only a verified release asset may be offered for execution.
-      let verified = null;
-      if (manifestUrl) {
-        try {
-          const mres = await fetch(manifestUrl, { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]), headers: { 'User-Agent': 'LocalLink/' + app.getVersion() } });
-          if (mres.ok) {
-            const expected = _manifestHash(await mres.text(), name);
-            if (expected) verified = (expected === sha256);
-          }
-        } catch (e) { /* handled as verification failure below */ }
-      }
-
+      const sha256 = digest.digest('hex');
       controller.signal.throwIfAborted();
-      if (verified !== true) {
-        // Never leave a file we know is wrong where it can be run by hand.
-        try { fs.unlinkSync(part); } catch (e) { /* ignore */ }
-        return { ok: false, error: 'checksum mismatch', sha256 };
-      }
-
-      controller.signal.throwIfAborted();
+      if (sha256 !== expected) throw new Error('checksum mismatch');
       fs.renameSync(part, dest);
       send({ received, total, percent: 100, done: true });
       _downloadedFiles.set(dest,sha256);
-      return { ok: true, path: dest, name, size: received, sha256, verified };
+      return { ok: true, path: dest, name, size: received, sha256, verified:true };
     } catch (e) {
       try { fs.rmSync(part, { force: true }); } catch (e2) { /* ignore */ }
       if (e && (e.name === 'AbortError' || e.code === 'ABORT_ERR')) return { ok: false, cancelled: true };

@@ -27,10 +27,9 @@ test('GitHub updates: settings, package selection, verified download and rejecti
   await expect(page.locator('#update-notice-modal')).toBeVisible();
   await expect(page.locator('#update-open-file')).toBeHidden();
   const hash=crypto.createHash('sha256').update('fixture update bytes').digest('hex');
-  await app.evaluate(({app},{directory,hash})=>{
+  await app.evaluate(({app,net},{directory,hash})=>{
    app.setPath('downloads',directory);
-   global.__originalUpdateFetch=global.fetch;
-   global.fetch=async url=>String(url).endsWith('SHA256SUMS.txt')
+   net.fetch=async url=>String(url).endsWith('SHA256SUMS.txt')
     ? new Response(hash+'  LocalLink-Setup-9.0.0.exe\n'+hash+'  LocalLink-9.0.0-'+process.arch+'.dmg\n')
     : new Response('fixture update bytes');
   },{directory,hash});
@@ -41,10 +40,10 @@ test('GitHub updates: settings, package selection, verified download and rejecti
   // Never execute the fixture. Exercise backend rejection with the real IPC handler.
   const rejected=await page.evaluate(()=>window.orbitAPI.downloadUpdate({url:'https://github.com/other/repo/releases/download/v1/test.exe',name:'test.exe'}));
   expect(rejected.ok).toBe(false);
-  await app.evaluate(()=>{global.fetch=async url=>String(url).endsWith('SHA256SUMS.txt')?new Response('0'.repeat(64)+'  bad.exe'):new Response('bad bytes');});
+  await app.evaluate(({net})=>{net.fetch=async url=>String(url).endsWith('SHA256SUMS.txt')?new Response('0'.repeat(64)+'  bad.exe'):new Response('bad bytes');});
   const bad=await page.evaluate(()=>window.orbitAPI.downloadUpdate({url:'https://github.com/MostimaJK/LocalLink/releases/download/v9/bad.exe',name:'bad.exe',manifestUrl:'https://github.com/MostimaJK/LocalLink/releases/download/v9/SHA256SUMS.txt'}));
   expect(bad.ok).toBe(false);expect(bad.error).toMatch(/checksum/);
-  await app.evaluate(()=>{global.fetch=async (url,options)=>new Promise((resolve,reject)=>{
+  await app.evaluate(({net})=>{net.fetch=async (url,options)=>new Promise((resolve,reject)=>{
    options.signal.addEventListener('abort',()=>reject(new DOMException('Cancelled','AbortError')),{once:true});
   });});
   const cancelled=await page.evaluate(async()=>{

@@ -83,7 +83,14 @@ window.UpdateNotice = {
       try {
         const out = await window.orbitAPI.downloadUpdate({url:result.asset.url, name:result.asset.name, manifestUrl:result.manifestUrl});
         if (!out?.ok) {
-          status.textContent = out?.cancelled ? t('下載已取消。','下载已取消。','Download cancelled.') : t('下載或校驗失敗，請重試。','下载或校验失败，请重试。','Download or checksum verification failed. Please retry.');
+          bar.hidden = true;
+          const reasons = {
+            'manifest unavailable':t('無法下載校驗清單，請檢查網路或系統代理。','无法下载校验清单，请检查网络或系统代理。','Could not download the checksum list. Check your network or system proxy.'),
+            'missing checksum':t('發行清單缺少此檔案的校驗值。','发行清单缺少此文件的校验值。','The release has no checksum for this file.'),
+            'checksum mismatch':t('檔案校驗不符，請重新下載。','文件校验不符，请重新下载。','Checksum mismatch. Download the file again.')
+          };
+          status.textContent = out?.cancelled ? t('下載已取消。','下载已取消。','Download cancelled.') :
+            reasons[out?.error] || t('下載失敗','下载失败','Download failed') + ' · ' + (out?.error || t('請重試','请重试','Please retry'));
           return;
         }
         status.textContent = t('校驗通過，已儲存：','校验通过，已保存：','Checksum verified. Saved: ')+out.path;

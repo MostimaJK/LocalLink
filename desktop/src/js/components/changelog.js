@@ -14,7 +14,10 @@ window.Changelog = {
         '<button id="changelog-close" style="background:transparent;border:none;cursor:pointer;color:var(--text-secondary);padding:4px;"><i data-lucide="x" style="width:20px;height:20px;"></i></button>' +
       '</div>' +
       '<div style="display:flex;flex-direction:column;gap:20px;">' +
-        versionBlock('1.0.3', 'Latest', [
+        versionBlock('1.0.4', 'Latest', [
+          ['Improved', ['Windows 11 uses native rounded window corners.', 'Update downloads use the system proxy and verify the checksum while streaming.']]
+        ]) +
+        versionBlock('1.0.3', '', [
           ['New', ['Share files with a phone browser using a QR code and pairing code.', 'Choose a network adapter and manage sharing from the title bar.']],
           ['Improved', ['Reduced desktop resource footprint and improved transfer preparation and cleanup.']]
         ]) +

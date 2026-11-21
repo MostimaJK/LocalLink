@@ -1,5 +1,9 @@
 # LocalLink Changelog
 
+## v1.0.4 — Desktop release
+
+Native Windows 11 window corners and proxy-aware update downloads. [Release notes](docs/RELEASE-NOTES-1.0.4.md)
+
 ## v1.0.3 — Desktop release
 
 Browser file sharing with QR pairing, persistent session controls, named network adapters and smaller desktop packages. [Release notes](docs/RELEASE-NOTES-1.0.3.md)
