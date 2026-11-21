@@ -788,7 +788,7 @@ window.SidebarMiddle = {
       history: known
     };
     let html = '<div style="padding:0 16px 12px;display:flex;gap:6px;flex-wrap:wrap">';
-    [['nearby',window.I18n.t('s12')],['favorites',window.I18n.t('s13')],['history',window.I18n.t('s14')]].forEach(([id, label]) => {
+    [['nearby',window.I18n.t('s12')],['favorites',window.I18n.t('s13')],['history',window.LocalSendPanel.text('全部裝置','全部设备','All devices')]].forEach(([id, label]) => {
       html += '<button data-device-scope="' + id + '" aria-pressed="' + (scope === id) + '" style="padding:7px 10px;border-radius:8px;border:1px solid var(--border-subtle);color:var(--text-primary);background:' + (scope === id ? 'var(--bg-hover)' : 'transparent') + '">' + label + ' ' + sets[id].length + '</button>';
     });
     html += '</div><div style="padding:0 16px 12px;display:flex;justify-content:space-between;gap:8px"><button id="btn-add-friend" style="color:var(--accent-primary)"><span data-i18n="s15">连接设备</span></button><button id="btn-all-friends" style="color:var(--text-muted)"><span data-i18n="s16">全部记录</span></button></div>';

@@ -1779,7 +1779,7 @@ app.whenReady().then(() => {
       return {ok:true,path:dir};
     }catch(error){return {ok:false,error:error.message};}
   });
-  ipcMain.handle('locallink-open-directory',async()=>{fs.mkdirSync(receiveDir(),{recursive:true});return {ok:!(await shell.openPath(receiveDir()))};});
+  ipcMain.handle('locallink-open-directory',async()=>{try{fs.mkdirSync(receiveDir(),{recursive:true});const error=await shell.openPath(receiveDir());return {ok:!error,error};}catch(error){return {ok:false,error:error.message};}});
   ipcMain.handle('locallink-open-transfer',async(event,request)=>{
     const record=globalDb.transfers.get(request.id);
     if(!record?.path||!fs.existsSync(record.path))return {ok:false,error:'File is no longer available'};

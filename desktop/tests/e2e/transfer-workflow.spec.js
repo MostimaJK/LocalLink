@@ -15,6 +15,9 @@ test('real file conversation: manual discovery, text, batch, paste, folder and h
   await expect(page.locator('#ll-connect-error')).not.toBeEmpty();
   await page.locator('#ll-device-address').fill('127.0.0.1:'+receiver.port);await page.locator('#ll-connect-submit').click();
   await expect(page.locator('.ll-peer-heading h2')).toHaveText('Test laptop');
+  await expect(page.locator('.tabs-container')).not.toBeVisible();
+  await expect(page.locator('#localsend-send svg')).toHaveAttribute('data-lucide','file');
+  await expect(page.locator('#ll-open-receive-folder')).toBeVisible();
   await page.locator('#ll-message-input').fill('你好，這是 LocalLink 的文字與連結。\nhttps://localsend.org');
   await page.locator('#ll-send-text').click();
   await expect(page.locator('[data-status="delivered"]')).toHaveCount(1);
@@ -52,6 +55,8 @@ test('real file conversation: manual discovery, text, batch, paste, folder and h
   await expect.poll(()=>page.locator('#ll-open-after-receive').evaluate(el=>getComputedStyle(el,'::after').transform)).toBe('matrix(1, 0, 0, 1, 16, 0)');
   await page.screenshot({path:path.resolve('../artifacts/receive-settings-refined.png')});
   await page.locator('#btn-close-settings').click();
+  await app.evaluate(({shell})=>{shell.openPath=async folder=>{globalThis.__llOpened=folder;return '';};});
+  await page.locator('#ll-open-receive-folder').click();expect(await app.evaluate(()=>globalThis.__llOpened)).toBe(receiveDir);
   // register supplied the app endpoint to this independent receiver.
   const peer=[...receiver.peers.values()][0];await receiver.send(peer.id,files[0]);
   await expect(page.locator('[data-status="received"]')).toHaveCount(1);
