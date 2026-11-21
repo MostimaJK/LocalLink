@@ -14,6 +14,12 @@ Device-centered LAN sharing with a conversation-style timeline. **1.0.0 is a Win
 
 Windows binaries are unsigned. Only run downloads from a source you trust.
 
+The November 21 rebuild keeps version 1.0.0: Setup is approximately 141.6 MiB,
+Portable 183.0 MiB. Download it manually if you have the original build.
+Settings → About now offers GitHub update checks and checksum-verified downloads.
+Startup checks are opt-in; the release repository must be public. Portable updates
+are replaced manually after exiting. See [update details](docs/GITHUB-UPDATES.md).
+
 ## Features
 
 Nearby discovery, favorites, aliases, files, images, folders as ZIP and native LocalLink text. Includes progress, cancellation, retry, history, backups, receive-folder selection, pairing, authorized auto-receive, bandwidth limits and Windows adapter information.

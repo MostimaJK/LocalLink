@@ -46,7 +46,8 @@ const DEFAULT_ELECTRON_ARGS = [
 async function launchApp(userDataDir, extraArgs = [], opts = {}) {
   const app = await electron.launch({
     args: ['.', `--user-data-dir=${userDataDir}`, ...DEFAULT_ELECTRON_ARGS, ...extraArgs],
-    cwd: DESKTOP_DIR
+    cwd: DESKTOP_DIR,
+    env: {...process.env, LOCALLINK_TEST_NO_DISCOVERY:'1'}
   });
   const page = await app.firstWindow();
   // Wait for the app SHELL, not the composer. Since v0.7.0 the app boots with no

@@ -49,22 +49,15 @@ window.AccountSwitcher = {
 
     var html = '';
 
-    // Helper for frame overlay HTML
-    function frameHtml(frameNum) {
-      if (!frameNum || frameNum === 0) return '';
-      var src = 'icons/frames/pfp_frame_' + frameNum + '.png';
-      return '<img src="' + src + '" style="position:absolute;top:-14%;left:-14%;width:122%;height:122%;pointer-events:none;object-fit:contain;" draggable="false">';
-    }
-
     // Current account
-    var curFrame = currentUser && currentUser.profileFrame || 0;
+
     var curAvatar = currentUser && currentUser.avatar
       ? '<img src="' + window.Sanitize.escapeHtml(currentUser.avatar) + '" style="width:36px;height:36px;border-radius:50%;object-fit:cover;">'
       : '<i data-lucide="user-round" style="width:18px;height:18px;"></i>';
     html += '<div style="padding:16px 16px 12px;border-bottom:1px solid var(--border-subtle);">' +
       '<div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Current Account</div>' +
       '<div style="display:flex;align-items:center;gap:12px;">' +
-        '<div style="position:relative;width:36px;height:36px;flex-shrink:0;">' + curAvatar + frameHtml(curFrame) +
+        '<div style="position:relative;width:36px;height:36px;flex-shrink:0;">' + curAvatar +
           window.OrbitPresence.badge(currentUser.status || 'online') +
         '</div>' +
         '<div style="flex:1;min-width:0;">' +
@@ -80,13 +73,13 @@ window.AccountSwitcher = {
       html += '<div style="flex:1;overflow-y:auto;padding:8px 0;">' +
         '<div style="padding:4px 16px 8px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Other Accounts</div>';
       others.forEach(function(acc) {
-        var accFrame = acc.profileFrame || 0;
+
         var accAvatar = acc.avatar
           ? '<img src="' + window.Sanitize.escapeHtml(acc.avatar) + '" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">'
           : '<i data-lucide="user-round" style="width:16px;height:16px;"></i>';
         var userId = acc.userId;
         html += '<div class="as-account-row" data-user-id="' + window.Sanitize.escapeHtml(userId) + '" style="display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;transition:background 0.15s;border-radius:0;">' +
-          '<div style="position:relative;width:32px;height:32px;flex-shrink:0;">' + accAvatar + frameHtml(accFrame) + '</div>' +
+          '<div style="position:relative;width:32px;height:32px;flex-shrink:0;">' + accAvatar + '</div>' +
           '<div style="flex:1;min-width:0;">' +
             '<div style="font-size:13px;font-weight:500;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + window.Sanitize.escapeHtml(acc.username) + '</div>' +
             '<div style="font-size:11px;color:var(--text-muted);">#' + window.Sanitize.escapeHtml(acc.usertag) + '</div>' +

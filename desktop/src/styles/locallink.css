@@ -162,6 +162,9 @@ html[data-theme="light"] .ll-history-date input { color-scheme:light; }
 .ll-file-actions button { min-height:36px;padding:8px 13px;border-radius:9px;background:var(--bg-hover,var(--bg-surface));border:1px solid var(--border-subtle);color:var(--text-primary);font-weight:600;justify-content:center; }
 .ll-file-actions button:hover { text-decoration:none;background:var(--bg-active,var(--bg-base));border-color:var(--accent-primary); }
 .ll-file-actions button:disabled { opacity:.45;cursor:default; }
+#update-notice-modal [hidden] { display:none !important; }
+#update-modal-close { width:32px;height:32px;border-radius:8px;background:var(--bg-hover);color:var(--text-primary);font-size:22px; }
+#update-notice-modal p, #update-notice-modal li { color:var(--text-secondary);font-size:14px;line-height:1.6; }
 .ll-device-row { display:flex;align-items:center;border-radius:10px;overflow:hidden;margin-bottom:4px; }
 .ll-device-row.is-selected { background:var(--bg-active,rgba(128,128,128,.18)); }
 .ll-device-row:hover { background:var(--bg-hover,rgba(128,128,128,.12)); }

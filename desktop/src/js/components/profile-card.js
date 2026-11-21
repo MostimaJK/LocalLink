@@ -26,8 +26,7 @@ window.ProfileCard = {
 
   render(user) {
     if (!user) return;
-    
-    var frame = window.Frames.getFrameForUser(user.userId);
+
 
     var avatarHtml = user.avatar
       ? '<img src="' + window.Sanitize.escapeHtml(user.avatar) + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">'
@@ -35,7 +34,6 @@ window.ProfileCard = {
 
     var avatarContainerHtml = '<div style="width:80px;height:80px;border-radius:50%;background:var(--bg-surface);border:4px solid var(--bg-surface);position:absolute;top:-40px;display:flex;align-items:center;justify-content:center;overflow:visible;">' +
       avatarHtml +
-      (frame ? '<img src="icons/frames/pfp_frame_' + frame + '.png" style="position:absolute;top:-14%;left:-14%;width:122%;height:122%;pointer-events:none;object-fit:contain;" draggable="false" alt="">' : '') +
     '</div>';
 
     var bioHtml = user.bio

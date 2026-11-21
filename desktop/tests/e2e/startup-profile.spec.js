@@ -6,7 +6,7 @@ test('measure first-profile and repeat startup to usable settings and transport'
  const dir=tmpUserDataDir('startup-profile'),samples=[];
  for(let i=0;i<3;i++){
   const start=performance.now();
-  const app=await electron.launch({args:['.',`--user-data-dir=${dir}`,'--disable-gpu','--no-sandbox'],cwd:path.resolve(__dirname,'../..')});
+  const app=await electron.launch({args:['.',`--user-data-dir=${dir}`,'--disable-gpu','--no-sandbox'],env:{...process.env,LOCALLINK_TEST_NO_DISCOVERY:'1'},cwd:path.resolve(__dirname,'../..')});
   try{
    const page=await app.firstWindow();
    await page.locator('#btn-nav-settings').click();

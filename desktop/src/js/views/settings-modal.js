@@ -226,6 +226,17 @@ window.SettingsModal = {
     if (first && window.orbitAPI.dbGetSetting('locallink.transport', 'localsend') === 'localsend') {
       first.innerHTML = '<i data-lucide="folder-down"></i>' + window.LocalSendPanel.text('接收與儲存', '接收与保存', 'Receiving and saving');
     }
+    // Move the actual cards (and their bound handlers), preserving DOM/tab order.
+    const languageCard = content.querySelector('#interface-language')?.closest('section');
+    const receivingCard = content.querySelector('#ll-receive-path')?.closest('section');
+    const accountSection = content.querySelector('[data-general-section="account"]');
+    const networkSection = content.querySelector('[data-general-section="network"]');
+    const adapterCard = content.querySelector('#ll-check-adapters')?.closest('section');
+    const heading = content.querySelector(':scope > h3');
+    if (languageCard) heading.after(languageCard);
+    if (receivingCard) languageCard.after(receivingCard);
+    if (accountSection && networkSection) networkSection.before(accountSection);
+    if (adapterCard) content.appendChild(adapterCard);
     window.lucide.createIcons({root: content});
     content.scrollTop = 0;
   },
@@ -884,10 +895,10 @@ window.SettingsModal = {
         <section class="ll-settings-card"><div class="ll-settings-card-head"><i data-lucide="wifi"></i>${t('區域網路傳輸','局域网传输','Local network transfer')}</div>
         <div class="ll-settings-card-body"><dl class="ll-about-facts">
           <div><dt>${t('接收方式','接收方式','Receiving')}</dt><dd>${t('配對授權自動接收，其餘逐次確認','配对授权自动接收，其余逐次确认','Authorized paired devices receive automatically; otherwise ask')}</dd></div>
-          <div><dt>${t('單次傳輸上限','单次传输上限','Session limit')}</dt><dd>${t('不設容量上限（受磁碟與系統限制）','不设容量上限（受磁盘与系统限制）','No capacity cap (disk and system limits apply)')}</dd></div>
           <div><dt>${t('儲存位置','保存位置','Save location')}</dt><dd id="ll-receive-path">…</dd></div>
         </dl><div class="ll-file-actions"><button id="ll-choose-directory">${t('變更資料夾','更改目录','Change folder')}</button><button id="ll-open-directory">${t('開啟資料夾','打开目录','Open folder')}</button><button id="ll-rediscover">${t('重新搜尋','重新搜索','Discover again')}</button></div><p id="ll-network-result" role="status"></p></div></section>`;
-      const showResult=result=>{if(!content.querySelector('#ll-network-result'))return;if(result.path)content.querySelector('#ll-receive-path').textContent=result.path;content.querySelector('#ll-network-result').textContent=result.error||'';};
+      const receivingCard=content.querySelector('#ll-receive-path').closest('section');
+      const showResult=result=>{if(!receivingCard.isConnected)return;if(result.path)receivingCard.querySelector('#ll-receive-path').textContent=result.path;receivingCard.querySelector('#ll-network-result').textContent=result.error||'';};
       const receiveOptions=document.createElement('section');receiveOptions.className='ll-settings-card';receiveOptions.innerHTML=`<div class="ll-settings-card-head"><i data-lucide="folder-check"></i>${t('接收後','接收后','After receiving')}</div><div class="ll-settings-card-body"><p class="ll-settings-copy">${t('接收成功後，檔案會自動儲存在上方資料夾內。','接收成功后，文件会自动保存在上方文件夹内。','Accepted files are saved automatically inside the folder above.')}</p><label class="ll-setting-row" for="ll-open-after-receive">${t('完成後開啟所在資料夾','完成后打开所在文件夹','Open containing folder when complete')}<input id="ll-open-after-receive" type="checkbox" role="switch" class="ll-switch"></label></div>`;content.appendChild(receiveOptions);
       const bandwidth = window.orbitAPI.dbGetSetting('locallink.bandwidth', {upload:0,download:0});
       const speedCard = document.createElement('section');
@@ -935,7 +946,7 @@ window.SettingsModal = {
       content.querySelector('#ll-rediscover').onclick=async()=>{
         window.orbitAPI.networkStart(window.store.getState().currentUser);
         const result=await window.orbitAPI.invoke('locallink-rediscover');showResult(result);
-        if(result.ok)content.querySelector('#ll-network-result').textContent=t('已重新搜尋','已重新搜索','Discovery restarted');
+        if(result.ok&&receivingCard.isConnected)receivingCard.querySelector('#ll-network-result').textContent=t('已重新搜尋','已重新搜索','Discovery restarted');
       };
     } else if (tabName === 'network') {
       var n = state.networkSettings;
@@ -2362,9 +2373,21 @@ window.SettingsModal = {
         <div class="ll-about-brand"><span class="ll-about-mark"><i data-lucide="link"></i></span><div><h2>LocalLink</h2><p>${t('開發版','开发版','Development build')} · ${esc(version)}</p></div></div>
         <p class="ll-about-description">${t('個人裝置之間的檔案傳輸工具','个人设备之间的文件传输工具','File sharing across your devices')}</p>
         <section class="ll-settings-card"><div class="ll-settings-card-head"><i data-lucide="package"></i>${t('版本資訊','版本信息','Build information')}</div>
-          <div class="ll-settings-card-body"><dl class="ll-about-facts"><div><dt>${t('更新渠道','更新渠道','Updates')}</dt><dd>${t('手動更新','手动更新','Manual updates')}</dd></div><div><dt>${t('檔案傳輸','文件传输','File transfer')}</dt><dd>LocalSend ${t('協定預覽','协议预览','protocol preview')}</dd></div></dl></div>
+          <div class="ll-settings-card-body"><dl class="ll-about-facts"><div><dt>${t('更新渠道','更新渠道','Updates')}</dt><dd>GitHub · MostimaJK/LocalLink</dd></div><div><dt>${t('檔案傳輸','文件传输','File transfer')}</dt><dd>LocalSend ${t('協定預覽','协议预览','protocol preview')}</dd></div></dl>
+          <label class="ll-setting-row" style="margin-top:20px">${t('啟動後檢查更新','启动后检查更新','Check for updates after startup')}<input type="checkbox" role="switch" id="ll-auto-update"></label>
+          <div class="ll-file-actions" style="margin-top:20px"><button class="ll-action-button" id="settings-btn-check-update">${t('檢查更新','检查更新','Check for updates')}</button></div></div>
 
         </section>`;
+      const autoUpdate=content.querySelector('#ll-auto-update');
+      autoUpdate.checked=window.orbitAPI.dbGetSetting('locallink.updateCheck',false);
+      autoUpdate.onchange=()=>window.orbitAPI.dbSetSetting('locallink.updateCheck',autoUpdate.checked);
+      content.querySelector('#settings-btn-check-update').onclick=async event=>{
+        const button=event.currentTarget;button.disabled=true;
+        button.textContent=t('正在檢查…','正在检查…','Checking…');
+        try {await window.UpdateNotice.checkManual();} finally {
+          button.disabled=false;button.textContent=t('檢查更新','检查更新','Check for updates');
+        }
+      };
 
     } else {
       content.innerHTML = '<h3 style="font-family:var(--font-display);font-size:24px;margin-bottom:24px;">' + tabName + '</h3><p style="color:var(--text-muted);">Coming soon...</p>';

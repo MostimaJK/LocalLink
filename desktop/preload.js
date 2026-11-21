@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('orbitAPI', {
   invoke:   (channel, data)   => ipcRenderer.invoke(channel, data),
   log:      (...args)         => ipcRenderer.send('log', ...args),
   platform: process.platform,
+  portable: !!process.env.PORTABLE_EXECUTABLE_FILE,
   // CPU arch, so the update check hands an Intel Mac the x64 build rather than
   // the arm64 one (both .dmg files exist on every release).
   arch: process.arch,

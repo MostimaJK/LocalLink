@@ -760,7 +760,7 @@ app.whenReady().then(() => {
     try {
       const res = await fetch(url, {
         signal: controller.signal,
-        headers: { 'Accept': 'application/vnd.github+json', 'User-Agent': 'Orbit/' + app.getVersion() }
+        headers: { 'Accept': 'application/vnd.github+json', 'User-Agent': 'LocalLink/' + app.getVersion() }
       });
       const body = await res.text();
       return { ok: res.ok, status: res.status, body: body };
@@ -799,7 +799,7 @@ app.whenReady().then(() => {
     } catch (e) {
       base = app.getPath('userData');
     }
-    return path.join(base, 'Orbit Updates');
+    return path.join(base, 'LocalLink Updates');
   }
 
   function _sha256File(file) {
@@ -849,9 +849,10 @@ app.whenReady().then(() => {
     } catch (e) {
       return { ok: false, error: 'bad url' };
     }
-    if (parsed.protocol !== 'https:' || !_isAllowedUpdateHost(parsed.hostname)) {
+    if (parsed.protocol !== 'https:' || parsed.hostname !== 'github.com' || !parsed.pathname.startsWith('/MostimaJK/LocalLink/releases/download/')) {
       return { ok: false, error: 'host not allowed' };
     }
+    if (!manifestUrl) return { ok: false, error: 'checksum manifest required' };
     if (manifestUrl) {
       let mp;
       try {
@@ -859,7 +860,9 @@ app.whenReady().then(() => {
       } catch (e) {
         return { ok: false, error: 'bad manifest url' };
       }
-      if (mp.protocol !== 'https:' || !_isAllowedUpdateHost(mp.hostname)) {
+      if (mp.protocol !== 'https:' || mp.hostname !== 'github.com' ||
+          mp.pathname.slice(0, mp.pathname.lastIndexOf('/')) !== parsed.pathname.slice(0, parsed.pathname.lastIndexOf('/')) ||
+          !mp.pathname.endsWith('/SHA256SUMS.txt')) {
         return { ok: false, error: 'host not allowed' };
       }
     }
@@ -884,7 +887,7 @@ app.whenReady().then(() => {
       const res = await fetch(url, {
         signal: controller.signal,
         redirect: 'follow',
-        headers: { 'User-Agent': 'Orbit/' + app.getVersion() }
+        headers: { 'User-Agent': 'LocalLink/' + app.getVersion() }
       });
       if (!res.ok) return { ok: false, error: 'GitHub responded ' + res.status };
       if (!res.body) return { ok: false, error: 'empty response body' };
@@ -892,49 +895,44 @@ app.whenReady().then(() => {
       const total = Number(res.headers.get('content-length')) || 0;
       let received = 0;
       let lastEmit = 0;
-      const out = fs.createWriteStream(part);
-      const reader = res.body.getReader();
-      for (;;) {
-        const chunk = await reader.read();
-        if (chunk.done) break;
-        received += chunk.value.length;
-        if (!out.write(Buffer.from(chunk.value))) {
-          await new Promise((r) => out.once('drain', r));
-        }
+      const { pipeline } = require('node:stream/promises');
+      await pipeline(res.body, async function* (source) {
+        for await (const chunk of source) {
+        received += chunk.length;
         const now = Date.now();
         if (now - lastEmit > 150) {
           lastEmit = now;
           send({ received, total, percent: total ? Math.round((received / total) * 100) : 0 });
         }
-      }
-      await new Promise((resolve, reject) => {
-        out.on('error', reject);
-        out.end(() => resolve());
-      });
-      send({ received, total, percent: 100, done: true });
+        yield chunk;
+        }
+      }, fs.createWriteStream(part), { signal: controller.signal });
+      if (total && total !== received) throw new Error('incomplete download');
 
-      fs.renameSync(part, dest);
-      const sha256 = await _sha256File(dest);
+      const sha256 = await _sha256File(part);
 
-      // Verification is best-effort: a release without a manifest reports
-      // "not verified" (null) rather than blocking the user.
+      // Fail closed: only a verified release asset may be offered for execution.
       let verified = null;
       if (manifestUrl) {
         try {
-          const mres = await fetch(manifestUrl, { headers: { 'User-Agent': 'Orbit/' + app.getVersion() } });
+          const mres = await fetch(manifestUrl, { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]), headers: { 'User-Agent': 'LocalLink/' + app.getVersion() } });
           if (mres.ok) {
             const expected = _manifestHash(await mres.text(), name);
             if (expected) verified = (expected === sha256);
           }
-        } catch (e) { /* manifest is optional */ }
+        } catch (e) { /* handled as verification failure below */ }
       }
 
-      if (verified === false) {
+      controller.signal.throwIfAborted();
+      if (verified !== true) {
         // Never leave a file we know is wrong where it can be run by hand.
-        try { fs.unlinkSync(dest); } catch (e) { /* ignore */ }
+        try { fs.unlinkSync(part); } catch (e) { /* ignore */ }
         return { ok: false, error: 'checksum mismatch', sha256 };
       }
 
+      controller.signal.throwIfAborted();
+      fs.renameSync(part, dest);
+      send({ received, total, percent: 100, done: true });
       _downloadedFiles.add(dest);
       return { ok: true, path: dest, name, size: received, sha256, verified };
     } catch (e) {
@@ -1542,6 +1540,7 @@ app.whenReady().then(() => {
         const {LocalSend} = require('./src/js/network/localsend');
         const emit = (channel, value) => { if(mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel,value); };
         localSendInstance = new LocalSend({
+          discovery: process.env.LOCALLINK_TEST_NO_DISCOVERY !== '1',
           dataDir: app.getPath('userData'), receiveDir: globalDb.getSetting('locallink.receiveDir',path.join(app.getPath('downloads'),'LocalLink')),
           // No product capacity cap; transport validates safe integer byte counts.
           bandwidth: globalDb.getSetting('locallink.bandwidth', {}),

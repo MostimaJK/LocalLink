@@ -121,11 +121,9 @@ window.ProfileSidebar = {
     // (and the click handlers outside this file) still finds what it looks for.
     var avatarHtml = user.avatar
       ? (function() {
-        var frame = window.Frames.getFrameForUser(user.userId);
+
         var img = '<img src="' + window.Sanitize.escapeHtml(user.avatar) + '" class="pf-avatar-img" alt="">';
-        return frame
-          ? '<span class="pf-avatar-framed">' + img + '<img src="icons/frames/pfp_frame_' + frame + '.png" class="pf-avatar-frame" draggable="false" alt=""></span>'
-          : img;
+        return img;
       })()
       : '<span class="pf-avatar-initial">' + window.Sanitize.escapeHtml(user.username.charAt(0).toUpperCase()) + '</span>';
 

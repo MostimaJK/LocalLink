@@ -35,10 +35,9 @@ check('0 has no path', PF && PF.path(0) === null);
 check('out of range is not a frame', PF && PF.isFrame(PF.COUNT + 1) === false);
 check('a real frame is a frame', PF && PF.isFrame(1) === true && PF.isFrame(PF.COUNT) === true);
 
-// Both platforms ship their own copy of icons/frames/ and they must agree.
+// The legacy mobile frontend still ships frames; LocalLink desktop removed them.
 const PLATFORMS = [
-  { name: 'mobile', dir: path.join(ROOT, 'mobile', 'src', 'icons', 'frames') },
-  { name: 'desktop', dir: path.join(ROOT, 'desktop', 'src', 'icons', 'frames') }
+  { name: 'mobile', dir: path.join(ROOT, 'mobile', 'src', 'icons', 'frames') }
 ];
 
 for (const p of PLATFORMS) {
@@ -56,13 +55,15 @@ for (const p of PLATFORMS) {
   check(p.name + ': no frame file is left out of the list', orphans.length === 0, orphans.slice(0, 8));
 }
 
-console.log('\n== both platforms offer the same set ==');
+console.log('\n== desktop removed decorations; legacy mobile retains its catalogue ==');
 const counts = PLATFORMS.map((p) => {
   try {
     return fs.readdirSync(p.dir).filter((f) => /^pfp_frame_\d+\.png$/.test(f)).length;
   } catch (e) { return -1; }
 });
-check('mobile and desktop have the same number of frames', counts[0] === counts[1], counts);
+const desktopFrames = path.join(ROOT, 'desktop', 'src', 'icons', 'frames');
+check('desktop ships no decorative frames', !fs.existsSync(desktopFrames) || fs.readdirSync(desktopFrames).length === 0);
+check('desktop does not load the legacy frame catalogue', !fs.readFileSync(path.join(ROOT, 'desktop', 'src', 'index.html'), 'utf8').includes('profile-frames.js'));
 check('and it equals the list', counts.every((c) => c === PF.COUNT), { counts: counts, list: PF.COUNT });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

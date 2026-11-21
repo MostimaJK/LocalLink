@@ -1,524 +1,111 @@
-// desktop/src/js/components/update-notice.js
-// "A new version of Orbit is out" — the heads-up card and the What's New dialog.
-//
-// The detection logic lives in shared/network/update-check.js; this file is only
-// presentation. Three surfaces:
-//
-//   1. init()          — silent, throttled check shortly after boot
-//   2. a persistent card (bottom-left, so it never collides with Toast, which
-//      owns bottom-right) offering "What's new" / dismiss
-//   3. a modal with the release highlights and a Download button that opens the
-//      right installer for this platform in the user's browser
-//
-// Orbit builds are unsigned, so silent self-update is not on the table yet:
-// electron-updater needs a signed NSIS/dmg before it can replace the binary in
-// place. Until then "the app does the updating" means handing the user the exact
-// file for their platform, one click from the notice.
-//
-// Exposes window.UpdateNotice
-
+// LocalLink GitHub Release updates. Downloads require SHA256SUMS verification.
 window.UpdateNotice = {
-  _card: null,
   _modal: null,
-  _lastResult: null,
-
-  /* -- helpers -- */
-
-  _esc(s) {
-    return window.Sanitize ? window.Sanitize.escapeHtml(String(s == null ? '' : s)) : String(s == null ? '' : s);
+  _busy: false,
+  _t(tw, cn, en) { return window.LocalSendPanel.text(tw, cn, en); },
+  _esc(value) { return window.Sanitize.escapeHtml(String(value || '')); },
+  _engine() { return window.Orbit.UpdateCheck; },
+  _openExternal(url) { return window.orbitAPI.openExternal(url); },
+  init() {
+    // Opt-in, delayed, throttled; never competes with the first render.
+    if (!window.orbitAPI.dbGetSetting('locallink.updateCheck', false)) return;
+    setTimeout(() => this._engine().checkThrottled().then(result => {
+      if (result.ok && result.hasUpdate) window.Toast.show('LocalLink',
+        this._t('有新版本，請至設定 → 關於查看。','有新版本，请到设置 → 关于查看。','An update is available in Settings → About.'), 'info');
+    }), 10000);
   },
-
-  _engine() {
-    return (window.Orbit && window.Orbit.UpdateCheck) || null;
+  async checkManual(opts) {
+    if (this._checking) return;
+    this._checking = true;
+    try {
+      const result = await this._engine().checkThrottled({...opts, force:true});
+      if (!result.ok) window.Toast.show('LocalLink', this._t(
+        '無法讀取 GitHub 更新。請檢查網路，並確認發行版本公開。',
+        '无法读取 GitHub 更新。请检查网络，并确认发行版本公开。',
+        'Cannot read GitHub updates. Check your connection and that releases are public.'), 'error');
+      else if (result.hasUpdate) this.openModal(result);
+      else window.Toast.show('LocalLink', result.reason === 'no-releases'
+        ? this._t('尚無公開版本。','暂无公开版本。','No published releases found.')
+        : this._t('目前沒有更新版本。','目前没有更新版本。','No newer version is available.'), 'info');
+      return result;
+    } finally { this._checking = false; }
   },
-
-  _platformLabel(platform) {
-    if (platform === 'darwin') return 'macOS';
-    if (platform === 'linux') return 'Linux';
-    if (platform === 'android') return 'Android';
-    return 'Windows';
-  },
-
-  _toast(title, msg, type) {
-    if (window.Toast && window.Toast.show) window.Toast.show(title, msg, type || 'info');
-  },
-
-  _icons(root) {
-    if (window.lucide && window.lucide.createIcons) {
-      try { window.lucide.createIcons({ root: root }); } catch (e) { /* non-fatal */ }
-    }
-  },
-
-  // Opens the release/asset page in the user's browser. The main process
-  // validates the URL and rejects anything that is not https on a GitHub host.
-  _openExternal(url) {
-    if (!url) return false;
-    if (window.orbitAPI && window.orbitAPI.openExternal) {
-      try { return !!window.orbitAPI.openExternal(url); } catch (e) { return false; }
-    }
-    // Web/dev fallback.
-    try { window.open(url, '_blank', 'noopener'); return true; } catch (e) { return false; }
-  },
-
-  /* -- boot -- */
-
-  // Silent check a few seconds after boot so it never competes with the
-  // startup work (tutorial overlay, message load, first paint).
-  init(opts) {
-    if (window.LocalLinkDevices) return; // No independent release channel.
-    opts = opts || {};
-    var self = this;
-    var engine = this._engine();
-    if (!engine) return;
-
-    // Respect the user's opt-out. checkManual() deliberately ignores this — an
-    // explicit click is not an automatic check.
-    var settings = (window.store && window.store.getState().settings) || {};
-    if (settings.updateCheckEnabled === false) return;
-
-    setTimeout(function() {
-      engine.checkThrottled(opts).then(function(res) {
-        if (res && res.ok && res.hasUpdate) {
-          self._lastResult = res;
-          self.showCard(res);
-        }
-      }).catch(function() { /* never break boot over an update check */ });
-    }, opts.delayMs || 4000);
-  },
-
-  // Manual check (Settings → About). Always reports an outcome.
-  // opts is passed through to the engine — used by tests to inject a transport.
-  checkManual(opts) {
-    if (window.LocalLinkDevices) {
-      this._toast('LocalLink', '开发版暂未提供更新渠道。', 'info');
-      return Promise.resolve(null);
-    }
-    var self = this;
-    var engine = this._engine();
-    if (!engine) {
-      this._toast('Updates unavailable', 'The update module did not load.', 'error');
-      return Promise.resolve(null);
-    }
-    var request = Object.assign({}, opts || {}, { force: true });
-    this._toast('Checking for updates', 'Looking for a newer version of Orbit…', 'info');
-    return engine.checkThrottled(request).then(function(res) {
-      if (!res || !res.ok) {
-        self._toast('Could not check for updates', (res && res.error) || 'No connection to GitHub.', 'error');
-        return res;
-      }
-      if (!res.hasUpdate) {
-        self._toast('You\u2019re up to date', 'Orbit v' + res.current + ' is the newest version.', 'success');
-        return res;
-      }
-      self._lastResult = res;
-      self.hideCard();
-      self.openModal(res);
-      return res;
-    });
-  },
-
-  /* -- heads-up card -- */
-
-  hideCard() {
-    if (this._card && this._card.parentNode) this._card.parentNode.removeChild(this._card);
-    this._card = null;
-  },
-
-  showCard(res) {
-    if (this._card) return;
-    var self = this;
-
-    var card = document.createElement('div');
-    card.id = 'update-notice-card';
-    // bottom-left: Toast owns bottom-right. Raised clear of the own-avatar at
-    // the foot of the nav rail so the two don't overlap.
-    card.style.cssText = 'position:fixed;left:24px;bottom:104px;z-index:9500;width:340px;' +
-      'background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:12px;' +
-      'box-shadow:var(--shadow-xl);padding:16px;display:flex;gap:12px;align-items:flex-start;' +
-      'transform:translateY(16px);opacity:0;transition:transform .25s ease,opacity .25s ease;';
-
-    card.innerHTML =
-      '<div style="width:36px;height:36px;border-radius:10px;background:var(--accent-primary);' +
-        'display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;">' +
-        '<i data-lucide="download-cloud" style="width:18px;height:18px;"></i>' +
-      '</div>' +
-      '<div style="flex:1;min-width:0;">' +
-        '<div style="font-weight:600;font-size:14px;color:var(--text-primary);">' +
-          'Orbit v' + this._esc(res.latest) + ' is available' +
-        '</div>' +
-        '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;line-height:1.4;">' +
-          'You\u2019re running v' + this._esc(res.current) + '. ' +
-          (res.highlights && res.highlights.length
-            ? this._esc(res.highlights.length) + ' change' + (res.highlights.length === 1 ? '' : 's') + ' to catch up on.'
-            : 'A newer release is ready to download.') +
-        '</div>' +
-        '<div style="display:flex;gap:8px;margin-top:12px;">' +
-          '<button id="update-card-open" style="padding:7px 14px;border-radius:8px;border:none;' +
-            'background:var(--accent-primary);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">What\u2019s new</button>' +
-          '<button id="update-card-later" style="padding:7px 14px;border-radius:8px;' +
-            'border:1px solid var(--border-subtle);background:transparent;color:var(--text-secondary);' +
-            'font-size:12px;font-weight:500;cursor:pointer;">Later</button>' +
-        '</div>' +
-      '</div>' +
-      '<button id="update-card-close" title="Dismiss" style="background:transparent;border:none;' +
-        'cursor:pointer;color:var(--text-muted);padding:2px;line-height:1;flex-shrink:0;">' +
-        '<i data-lucide="x" style="width:16px;height:16px;"></i>' +
-      '</button>';
-
-    document.body.appendChild(card);
-    this._icons(card);
-    this._card = card;
-
-    requestAnimationFrame(function() {
-      card.style.transform = 'translateY(0)';
-      card.style.opacity = '1';
-    });
-
-    card.querySelector('#update-card-open').addEventListener('click', function() {
-      self.hideCard();
-      self.openModal(self._lastResult || res);
-    });
-    // "Later" and the X behave the same: dismiss now, the 6h throttle decides
-    // when we may mention it again.
-    card.querySelector('#update-card-later').addEventListener('click', function() { self.hideCard(); });
-    card.querySelector('#update-card-close').addEventListener('click', function() { self.hideCard(); });
-  },
-
-  /* -- What's New modal -- */
-
   closeModal() {
-    if (this._modal && this._modal.parentNode) this._modal.parentNode.removeChild(this._modal);
-    this._modal = null;
-    document.removeEventListener('keydown', this._onKeydown || function() {});
+    if (this._busy) return;
+    this._modal?.remove(); this._modal = null;
+    document.removeEventListener('keydown', this._key);
   },
-
-  openModal(res) {
-    if (!res) return;
+  hideCard() {},
+  openModal(result) {
+    if (this._busy) return;
     this.closeModal();
-    var self = this;
-
-    var platformLabel = this._platformLabel(res.platform);
-    var hasAsset = !!(res.asset && res.asset.url);
-
-    // ⚠ The channel, as a badge rather than the "· pre-release" text it used to be
-    // tacked onto the subtitle. Same treatment as the What's New panel's version tag,
-    // so "which channel am I looking at" reads the same in both places.
-    var channelBadge =
-      '<span style="font-size:10px;font-weight:700;letter-spacing:.03em;color:#fff;' +
-      'background:var(--accent-primary);border-radius:4px;padding:2px 6px;margin-left:8px;' +
-      'vertical-align:middle;text-transform:uppercase;">' +
-      (res.prerelease ? 'Beta' : 'Stable') + '</span>';
-
-    // ⚠ The size belongs BEFORE the click, not on the progress bar. The engine has
-    // carried `asset.size` all along and the modal never showed it, so the first
-    // thing you learned about the download was how big it turned out to be.
-    var sizeLabel = (res.asset && res.asset.size) ? ' \u00b7 ' + this._bytes(res.asset.size) : '';
-
-    var highlightsHtml;
-    if (res.highlights && res.highlights.length) {
-      highlightsHtml = '<div style="display:flex;flex-direction:column;gap:10px;">' +
-        res.highlights.map(function(h) {
-          return '<div style="display:flex;gap:10px;align-items:flex-start;">' +
-            '<div style="width:6px;height:6px;border-radius:50%;background:var(--accent-primary);' +
-              'margin-top:7px;flex-shrink:0;"></div>' +
-            '<div style="font-size:13px;color:var(--text-secondary);line-height:1.5;">' + self._esc(h) + '</div>' +
-          '</div>';
-        }).join('') +
-      '</div>';
-    } else {
-      highlightsHtml =
-        '<div style="font-size:13px;color:var(--text-muted);line-height:1.5;">' +
-          'Release notes weren\u2019t published for this version. Open the release page for the full list.' +
-        '</div>';
-    }
-
-    var overlay = document.createElement('div');
+    const t = this._t.bind(this), esc = this._esc;
+    const overlay = document.createElement('div');
     overlay.id = 'update-notice-modal';
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(0,0,0,0.6);' +
-      'backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;';
-
-    overlay.innerHTML =
-      '<div style="width:480px;max-width:92vw;max-height:82vh;background:var(--bg-surface);' +
-        'border-radius:var(--radius-lg);border:1px solid var(--border-subtle);box-shadow:var(--shadow-xl);' +
-        'display:flex;flex-direction:column;overflow:hidden;">' +
-
-        '<div style="padding:22px 24px 0;display:flex;align-items:flex-start;gap:14px;">' +
-          '<div style="width:40px;height:40px;border-radius:12px;background:var(--accent-primary);' +
-            'display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;">' +
-            '<i data-lucide="sparkles" style="width:20px;height:20px;"></i>' +
-          '</div>' +
-          '<div style="flex:1;min-width:0;">' +
-            '<div style="font-weight:700;font-size:16px;color:var(--text-primary);">' +
-              'Orbit v' + this._esc(res.latest) + ' is available' + channelBadge +
-            '</div>' +
-            '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">' +
-              'You\u2019re on v' + this._esc(res.current) +
-              (hasAsset ? ' \u00b7 ' + this._esc(platformLabel) + ' installer' : '') +
-              sizeLabel +
-            '</div>' +
-          '</div>' +
-          '<button id="update-modal-close" style="background:transparent;border:none;cursor:pointer;' +
-            'color:var(--text-muted);padding:4px;"><i data-lucide="x" style="width:18px;height:18px;"></i></button>' +
-        '</div>' +
-
-        '<div style="padding:20px 24px;overflow-y:auto;flex:1;">' +
-          '<div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;' +
-            'letter-spacing:.5px;margin-bottom:12px;">What\u2019s new</div>' +
-          highlightsHtml +
-        '</div>' +
-
-        // Progress / result area for the in-app download, above the footer.
-        '<div id="update-download-status" style="display:none;padding:0 24px 4px;"></div>' +
-
-        '<div style="padding:16px 24px 20px;border-top:1px solid var(--border-subtle);' +
-          'display:flex;align-items:center;gap:10px;">' +
-          '<button id="update-modal-skip" style="background:transparent;border:none;cursor:pointer;' +
-            'color:var(--text-muted);font-size:12px;padding:6px 0;white-space:nowrap;">Skip this version</button>' +
-          '<div style="flex:1;"></div>' +
-          '<button id="update-modal-notes" style="padding:9px 16px;border-radius:9px;' +
-            'border:1px solid var(--border-subtle);background:transparent;color:var(--text-secondary);' +
-            'font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;">Release notes</button>' +
-          '<button id="update-modal-download" style="padding:9px 18px;border-radius:9px;border:none;' +
-            'background:var(--accent-primary);color:#fff;font-size:13px;font-weight:600;cursor:pointer;' +
-            'white-space:nowrap;">' +
-            // ⚠ The label is short ON PURPOSE: platform and size moved to the subtitle.
-            // "Download for Windows · 80.8 MB" is 29 characters in a footer that already
-            // holds two other actions, and it wrapped onto two lines at 480px.
-            (hasAsset ? 'Download' : 'Open release page') +
-          '</button>' +
-        '</div>' +
-      '</div>';
-
-    document.body.appendChild(overlay);
-    this._icons(overlay);
-    this._modal = overlay;
-
-    overlay.addEventListener('mousedown', function(e) {
-      if (e.target === overlay) self.closeModal();
-    });
-    this._onKeydown = function(e) { if (e.key === 'Escape') self.closeModal(); };
-    document.addEventListener('keydown', this._onKeydown);
-
-    overlay.querySelector('#update-modal-close').addEventListener('click', function() { self.closeModal(); });
-
-    overlay.querySelector('#update-modal-notes').addEventListener('click', function() {
-      if (!self._openExternal(res.releaseUrl)) {
-        self._toast('Could not open browser', 'Visit github.com/D4niel-dev/Orbit-beta/releases', 'error');
-      }
-    });
-
-    overlay.querySelector('#update-modal-skip').addEventListener('click', function() {
-      var engine = self._engine();
-      if (engine) engine.skipVersion(res.latest);
-      self.closeModal();
-      self.hideCard();
-      self._toast('Skipped v' + res.latest, 'You won\u2019t be reminded about this version again.', 'info');
-    });
-
-    // Download: fetch the installer in-app when the platform has one and the
-    // main process can do it; otherwise fall back to the browser hand-off.
-    //
-    // ONE listener, branching on an explicit mode. Attaching a second handler
-    // (or mixing addEventListener with onclick) meant the stale handler ran as
-    // well, so the "Open in browser" fallback re-entered the downloader instead
-    // of opening anything.
-    var canDownloadInApp = hasAsset && !!(window.orbitAPI && window.orbitAPI.downloadUpdate);
-    var downloadBtn = overlay.querySelector('#update-modal-download');
-    downloadBtn.dataset.mode = 'idle';
-
-    function browserFallback() {
-      if (!self._openExternal(res.downloadUrl)) {
-        self._toast('Could not open browser', 'Download it from github.com/D4niel-dev/Orbit-beta/releases', 'error');
-        return;
-      }
-      self._toast(
-        'Download started',
-        hasAsset
-          ? 'Your browser is downloading ' + res.asset.name + '. Install it once it finishes.'
-          : 'Opening the release page in your browser.',
-        'success'
-      );
-      self.closeModal();
-      self.hideCard();
-    }
-
-    downloadBtn.addEventListener('click', function() {
-      var mode = downloadBtn.dataset.mode;
-      if (mode === 'downloading') { self._cancelDownload(downloadBtn); return; }
-      if (mode === 'failed' || !canDownloadInApp) { browserFallback(); return; }
-      self._startDownload(overlay, res, downloadBtn);
-    });
-  },
-
-  /* -- in-app download -- */
-
-  _bytes(n) {
-    var v = Number(n) || 0;
-    if (v >= 1048576) return (v / 1048576).toFixed(1) + ' MB';
-    if (v >= 1024) return Math.round(v / 1024) + ' KB';
-    return v + ' B';
-  },
-
-  _statusEl(overlay) {
-    return overlay.querySelector('#update-download-status');
-  },
-
-  _paintStatus(overlay, html) {
-    var el = this._statusEl(overlay);
-    if (!el) return;
-    el.style.display = 'block';
-    el.innerHTML = html;
-  },
-
-  _cancelDownload(btn) {
-    if (btn.dataset.cancelling === '1') return;
-    btn.dataset.cancelling = '1';
-    btn.disabled = true;
-    btn.textContent = 'Cancelling\u2026';
-    window.orbitAPI.cancelUpdateDownload();
-  },
-
-  // Fetch the installer, verify it against the release manifest, then offer
-  // Open / Show in folder. Nothing is installed automatically — the builds are
-  // unsigned, so the user still runs the installer themselves.
-  _startDownload(overlay, res, btn) {
-    var self = this;
-    var api = window.orbitAPI;
-
-    btn.dataset.mode = 'downloading';
-    btn.dataset.cancelling = '0';
-    btn.textContent = 'Cancel';
-    btn.style.background = 'transparent';
-    btn.style.color = 'var(--text-secondary)';
-    btn.style.border = '1px solid var(--border-subtle)';
-
-    this._paintStatus(overlay,
-      '<div style="height:6px;border-radius:3px;background:var(--border-subtle);overflow:hidden;">' +
-        '<div id="update-download-bar" style="height:100%;width:0%;background:var(--accent-primary);transition:width .15s linear;"></div>' +
-      '</div>' +
-      '<div id="update-download-note" style="font-size:11px;color:var(--text-muted);margin-top:6px;">Starting\u2026</div>');
-
-    var unsub = null;
-    var startedAt = Date.now();
-    if (typeof api.onUpdateDownloadProgress === 'function') {
-      unsub = api.onUpdateDownloadProgress(function(p) {
-        var pct = (p && typeof p.percent === 'number') ? p.percent : 0;
-        var bar = overlay.querySelector('#update-download-bar');
-        if (bar) bar.style.width = pct + '%';
-        var note = overlay.querySelector('#update-download-note');
-        if (note) {
-          var line = (p && p.total)
-            ? self._bytes(p.received) + ' of ' + self._bytes(p.total) + ' \u00b7 ' + pct + '%'
-            : 'Downloading\u2026';
-          // Time remaining, from the observed rate. Nothing before 1.5s — the first
-          // chunk measures the round trip, not the throughput, and an estimate that
-          // starts at "2m left" and settles on "20s left" is worse than none.
-          var eta = '';
-          if (p && p.total && p.received) {
-            var elapsed = (Date.now() - startedAt) / 1000;
-            if (elapsed >= 1.5) {
-              var rate = p.received / elapsed;
-              var left = rate ? (p.total - p.received) / rate : 0;
-              if (isFinite(left) && left > 0.5) {
-                eta = left < 60 ? ('~' + Math.round(left) + 's left') : ('~' + Math.round(left / 60) + 'm left');
-              }
-            }
-          }
-          note.textContent = eta ? (line + ' \u00b7 ' + eta) : line;
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:#0009;display:grid;place-items:center';
+    overlay.innerHTML = `<section role="dialog" aria-modal="true" aria-labelledby="ll-update-title" style="position:relative;width:520px;max-width:90vw;max-height:85vh;overflow:auto;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:16px;padding:28px">
+      <button id="update-modal-close" aria-label="${t('關閉','关闭','Close')}" style="position:absolute;right:16px;top:12px" class="ll-action-button">×</button>
+      <h3 id="ll-update-title">LocalLink ${esc(result.latest)}</h3>
+      <p>${t('目前版本','当前版本','Current version')}: ${esc(result.current)}${result.prerelease ? ' · '+t('預覽版','预览版','Prerelease') : ''}</p>
+      <p>${window.orbitAPI.portable
+        ? t('免安裝版：下載後退出舊版，將新檔案放到原位置並啟動。設定與記錄會保留。','免安装版：下载后退出旧版，将新文件放到原位置并启动。设置与记录会保留。','Portable: quit the old app, replace its EXE with the download, then launch it. Settings and history are retained.')
+        : t('下載並校驗完成後，退出 LocalLink，再執行安裝程式。','下载并校验完成后，退出 LocalLink，再运行安装程序。','After download and verification, quit LocalLink and run the installer.')}</p>
+      <ul>${(result.highlights || []).map(note=>`<li>${esc(note)}</li>`).join('')}</ul>
+      <p>${esc(result.asset?.name)} ${result.asset?.size ? '('+(result.asset.size/1048576).toFixed(1)+' MiB)' : ''}</p>
+      <p id="update-download-status" role="status" aria-live="polite"></p>
+      <progress id="update-download-bar" max="100" value="0" hidden style="width:100%"></progress>
+      <div class="ll-file-actions" style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
+        <button class="ll-action-button" id="update-modal-notes">${t('發行說明','发行说明','Release notes')}</button>
+        <button class="ll-action-button" id="update-reveal-file" hidden>${t('開啟資料夾','打开文件夹','Open folder')}</button>
+        <button class="ll-action-button" id="update-open-file" hidden>${t('執行安裝程式','运行安装程序','Run installer')}</button>
+        <button class="ll-action-button" id="update-modal-download">${t('下載更新','下载更新','Download update')}</button>
+      </div></section>`;
+    document.body.appendChild(overlay); this._modal = overlay;
+    const find = id => overlay.querySelector('#'+id);
+    find('update-modal-close').onclick = () => this.closeModal();
+    this._key = event => { if (event.key === 'Escape') this.closeModal(); };
+    document.addEventListener('keydown', this._key);
+    find('update-modal-notes').onclick = () => this._openExternal(result.releaseUrl);
+    const button = find('update-modal-download');
+    button.disabled = !result.asset || !result.manifestUrl;
+    if (button.disabled) find('update-download-status').textContent = t('此版本缺少適用的更新包或校驗檔。','此版本缺少适用的更新包或校验文件。','This release has no compatible package or checksum manifest.');
+    button.onclick = async () => {
+      if (this._busy) { window.orbitAPI.cancelUpdateDownload(); button.disabled = true; return; }
+      this._busy = true;
+      find('update-modal-close').disabled = true;
+      button.textContent = t('取消','取消','Cancel');
+      const status = find('update-download-status'), bar = find('update-download-bar');
+      status.textContent = t('正在下載…','正在下载…','Downloading…'); bar.hidden = false;
+      const unsubscribe = window.orbitAPI.onUpdateDownloadProgress(progress => {
+        if (progress.total) bar.value = Math.min(100, progress.percent); else bar.removeAttribute('value');
+        status.textContent = (progress.received/1048576).toFixed(1)+' MiB'+(progress.total ? ' / '+(progress.total/1048576).toFixed(1)+' MiB' : '') +
+          (progress.percent >= 100 ? ' · '+t('正在校驗…','正在校验…','Verifying…') : '');
+      });
+      try {
+        const out = await window.orbitAPI.downloadUpdate({url:result.asset.url, name:result.asset.name, manifestUrl:result.manifestUrl});
+        if (!out?.ok) {
+          status.textContent = out?.cancelled ? t('下載已取消。','下载已取消。','Download cancelled.') : t('下載或校驗失敗，請重試。','下载或校验失败，请重试。','Download or checksum verification failed. Please retry.');
+          return;
         }
-      });
-    }
-
-    api.downloadUpdate({
-      url: res.downloadUrl,
-      name: res.asset ? res.asset.name : 'Orbit-installer',
-      manifestUrl: res.manifestUrl || null
-    }).then(function(out) {
-      if (unsub) unsub();
-      if (out && out.ok) {
-        self._showDownloaded(overlay, out);
-        self.hideCard();
-        return;
+        status.textContent = t('校驗通過，已儲存：','校验通过，已保存：','Checksum verified. Saved: ')+out.path;
+        button.hidden = true;
+        find('update-reveal-file').hidden = false;
+        find('update-reveal-file').onclick = () => window.orbitAPI.revealDownloadedFile(out.path);
+        // Portable updates are replaced manually after exit; do not launch two copies.
+        if (!window.orbitAPI.portable) {
+          find('update-open-file').hidden = false;
+          find('update-open-file').onclick = async () => {
+            const opened = await window.orbitAPI.openDownloadedFile(out.path);
+            if (!opened?.ok) status.textContent = t('無法啟動，請從資料夾執行。','无法启动，请从文件夹运行。','Could not launch. Open the installer from its folder.');
+          };
+        }
+      } catch (error) { status.textContent = t('下載失敗，請重試。','下载失败，请重试。','Download failed. Please retry.'); }
+      finally {
+        unsubscribe(); this._busy = false; button.disabled = false;
+        button.textContent = t('下載更新','下载更新','Download update');
+        find('update-modal-close').disabled = false;
       }
-      if (out && out.cancelled) {
-        var el = self._statusEl(overlay);
-        if (el) el.style.display = 'none';
-        btn.disabled = false;
-        btn.dataset.mode = 'idle';
-        btn.dataset.cancelling = '0';
-        btn.textContent = 'Download for ' + self._platformLabel(res.platform);
-        btn.style.background = 'var(--accent-primary)';
-        btn.style.color = '#fff';
-        btn.style.border = 'none';
-        self._toast('Download cancelled', 'Nothing was saved.', 'info');
-        return;
-      }
-      self._downloadFailed(overlay, btn, (out && out.error) || 'unknown error');
-    }).catch(function(e) {
-      if (unsub) unsub();
-      self._downloadFailed(overlay, btn, String((e && e.message) || e));
-    });
-  },
-
-  _showDownloaded(overlay, out) {
-    var self = this;
-    var verified = out.verified === true;
-    var unknown = out.verified === null;
-    var line = verified
-      ? '<span style="color:var(--accent-success, #3fb950);">Checksum verified</span>'
-      : (unknown
-        ? 'Saved (no checksum published for this file)'
-        : 'Saved');
-    this._paintStatus(overlay,
-      '<div style="font-size:12px;color:var(--text-secondary);line-height:1.5;">' +
-        line + ' \u00b7 ' + this._esc(this._bytes(out.size)) +
-        '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;word-break:break-all;">' +
-          this._esc(out.path) + '</div>' +
-      '</div>' +
-      '<div style="display:flex;gap:8px;margin-top:10px;">' +
-        '<button id="update-open-file" style="padding:8px 14px;border-radius:9px;border:none;' +
-          'background:var(--accent-primary);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Open installer</button>' +
-        '<button id="update-reveal-file" style="padding:8px 14px;border-radius:9px;' +
-          'border:1px solid var(--border-subtle);background:transparent;color:var(--text-secondary);' +
-          'font-size:13px;font-weight:500;cursor:pointer;">Show in folder</button>' +
-      '</div>');
-
-    var primary = overlay.querySelector('#update-modal-download');
-    if (primary) primary.style.display = 'none';
-
-    overlay.querySelector('#update-open-file').addEventListener('click', function() {
-      window.orbitAPI.openDownloadedFile(out.path).then(function(r) {
-        if (r && r.ok) { self.closeModal(); return; }
-        self._toast('Could not open the installer', 'Open it from your Downloads folder.', 'error');
-      });
-    });
-    overlay.querySelector('#update-reveal-file').addEventListener('click', function() {
-      window.orbitAPI.revealDownloadedFile(out.path);
-    });
-  },
-
-  _downloadFailed(overlay, btn, error) {
-    var mismatch = /checksum/i.test(error);
-    this._paintStatus(overlay,
-      '<div style="font-size:12px;color:var(--danger, #f85149);line-height:1.5;">' +
-        (mismatch
-          ? 'The download did not match the published checksum, so it was deleted. Try again, or download from GitHub.'
-          : 'Download failed: ' + this._esc(error)) +
-      '</div>');
-
-    // Mode, not a second handler — see the listener in openModal.
-    btn.dataset.mode = 'failed';
-    btn.dataset.cancelling = '0';
-    btn.disabled = false;
-    btn.textContent = 'Open in browser';
-    btn.style.background = 'var(--accent-primary)';
-    btn.style.color = '#fff';
-    btn.style.border = 'none';
-
-    this._toast(
-      mismatch ? 'Download rejected' : 'Download failed',
-      mismatch ? 'The file did not match the release checksum.' : error,
-      'error'
-    );
+    };
+    find('update-modal-close').focus();
   }
 };

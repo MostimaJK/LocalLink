@@ -7,6 +7,9 @@ test('device rename and local metadata preserve identity and survive restart', a
   let {app, page} = await launchApp(dir);
   try {
     const before = await page.evaluate(() => window.store.getState().currentUser);
+    // Old records may still carry a frame number; rendering must ignore it.
+    await page.evaluate(() => window.ProfileCard.render({...window.store.getState().currentUser, profileFrame:55}));
+    await expect(page.locator('#profile-card-container img[src*="frames/"]')).toHaveCount(0);
     await page.evaluate(() => window.SettingsModal.open('account'));
     await page.locator('#input-username').fill('我的笔记本');
     await page.locator('#btn-save-account').click();

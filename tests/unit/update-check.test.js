@@ -394,7 +394,7 @@ function textRes(s) {
 
   // Skipped version is suppressed...
   UC.skipVersion('0.5.2-beta');
-  global.localStorage.removeItem('orbit_update_lastCheck');
+  global.localStorage.removeItem('locallink_update_lastCheck');
   stubFetch((url) => {
     if (url.indexOf('api.github.com') !== -1) return jsonRes([RELEASE]);
     return textRes(CHANGELOG_MD);
@@ -405,12 +405,12 @@ function textRes(s) {
   check('skipped result still carries the data', res.suppressed.latest, '0.5.2-beta');
 
   // ...but an explicit check still surfaces it.
-  global.localStorage.removeItem('orbit_update_lastCheck');
+  global.localStorage.removeItem('locallink_update_lastCheck');
   res = await UC.checkThrottled({ currentVersion: '0.5.1-beta', force: true });
   check('force overrides the skip', res.hasUpdate, true);
 
   // A newer version than the skipped one is not suppressed.
-  global.localStorage.removeItem('orbit_update_lastCheck');
+  global.localStorage.removeItem('locallink_update_lastCheck');
   stubFetch((url) => {
     if (url.indexOf('api.github.com') !== -1) return jsonRes([Object.assign({}, RELEASE, { tag_name: 'v0.5.3-beta' })]);
     return textRes(CHANGELOG_MD);
