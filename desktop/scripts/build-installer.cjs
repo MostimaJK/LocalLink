@@ -8,7 +8,7 @@ const version=process.argv.slice(2).find(arg=>!arg.startsWith('--'));
 const portable=process.argv.includes('--portable');
 const verification=process.argv.includes('--verification');
 const config={electronDist:require('path').resolve('node_modules/electron/dist'),npmRebuild:false,win:{signExecutable:false},directories:{output:verification?'dist/verification':portable?'dist/portable':'dist/installer'},nsis:{artifactName:'LocalLink-Setup-${version}.exe',deleteAppDataOnUninstall:false,runAfterFinish:false}};
-if(portable)config.portable={artifactName:'LocalLink-${version}-Portable.exe',useZip:true};
+if(portable)config.portable={artifactName:process.env.LOCALLINK_PORTABLE_NAME||'LocalLink-${version}-Portable.exe',useZip:true};
 if(verification){
  config.appId='dev.locallink.install-verification';config.productName='LocalLink Verification';
  config.extraMetadata={version:version||'1.0.0'};
