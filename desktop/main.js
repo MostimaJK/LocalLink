@@ -1543,7 +1543,13 @@ app.whenReady().then(() => {
           alias: () => currentIdentity.username,
           peer: peer => emit('locallink-lan-seen', peer),
           error: error => emit('locallink-transfer-error', error),
+          pair: async peer => {
+            const result=await dialog.showMessageBox(mainWindow,{type:'question',title:'LocalLink',message:llText('配對此裝置？','配对此设备？','Pair this device?'),detail:peer.alias+'\n'+peer.ip+'\nSHA-256: '+peer.fingerprint,buttons:[llText('取消','取消','Cancel'),llText('配對','配对','Pair')],defaultId:0,cancelId:0});
+            if(result.response!==1)return false;
+            globalDb.setSetting('locallink.trust.'+peer.id,{paired:true,autoReceive:false,alias:peer.alias});return true;
+          },
           accept: async offer => {
+            if(offer.authenticatedPeerId&&globalDb.getSetting('locallink.trust.'+offer.authenticatedPeerId,{})?.autoReceive===true)return true;
             const result = await dialog.showMessageBox(mainWindow, {type:'question',title:'LocalLink',message:llText('接收檔案？','接收文件？','Receive files?'),detail:offer.alias+' ('+offer.ip+')\n'+offer.files.map(f=>f.name+' · '+f.size+' bytes').join('\n')+'\n\n'+receiveDir(),buttons:[llText('拒絕','拒绝','Reject'),llText('接收','接收','Receive')],defaultId:0,cancelId:0,noLink:true});
             return result.response === 1;
           },
@@ -1649,9 +1655,26 @@ app.whenReady().then(() => {
       const choice=await dialog.showMessageBox(mainWindow,{type:'warning',message:llText('此裝置使用未加密 HTTP','此设备使用未加密 HTTP','This device uses unencrypted HTTP'),buttons:[llText('取消','取消','Cancel'),llText('繼續','继续','Continue')],defaultId:0,cancelId:0});
       if(choice.response!==1)return {cancelled:true};
     }
-    try{return {ok:true,records:await localSendInstance.sendBatch(peerId,paths,{pin,text})};}
+    try{
+      const prepared=[];
+      for(const item of paths){const stat=await fs.promises.lstat(item);if(stat.isSymbolicLink())throw new Error('Symbolic links are not supported');prepared.push(stat.isDirectory()?await require('./src/js/network/folder-archive').archiveFolder(item,path.join(app.getPath('userData'),'locallink-outbox')):item);}
+      return {ok:true,records:await localSendInstance.sendBatch(peerId,prepared,{pin,text})};}
+
     catch(error){return {ok:false,error:error.message,statusCode:error.statusCode};}
   };
+  ipcMain.handle('locallink-manage-trust',async(event,peerId)=>{
+    const key='locallink.trust.'+peerId,trust=globalDb.getSetting(key,{});
+    const peer=localSendInstance?.peers.get(peerId)||(trust.paired?{alias:trust.alias,fingerprint:peerId.replace('localsend:','')}:null);
+    if(!trust.paired&&(!peer||peer.protocol!=='https'||peer.locallink?.messages!==1))return {ok:false,error:llText('需要新版 LocalLink 裝置','需要新版 LocalLink 设备','Requires a new LocalLink device')};
+    if(trust.paired){
+      const choice=await dialog.showMessageBox(mainWindow,{type:'question',title:'LocalLink',message:llText('已配對裝置','已配对设备','Paired device'),detail:peer.alias+'\nSHA-256: '+peer.fingerprint+'\n'+(trust.autoReceive?llText('自動接收已開啟','自动接收已开启','Automatic receive enabled'):llText('每次接收需確認','每次接收需确认','Each receive requires confirmation')),buttons:[llText('取消','取消','Cancel'),trust.autoReceive?llText('關閉自動接收','关闭自动接收','Disable automatic receive'):llText('授權自動接收','授权自动接收','Authorize automatic receive'),llText('撤銷配對','撤销配对','Revoke pairing')],defaultId:0,cancelId:0});
+      if(choice.response===1)globalDb.setSetting(key,{...trust,autoReceive:!trust.autoReceive});
+      if(choice.response===2)globalDb.setSetting(key,{});return {ok:true};
+    }
+    const choice=await dialog.showMessageBox(mainWindow,{type:'question',title:'LocalLink',message:llText('向此裝置請求配對？','向此设备请求配对？','Request pairing?'),detail:peer.alias+'\nSHA-256: '+peer.fingerprint,buttons:[llText('取消','取消','Cancel'),llText('請求配對','请求配对','Request pairing')],defaultId:0,cancelId:0});
+    if(choice.response!==1)return {cancelled:true};
+    try{const result=await localSendInstance.request(peer,'locallink-pair',{info:localSendInstance.info()});if(result.paired!==true)throw new Error('Pairing was not confirmed');globalDb.setSetting(key,{paired:true,autoReceive:false,alias:peer.alias});return {ok:true};}catch(error){return {ok:false,error:error.message};}
+  });
   ipcMain.handle('locallink-send-selected', async(event,peerId)=>{
     const pick=await dialog.showOpenDialog(mainWindow,{properties:['openFile','multiSelections']});
     return pick.canceled?{cancelled:true}:sendPaths(peerId,pick.filePaths);
@@ -1660,12 +1683,29 @@ app.whenReady().then(() => {
   ipcMain.handle('locallink-retry-transfer',async(event,{id,pin})=>{
     const record=globalDb.transfers.get(id);
     if(!record||record.direction!=='outgoing'||!['failed','cancelled'].includes(record.status))return {ok:false,error:'This transfer cannot be retried'};
+    if(record.kind==='text'&&!record.path){try{return {ok:true,record:await localSendInstance.sendMessage(record.peerId,record.text)};}catch(error){return {ok:false,error:error.message};}}
     return sendPaths(record.peerId,[record.path],pin,record.text);
   });
   ipcMain.handle('locallink-send-folder',async(event,peerId)=>{
     const pick=await dialog.showOpenDialog(mainWindow,{properties:['openDirectory']});if(pick.canceled)return {cancelled:true};
     try{const file=await require('./src/js/network/folder-archive').archiveFolder(pick.filePaths[0],path.join(app.getPath('userData'),'locallink-outbox'));return sendPaths(peerId,[file]);}
     catch(error){return {ok:false,error:error.message};}
+  });
+  ipcMain.handle('locallink-clean-sent-cache',async()=>{
+    const root=path.resolve(app.getPath('userData'),'locallink-outbox');
+    const rows=globalDb.transfers.list({all:true});const groups=new Map();
+    for(const row of rows)if(row.path){const file=path.resolve(row.path);if(!groups.has(file))groups.set(file,[]);groups.get(file).push(row);}
+    const candidates=[];
+    for(const [file,records] of groups){
+      const relative=path.relative(root,file);
+      if(!relative||relative.startsWith('..')||path.isAbsolute(relative)||records.some(r=>r.direction!=='outgoing'||r.status!=='delivered'))continue;
+      try{const real=await fs.promises.realpath(file),inside=path.relative(root,real);if(inside.startsWith('..')||path.isAbsolute(inside))continue;const stat=await fs.promises.lstat(file);if(stat.isFile()&&!stat.isSymbolicLink())candidates.push({file,records,size:stat.size});}catch{}
+    }
+    if(!candidates.length)return {ok:true,count:0};
+    const choice=await dialog.showMessageBox(mainWindow,{type:'question',title:'LocalLink',message:llText('清理已送達的傳送快取？','清理已送达的发送缓存？','Clean delivered send cache?'),detail:candidates.map(c=>c.file).join('\n'),buttons:[llText('取消','取消','Cancel'),llText('移到資源回收筒','移到回收站','Move to Recycle Bin')],defaultId:0,cancelId:0});
+    if(choice.response!==1)return {cancelled:true};let count=0;const errors=[];
+    for(const entry of candidates)try{await shell.trashItem(entry.file);for(const row of entry.records)globalDb.transfers.save({...row,path:null,fileRemoved:true});count++;}catch(error){errors.push(error.message);}
+    mainWindow?.webContents.send('locallink-history-changed');return {ok:!errors.length,count,error:errors.join('\n')};
   });
   ipcMain.handle('locallink-storage-cleanup',async(event,ids)=>{
     if(!Array.isArray(ids)||ids.length>1000)return {ok:false,error:'Invalid selection'};
@@ -1682,6 +1722,7 @@ app.whenReady().then(() => {
       const dir=path.join(app.getPath('userData'),'locallink-outbox');fs.mkdirSync(dir,{recursive:true});
       const stamp=Date.now()+'-'+require('crypto').randomBytes(4).toString('hex');let dest;
       if(typeof request.text==='string'){
+        if(localSendInstance?.peers.get(request.peerId)?.locallink?.messages===1)return {ok:true,record:await localSendInstance.sendMessage(request.peerId,request.text)};
         if(!request.text.trim()||Buffer.byteLength(request.text)>64*1024)throw new Error('Text must contain 1 byte to 64 KiB');
         dest=path.join(dir,'Text-'+stamp+'.txt');fs.writeFileSync(dest,request.text,{flag:'wx'});
       }else{

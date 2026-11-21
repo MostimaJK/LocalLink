@@ -101,6 +101,7 @@ window.LocalSendPanel = {
     (active?'<div class="ll-file-actions"><button data-cancel="'+esc(r.id)+'">'+t('取消本批次','取消本批次','Cancel batch')+'</button></div>':'')+
     ((!incoming&&(failed||r.status==='cancelled'))?'<div class="ll-file-actions"><button data-retry="'+esc(r.id)+'" '+(!nearby||busy?'disabled':'')+'>'+t('重試','重试','Retry')+'</button></div>':'')+
     (failed?'<p class="ll-error-detail selectable">'+esc(this.errorLabel(r.error)||t('請重新選擇檔案再試一次','请重新选择文件再试一次','Choose the file to try again'))+'</p>':'')+
+    (done&&r.kind==='text'&&!r.path?'<div class="ll-file-actions"><button data-copy="'+esc(r.id)+'">'+t('複製','复制','Copy')+'</button></div>':'')+
     (done&&r.path?'<div class="ll-file-actions">'+(r.kind==='text'?'<button data-copy="'+esc(r.id)+'">'+t('複製','复制','Copy')+'</button>':'')+'<button data-open="'+esc(r.id)+'">'+icon('file')+t('開啟','打开','Open')+'</button><button data-folder="'+esc(r.id)+'">'+icon('folder-open')+t('所在資料夾','所在目录','Show in folder')+'</button></div>':'')+
     ''+'</div>'+
     '<div class="ll-message-meta">'+esc(incoming?name:t('本裝置','本设备','This device'))+' · <time datetime="'+date.toISOString()+'">'+date.toLocaleTimeString(locale,{hour:'2-digit',minute:'2-digit',hour12:false})+'</time></div></article>';
@@ -123,6 +124,7 @@ window.LocalSendPanel = {
    catch(error){this.feedback.set(peer.userId,error.message);}
    finally{this.busy.delete(peer.userId);if(stillActive())this.render(peer,host);}
   };
+  const trust=document.createElement('button');trust.className='ll-icon-button';trust.title=t('配對與接收授權','配对与接收授权','Pairing and receive permission');trust.setAttribute('aria-label',trust.title);trust.innerHTML=icon('shield-check');trust.disabled=!nearby&&!window.orbitAPI.dbGetSetting('locallink.trust.'+peer.userId,{})?.paired;trust.onclick=()=>run('locallink-manage-trust',peer.userId);host.querySelector('#localsend-send').before(trust);
   host.querySelector('#localsend-send').onclick=()=>run('locallink-send-selected',peer.userId);
   const folder=document.createElement('button');folder.className='ll-icon-button';folder.id='ll-send-folder';folder.title=t('傳送資料夾（ZIP）','发送文件夹（ZIP）','Send folder (ZIP)');folder.setAttribute('aria-label',folder.title);folder.innerHTML=icon('folder-plus');folder.disabled=busy||!nearby;folder.onclick=()=>run('locallink-send-folder',peer.userId);host.querySelector('#localsend-send').after(folder);window.lucide.createIcons({root:folder});
   const message=host.querySelector('#ll-message-input');

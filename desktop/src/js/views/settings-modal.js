@@ -838,6 +838,9 @@ window.SettingsModal = {
         <section class="ll-settings-card"><div class="ll-settings-card-head"><i data-lucide="history"></i>${t('傳輸記錄','传输记录','Transfer history')}</div><div class="ll-settings-card-body"><button class="ll-primary-button" id="ll-show-history">${t('查看全部記錄','查看全部记录','View all records')}</button></div></section>
         <section class="ll-settings-card"><div class="ll-settings-card-head"><i data-lucide="archive"></i>${t('檔案備份','文件备份','File backup')}</div><div class="ll-settings-card-body"><p class="ll-settings-copy">${t('備份記錄，或連同原檔案一起匯出。不包含本裝置身分。','备份记录，或连同原文件一起导出。不包含本设备身份。','Export records, optionally with original files. Device identity is excluded.')}</p><div class="ll-file-actions"><button id="ll-export-records">${t('僅記錄','仅记录','Records only')}</button><button id="ll-export-files">${t('記錄與原檔案','记录与原文件','Records and files')}</button><button id="ll-import-records">${t('匯入備份','导入备份','Import backup')}</button></div><p id="ll-backup-result" role="status"></p></div></section>`;
       content.querySelector('#ll-show-history').onclick=()=>window.LocalSendPanel.history();
+      const clean=document.createElement('button');clean.className='ll-primary-button';clean.textContent=t('清理已送達的傳送快取','清理已送达的发送缓存','Clean delivered send cache');content.appendChild(clean);
+      clean.onclick=async()=>{clean.disabled=true;try{const result=await window.orbitAPI.invoke('locallink-clean-sent-cache');if(!result.cancelled)window.Toast?.show('LocalLink',result.error||(t('已清理：','已清理：','Cleaned: ')+result.count),result.ok?'success':'error');}finally{clean.disabled=false;}};
+
       const backup=async(channel,arg)=>{
         const buttons=[...content.querySelectorAll('.ll-file-actions button')];buttons.forEach(b=>b.disabled=true);
         const message=content.querySelector('#ll-backup-result');message.textContent=t('處理中…','处理中…','Working…');

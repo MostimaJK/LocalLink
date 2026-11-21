@@ -6,7 +6,7 @@ const fs=require('fs'),path=require('path');
 test('real file conversation: manual discovery, text, batch, paste, folder and history',async()=>{
  test.setTimeout(90000);
  const dir=tmpUserDataDir('workflow'),receiverDir=tmpUserDataDir('receiver'),incoming=[];
- const receiver=new LocalSend({dataDir:receiverDir,receiveDir:path.join(receiverDir,'files'),alias:()=> 'Test laptop',maxBytes:1e7,port:0,discovery:false,accept:async()=>true,result:r=>incoming.push(r)});
+ const receiver=new LocalSend({dataDir:receiverDir,receiveDir:path.join(receiverDir,'files'),alias:()=> 'Test laptop',maxBytes:1e7,port:0,discovery:false,pair:async()=>true,accept:async()=>true,result:r=>incoming.push(r)});
  await receiver.start();let app;
  try{
   const launched=await launchApp(dir,[],{keepBootState:true});app=launched.app;const page=launched.page;
@@ -70,6 +70,16 @@ test('real file conversation: manual discovery, text, batch, paste, folder and h
   await page.locator('#ll-history-dialog .ll-load-more').click();
   await expect(page.locator('[data-trash-file]')).toHaveCount(0);expect(fs.existsSync(received.path)).toBe(false);
   expect(fs.existsSync(files[0])).toBe(true);
+  const cleaned=await page.evaluate(()=>window.orbitAPI.invoke('locallink-clean-sent-cache'));expect(cleaned.ok).toBe(true);expect(cleaned.count).toBeGreaterThanOrEqual(2);expect(fs.existsSync(files[0])).toBe(true);
+  const peerId='localsend:'+receiver.fingerprint;
+  expect((await page.evaluate(id=>window.orbitAPI.invoke('locallink-manage-trust',id),peerId)).ok).toBe(true);
+  expect(await page.evaluate(id=>window.orbitAPI.dbGetSetting('locallink.trust.'+id).autoReceive,peerId)).toBe(false);
+  await page.evaluate(id=>window.orbitAPI.invoke('locallink-manage-trust',id),peerId);
+  expect(await page.evaluate(id=>window.orbitAPI.dbGetSetting('locallink.trust.'+id).autoReceive,peerId)).toBe(true);
+  await app.evaluate(({dialog})=>{dialog.showMessageBox=async()=>({response:2});});
+  await page.evaluate(id=>window.orbitAPI.invoke('locallink-manage-trust',id),peerId);
+  expect(await page.evaluate(id=>window.orbitAPI.dbGetSetting('locallink.trust.'+id).paired,peerId)).toBeUndefined();
+
 
  }finally{if(app)await app.close();receiver.stop();}
 });

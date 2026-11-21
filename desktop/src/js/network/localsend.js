@@ -23,7 +23,7 @@ function safeName(name) {
 }
 class LocalSend {
  constructor(opts){this.opts=opts;this.peers=new Map();this.sessions=new Map();this.pending=false;this.sockets=new Set();this.closed=false;this.outgoing=new Map();this.requests=new Set();this.idleMs=opts.idleTimeoutMs||120000;}
- info(){return {alias:this.opts.alias(),version:'2.2',deviceModel:process.platform,deviceType:'desktop',fingerprint:this.fingerprint,port:this.port,protocol:'https',download:false};}
+ info(){return {alias:this.opts.alias(),version:'2.2',deviceModel:process.platform,deviceType:'desktop',fingerprint:this.fingerprint,port:this.port,protocol:'https',download:false,locallink:{messages:1}};}
  async start(){
   const certFile=path.join(this.opts.dataDir,'locallink-tls.json');
   let pem;
@@ -31,7 +31,8 @@ class LocalSend {
   else {pem=await require('selfsigned').generate([{name:'commonName',value:'LocalLink'}],{keySize:2048,algorithm:'sha256'});fs.writeFileSync(certFile,JSON.stringify({private:pem.private,cert:pem.cert}),{mode:0o600,flag:'wx'});}
   if(this.closed)throw new Error('Transport stopped');
   this.fingerprint=hash(new crypto.X509Certificate(pem.cert).raw);
-  this.server=https.createServer({key:pem.private,cert:pem.cert},(req,res)=>{this.route(req,res).catch(error=>{if(!res.headersSent)res.writeHead(400);res.end();this.opts.error?.(error.message);});});
+  this.pem=pem;
+  this.server=https.createServer({key:pem.private,cert:pem.cert,requestCert:true,rejectUnauthorized:false},(req,res)=>{this.route(req,res).catch(error=>{if(!res.headersSent)res.writeHead(400);res.end();this.opts.error?.(error.message);});});
   this.server.requestTimeout=0;this.server.setTimeout(this.idleMs,socket=>socket.destroy());this.server.headersTimeout=15000;
   const listen=port=>new Promise((resolve,reject)=>{this.server.once('error',reject);this.server.listen(port,'0.0.0.0',()=>{this.server.removeListener('error',reject);resolve();});});
   try{await listen(this.opts.port??53317);}catch(error){if(error.code==='EADDRINUSE'&&this.opts.port==null)await listen(0);else throw error;}
@@ -80,9 +81,33 @@ class LocalSend {
   const reply=(code,data)=>{res.writeHead(code,{'Content-Type':'application/json'});res.end(data?JSON.stringify(data):'');};
   if(!url.pathname.startsWith(PREFIX))return reply(404);
   const ip=req.socket.remoteAddress.replace(/^::ffff:/,'');
+  const clientCert=req.socket.getPeerCertificate?.();
+  const authenticatedPeerId=clientCert?.raw?'localsend:'+hash(clientCert.raw):null;
   if(action==='info'&&req.method==='GET')return reply(200,this.info());
   if(req.method!=='POST')return reply(405);
   if(action==='register'){const p=await jsonBody(req);this.observe(p,ip);return reply(200,this.info());}
+  if(action==='locallink-pair'){
+   if(this.pending)return reply(409);
+   this.pending=true;
+   try{const body=await jsonBody(req);const peer=this.observe(body.info,ip);
+    if(!peer||peer.id!==authenticatedPeerId||!this.opts.pair)return reply(403);
+    if(!await this.opts.pair(peer))return reply(403);
+    return reply(200,{paired:true});
+   }finally{this.pending=false;}
+  }
+  if(action==='locallink-message'){
+   if(this.pending)return reply(409);
+   this.pending=true;
+   try{
+    const body=await jsonBody(req);
+    if(typeof body.text!=='string'||!body.text.trim()||Buffer.byteLength(body.text)>65536)return reply(400);
+    const peer=this.observe(body.info,ip);if(!peer)return reply(400);
+    const allowed=await this.opts.accept({authenticatedPeerId:peer.id===authenticatedPeerId?authenticatedPeerId:null,alias:peer.alias,ip,files:[{name:body.text.slice(0,160),size:Buffer.byteLength(body.text)}],total:Buffer.byteLength(body.text)});
+    if(!allowed||this.closed||res.destroyed)return reply(403);
+    const task={id:crypto.randomUUID(),peerId:peer.id,name:'Message',kind:'text',text:body.text,direction:'incoming',startedAt:Date.now(),size:Buffer.byteLength(body.text),bytes:Buffer.byteLength(body.text)};
+    this.publish(task,'received');return reply(200,{received:true});
+   }finally{this.pending=false;}
+  }
   if(action==='prepare-upload'){
    if(this.pending||this.sessions.size>=4)return reply(409);
    this.pending=true;
@@ -92,7 +117,7 @@ class LocalSend {
     let total=0;
     for(const [id,f] of entries){if(!id||id.length>128||!safeName(f.fileName)||!Number.isSafeInteger(f.size)||f.size<0||f.size>this.opts.maxBytes|| (f.sha256 && !/^[0-9a-f]{64}$/i.test(f.sha256)))return reply(400);total+=f.size;}
     if(total>this.opts.maxBytes)return reply(400);
-    const allowed=await this.opts.accept({alias:String(body.info?.alias||ip).slice(0,100),ip,files:entries.map(([,f])=>({name:f.fileName,size:f.size})),total});
+    const allowed=await this.opts.accept({authenticatedPeerId:'localsend:'+normalize(body.info.fingerprint)===authenticatedPeerId?authenticatedPeerId:null,alias:String(body.info?.alias||ip).slice(0,100),ip,files:entries.map(([,f])=>({name:f.fileName,size:f.size})),total});
     if(!allowed||this.closed||res.destroyed)return reply(403);
     const sessionId=crypto.randomUUID();const files=new Map();
     for(const [id,f] of entries)files.set(id,{...f,token:crypto.randomUUID(),state:'ready',task:{id:crypto.randomUUID(),peerId:'localsend:'+normalize(body.info.fingerprint),name:f.fileName,size:f.size,direction:'incoming',startedAt:Date.now()+files.size,bytes:0}});
@@ -183,7 +208,7 @@ class LocalSend {
   const raw=file?null:Buffer.from(JSON.stringify(body||{}));
   return new Promise((resolve,reject)=>{
    const client=peer.protocol==='https'?https:http;
-   const req=client.request({host:peer.ip,port:peer.port,path:PREFIX+action,method:'POST',agent:false,rejectUnauthorized:false,signal:options.signal,headers:{'Content-Type':file?'application/octet-stream':'application/json','Content-Length':file?file.size:raw.length}},res=>{
+   const req=client.request({host:peer.ip,port:peer.port,path:PREFIX+action,method:'POST',agent:false,rejectUnauthorized:false,cert:this.pem?.cert,key:this.pem?.private,signal:options.signal,headers:{'Content-Type':file?'application/octet-stream':'application/json','Content-Length':file?file.size:raw.length}},res=>{
     const chunks=[];let size=0;res.on('data',chunk=>{size+=chunk.length;if(size>1024*1024)res.destroy(new Error('Response too large'));else chunks.push(chunk);});res.on('error',reject);res.on('end',()=>{if(![200,204].includes(res.statusCode)){const e=new Error(({401:'PIN required or incorrect',403:'Receiver declined the transfer',409:'Receiver is busy',422:'File integrity check failed',429:'Too many attempts'}[res.statusCode]||'LocalSend error')+' (HTTP '+res.statusCode+')');e.statusCode=res.statusCode;return reject(e);}try{resolve(res.statusCode===204?{finished:true}:chunks.length?JSON.parse(Buffer.concat(chunks).toString()):{});}catch(error){reject(error);}});
    });
    this.requests.add(req);req.once('close',()=>this.requests.delete(req));
@@ -193,6 +218,18 @@ class LocalSend {
   });
  }
  async send(peerId,filePath,options={}){return (await this.sendBatch(peerId,[filePath],options))[0];}
+ async sendMessage(peerId,text){
+  if(typeof text!=='string'||!text.trim()||Buffer.byteLength(text)>65536)throw new Error('Text must contain 1 byte to 64 KiB');
+  const peer=this.peers.get(peerId);
+  if(!peer||Date.now()-peer.seen>45000)throw new Error('Device is no longer nearby');
+  if(peer.protocol!=='https'||peer.locallink?.messages!==1)throw new Error('Native messages are not supported');
+  const task={id:crypto.randomUUID(),peerId,name:'Message',kind:'text',text,direction:'outgoing',startedAt:Date.now(),size:Buffer.byteLength(text),bytes:0};
+  const controller=new AbortController();this.outgoing.set(task.id,{peerId,controller});
+  this.publish(task,'awaiting');
+  try{const result=await this.request(peer,'locallink-message',{info:this.info(),text},null,{signal:controller.signal});if(result.received!==true)throw new Error('Message was not acknowledged');task.bytes=task.size;return this.publish(task,'delivered');}
+  catch(error){task.error=error.message;this.publish(task,controller.signal.aborted?'cancelled':'failed');throw error;}
+  finally{this.outgoing.delete(task.id);}
+ }
  async sendBatch(peerId,paths,options={}){
   if(!Array.isArray(paths)||!paths.length||paths.length>100)throw new Error('Choose 1–100 files');
   if([...this.outgoing.values()].some(b=>b.peerId===peerId))throw new Error('A transfer to this device is already running');
