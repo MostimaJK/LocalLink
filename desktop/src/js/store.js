@@ -54,7 +54,7 @@ class Store {
       usertag: 'BOT',
       status: 'online',
       avatar: 'icons/orbit/orbit_default.png',
-      bio: 'A local echo channel for testing messages.'
+      bio: 'Messages in this channel stay on this computer.'
     };
     if (!dbFriends.some(function(f) { return f.userId === 'local-echo'; })) {
       dbFriends.unshift(echoFriend);
@@ -314,7 +314,7 @@ class Store {
     var echoFriend = {
       userId: 'local-echo', username: 'Orbit Echo', usertag: 'BOT',
       status: 'online', avatar: 'icons/orbit/orbit_default.png',
-      bio: 'A local echo channel for testing messages.'
+      bio: 'Messages in this channel stay on this computer.'
     };
     if (!dbFriends.some(function(f) { return f.userId === 'local-echo'; })) {
       dbFriends = [echoFriend].concat(dbFriends);

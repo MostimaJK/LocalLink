@@ -58,13 +58,17 @@ async function archiveFolder(source, cache, maxBytes = Number.MAX_SAFE_INTEGER, 
       onProgress({ phase: 'pack', bytes, total });
       if (signal?.aborted) return cancel();
 
-      async function* readFile(file) {
+      async function* readFile(file, expectedSize) {
+        let remaining = expectedSize;
         input = fs.createReadStream(file, { signal });
         for await (const chunk of input) {
+          remaining -= chunk.length;
+          if (remaining < 0) throw new Error('File size changed while preparing folder');
           bytes += chunk.length;
           onProgress({ phase: 'pack', bytes, total });
           yield chunk;
         }
+        if (remaining !== 0) throw new Error('File size changed while preparing folder');
       }
       function next() {
         if (failure) return;
@@ -77,7 +81,7 @@ async function archiveFolder(source, cache, maxBytes = Number.MAX_SAFE_INTEGER, 
         if (entry.stat.isDirectory()) {
           archive.append('', { ...metadata, type: 'directory' });
         } else {
-          const stream = Readable.from(readFile(entry.file));
+          const stream = Readable.from(readFile(entry.file, entry.stat.size));
           stream.on('error', fail);
           archive.append(stream, metadata);
         }

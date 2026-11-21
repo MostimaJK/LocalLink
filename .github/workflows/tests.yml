@@ -54,12 +54,10 @@ jobs:
       # Playwright drives the app's own Electron binary — no browser install
       # step is needed and none should be added.
       - name: File publishing and Windows updater tests
-        run: |
-          node tests/receive-file.test.cjs
-          node tests/folder-preparation.test.cjs
-          node tests/preview-cache.test.cjs
-          node tests/update-restart.test.cjs
-          npx playwright test tests/e2e/update-notice.spec.js --workers=1
+        run: npm run test:windows:preflight
+
+      - name: Update notification UI
+        run: npx playwright test tests/e2e/update-notice.spec.js --workers=1
 
       - name: Run E2E tests
         run: npm run test:release

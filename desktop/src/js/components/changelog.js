@@ -14,7 +14,11 @@ window.Changelog = {
         '<button id="changelog-close" style="background:transparent;border:none;cursor:pointer;color:var(--text-secondary);padding:4px;"><i data-lucide="x" style="width:20px;height:20px;"></i></button>' +
       '</div>' +
       '<div style="display:flex;flex-direction:column;gap:20px;">' +
-        versionBlock('1.0.2', 'Latest', [
+        versionBlock('1.0.3', 'Latest', [
+          ['New', ['Share files with a phone browser using a QR code and pairing code.', 'Choose a network adapter and manage sharing from the title bar.']],
+          ['Improved', ['Reduced desktop resource footprint and improved transfer preparation and cleanup.']]
+        ]) +
+        versionBlock('1.0.2', '', [
           ['New', [
             'Mac users can download a disk image for Apple Silicon or Intel.',
             'Folder sends show scanning and packing progress and can be cancelled before upload.',

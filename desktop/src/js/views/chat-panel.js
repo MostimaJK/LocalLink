@@ -693,9 +693,9 @@ window.ChatPanel = {
       <div id="chat-welcome-host" style="flex:1; display:flex; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;"></div>
     `;
     const host = document.getElementById('chat-welcome-host');
-    host.innerHTML = '<div style="max-width:480px;text-align:center"><i data-lucide="send" style="width:48px;height:48px;color:var(--accent-primary)"></i><h1 style="font-size:28px;margin:20px 0 12px"><span data-i18n="s21">在你的设备之间传输</span></h1><p style="color:var(--text-muted);line-height:1.8"><span data-i18n="s48">从左侧选择附近或收藏的设备，发送文件、图片、文字与链接。</span><br><span data-i18n="s49">每台设备的传输记录保存在本机。</span></p><button id="home-connect-device" style="margin:24px 0 12px;padding:12px 24px;border-radius:10px;background:var(--accent-primary);color:white"><span data-i18n="s15">连接设备</span></button><p style="font-size:12px;color:var(--text-muted)"><span data-i18n="s47">收藏仅保存常用目标，不代表信任或自动接收授权。</span></p><button id="home-local-demo" style="margin-top:20px;color:var(--text-muted)"><span data-i18n="s22">本机演示</span></button></div>';
+    host.innerHTML = '<div style="max-width:480px;text-align:center"><i data-lucide="send" style="width:48px;height:48px;color:var(--accent-primary)"></i><h1 style="font-size:28px;margin:20px 0 12px"><span data-i18n="s21">在你的设备之间传输</span></h1><p style="color:var(--text-muted);line-height:1.8"><span data-i18n="s48">从左侧选择附近或收藏的设备，发送文件、图片、文字与链接。</span><br><span data-i18n="s49">每台设备的传输记录保存在本机。</span></p><button id="home-connect-device" style="margin:24px 0 12px;padding:12px 24px;border-radius:10px;background:var(--accent-primary);color:white"><span data-i18n="s15">连接设备</span></button><p style="font-size:12px;color:var(--text-muted)"><span data-i18n="s47">收藏仅保存常用目标，不代表信任或自动接收授权。</span></p><button id="home-phone-share" class="ll-home-share"><i data-lucide="qr-code" aria-hidden="true"></i><span data-i18n="s22">与手机互传</span></button></div>';
     host.querySelector('#home-connect-device').onclick = () => window.SidebarMiddle.showAddFriendModal();
-    host.querySelector('#home-local-demo').onclick = () => window.store.setState({activeChatId:'local-echo'});
+    host.querySelector('#home-phone-share').onclick = window.showBrowserShare;
     lucide.createIcons({ root: this.container });
   },
 

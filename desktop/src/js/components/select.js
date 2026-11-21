@@ -43,7 +43,12 @@ window.LocalLinkSelect = {
    const row=document.createElement('div');row.id=select.id+'-option-'+i;row.className='ll-select-option';row.setAttribute('role','option');row.setAttribute('aria-selected',String(i===select.selectedIndex));
    row.setAttribute('aria-disabled',String(!enabled.includes(i)));
    const mark=document.createElement('span');mark.className='ll-select-check';mark.setAttribute('aria-hidden','true');mark.textContent=i===select.selectedIndex?'✓':'';
-   const text=document.createElement('span');text.textContent=option.label;row.append(mark,text);
+   const text=document.createElement('span');text.textContent=option.label;
+   if(option.dataset.detail){
+    const detail=document.createElement('small');detail.textContent=option.dataset.detail;text.append(detail);
+    row.setAttribute('aria-label',option.label+' · '+option.dataset.detail);
+   }
+   row.append(mark,text);
    row.addEventListener('pointerdown',e=>e.preventDefault());
    row.addEventListener('pointermove',()=>{if(enabled.includes(i)){index=i;paint(false);}});
    row.addEventListener('click',()=>{if(enabled.includes(i)){index=i;commit();}});popup.append(row);

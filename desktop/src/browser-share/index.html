@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LocalLink</title>
+<style>
+:root{color-scheme:light dark;font:16px/1.5 system-ui,sans-serif}body{max-width:36rem;margin:auto;padding:24px 18px}header{font-size:1.1rem;font-weight:650}h1{font-size:1.65rem;margin:1.5rem 0 .5rem}h2{font-size:1.15rem}section{margin:1.5rem 0;padding:1rem;border:1px solid #8886;border-radius:14px}input{max-width:100%;font:inherit}ul{list-style:none;padding:0}li{padding:.65rem 0;border-bottom:1px solid #8884;overflow-wrap:anywhere}a{color:LinkText}#status{white-space:pre-line}
+</style></head><body><header>LocalLink</header><main><h1 id="title"></h1><p id="hint"></p>
+<form hidden id="pair"><label for="pin" id="pin-label"></label> <input required id="pin" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" size="6" autocomplete="off"><button id="confirm"></button><p role="status" id="pair-status"></p></form>
+<section hidden id="downloads"><h2 id="incoming"></h2><p id="empty"></p><ul id="files"></ul></section>
+<section hidden id="uploads"><h2><label id="outgoing" for="pick"></label></h2><input type="file" multiple id="pick"><p aria-live="polite" id="status"></p></section>
+</main><script src="page.js"></script></body></html>

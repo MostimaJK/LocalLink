@@ -29,7 +29,7 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
-            signingConfig signingConfigs.debug
+            // Release artifacts are signed separately with the publisher's key.
             minifyEnabled false
             // Gradle 9 dropped 'proguard-android.txt' (it implies -dontoptimize).
             // minifyEnabled is false here so this is inert, but the line still has to

@@ -1,6 +1,11 @@
-name: Publish desktop preview
+name: Publish desktop release
 on:
   workflow_dispatch:
+    inputs:
+      prerelease:
+        description: Mark this version as a prerelease
+        type: boolean
+        default: true
 permissions:
   contents: read
 jobs:
@@ -63,6 +68,7 @@ jobs:
       - name: Verify packages and publish preview
         env:
           GH_TOKEN: ${{ github.token }}
+          PRERELEASE: ${{ inputs.prerelease }}
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
@@ -74,4 +80,6 @@ jobs:
           cp "packages/LocalLink-Windows-x64/LocalLink-Setup-$version.exe" upload/
           cp "packages/LocalLink-Windows-x64/LocalLink-$version-Portable.exe" upload/
           (cd upload && sha256sum *.dmg *.exe > SHA256SUMS.txt && sha256sum --check SHA256SUMS.txt)
-          gh release create "$GITHUB_REF_NAME" --verify-tag --prerelease --title "LocalLink $version · Windows and macOS" --notes-file "docs/RELEASE-NOTES-$version.md" upload/*
+          flags=(--latest)
+          if [[ "$PRERELEASE" == true ]]; then flags=(--prerelease); fi
+          gh release create "$GITHUB_REF_NAME" --verify-tag "${flags[@]}" --title "LocalLink $version · Windows and macOS" --notes-file "docs/RELEASE-NOTES-$version.md" upload/*

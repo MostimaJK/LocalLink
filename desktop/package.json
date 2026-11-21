@@ -1,6 +1,6 @@
 {
   "name": "orbit-beta",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "LocalLink device-to-device file transfer",
   "author": "LocalLink contributors",
   "main": "main.js",
@@ -16,14 +16,14 @@
     "test:transfers": "node tests/localsend-protocol.test.js && node tests/localsend-tasks.test.js && node tests/discovery-recovery.test.js",
     "build:win:installer": "node scripts/build-installer.cjs",
     "build:win:portable": "node scripts/build-installer.cjs --portable",
+    "build:win:both": "node scripts/build-installer.cjs --both",
+    "test:windows:preflight": "node tests/browser-share.test.cjs && node tests/receive-file.test.cjs && node tests/folder-preparation.test.cjs && node tests/preview-cache.test.cjs && node tests/discovery-recovery.test.js && node tests/update-restart.test.cjs",
     "test:release": "node tests/adapters.test.js && node tests/bandwidth.test.js && node tests/localsend-protocol.test.js && node tests/localsend-tasks.test.js && node tests/localsend-bandwidth.test.js && node tests/round3.test.cjs && node tests/communications.test.cjs && node scripts/test-storage.cjs && playwright test tests/e2e/device-trust.spec.js tests/e2e/network-adapters.spec.js tests/e2e/general-settings.spec.js tests/e2e/language.spec.js tests/e2e/localsend.spec.js tests/e2e/transfer-workflow.spec.js tests/e2e/transfer-controls.spec.js tests/e2e/transfer-center.spec.js tests/e2e/context-language.spec.js tests/e2e/desktop-chrome.spec.js tests/e2e/device-browser.spec.js tests/e2e/locallink-devices.spec.js --workers=1"
   },
   "keywords": [],
   "license": "MIT",
   "type": "commonjs",
   "dependencies": {
-    "@capacitor/android": "8.6.2",
-    "@capacitor/core": "8.6.2",
     "archiver": "8.0.0",
     "bad-words": "^4.0.0",
     "better-sqlite3": "13.2.0",
@@ -38,7 +38,9 @@
     "ws": "^8.21.0"
   },
   "devDependencies": {
+    "@capacitor/android": "8.6.2",
     "@capacitor/cli": "8.6.2",
+    "@capacitor/core": "8.6.2",
     "@playwright/test": "^1.62.1",
     "electron": "45.4.1",
     "electron-builder": "26.18.0"

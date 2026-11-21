@@ -112,9 +112,9 @@ window.I18n = {
     "zh-Hans": "在你的设备之间传输"
   },
   "s22": {
-    "en": "Local demo",
-    "zh-Hant": "本機示範",
-    "zh-Hans": "本机演示"
+    "en": "Share with phone",
+    "zh-Hant": "與手機互傳",
+    "zh-Hans": "与手机互传"
   },
   "s23": {
     "en": "No messages yet",
@@ -232,9 +232,9 @@ window.I18n = {
     "zh-Hans": "设置其他设备看到的名称。改名不会改变当前身份或本地记录。"
   },
   "s46": {
-    "en": "This build retains the original identity system. Names and IP addresses are not identity identifiers.",
-    "zh-Hant": "此開發版仍沿用原身分系統；名稱與 IP 位址不是身分識別碼。",
-    "zh-Hans": "此开发版仍沿用原身份体系；名称与 IP 地址不是身份标识。"
+    "en": "A device name or IP address can change. Check the device identity before pairing.",
+    "zh-Hant": "裝置名稱與 IP 位址可能變更，配對前請核對裝置身分。",
+    "zh-Hans": "设备名称与 IP 地址可能变化，配对前请核对设备身份。"
   },
   "s47": {
     "en": "Favorites do not grant trust or automatic receive permission.",
@@ -257,9 +257,9 @@ window.I18n = {
     "zh-Hans": "关于 LocalLink"
   },
   "s51": {
-    "en": "LocalLink development build",
-    "zh-Hant": "LocalLink 開發版",
-    "zh-Hans": "LocalLink 开发版"
+    "en": "LocalLink Desktop",
+    "zh-Hant": "LocalLink 桌面版",
+    "zh-Hans": "LocalLink 桌面版"
   },
   "s52": {
     "en": "Credits and licenses",

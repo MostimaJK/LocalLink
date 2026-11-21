@@ -1,3 +1,4 @@
+extends: ./scripts/package-files.cjs
 appId: com.orbit.desktop
 productName: LocalLink
 directories:
@@ -5,23 +6,11 @@ directories:
 
 publish: null
 
-files:
-  - "**/*"
-  - "!dist/**"
-  - "!.agent/**"
-  - "!.github/**"
-  - "!android/**"
-  - "!tests/**"
-  - "!test-results/**"
-  - "!playwright-report/**"
-  - "!src/icons/frames/**"
-  - "!.gemini/**"
-  # Development and documentation assets are not application runtime files.
-  - "!scripts/**"
-  - "!docs/**"
-  - "!playwright.config.*"
-  - "!src/icons/screenshots/**"
-  - "!src/icons/app/orbit_banner.png"
+# Chromium UI resources. LocalLink's own translations are managed separately.
+electronLanguages:
+  - en-US
+  - zh-CN
+  - zh-TW
 
 # shared/ lives OUTSIDE the app directory (desktop/), so `files` cannot reach it.
 # The renderer loads ../../shared/* from desktop/src/ and the main process

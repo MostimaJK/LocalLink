@@ -20,14 +20,14 @@
 window.Orbit = window.Orbit || {};
 
 Orbit.UpdateCheck = (function() {
-  var REPO = 'D4niel-dev/Orbit-beta';
+  var REPO = 'MostimaJK/LocalLink';
   var RELEASES_API = 'https://api.github.com/repos/' + REPO + '/releases?per_page=15';
   var RELEASES_PAGE = 'https://github.com/' + REPO + '/releases';
 
   // Don't hammer the API: unauthenticated GitHub is 60 requests/hour per IP.
   var CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
-  var KEY_LAST_CHECK = 'orbit_update_lastCheck';
-  var KEY_SKIPPED = 'orbit_update_skipped';
+  var KEY_LAST_CHECK = 'locallink_update_lastCheck';
+  var KEY_SKIPPED = 'locallink_update_skipped';
 
   /* ------------------------------------------------------------------ *
    * Version comparison
@@ -251,12 +251,15 @@ Orbit.UpdateCheck = (function() {
   //            AppImage was never offered
   // Preference is explicit now: arch + preferred format, then arch, then
   // preferred format, then anything that matches.
-  function pickAsset(release, platform, arch) {
+  function pickAsset(release, platform, arch, portable) {
     var assets = ((release && release.assets) || []).filter(function (a) {
       return a && a.name;
     });
     var want = ASSET_MATCHERS[platform] || ASSET_MATCHERS.win32;
     var candidates = assets.filter(function (a) { return want.test(a.name); });
+    if (platform === 'win32') candidates = candidates.filter(function(a) {
+      return portable ? /portable/i.test(a.name) : !/portable/i.test(a.name);
+    });
     if (!candidates.length) return null;
 
     var tokens = _archTokens(arch);
@@ -270,6 +273,14 @@ Orbit.UpdateCheck = (function() {
       if (!pick) {
         pick = candidates.filter(function (a) { return _hasToken(a.name, tokens); })[0];
       }
+    }
+    if (!pick && platform === 'darwin' && arch) {
+      // A disk image explicitly built for another CPU cannot serve as a native update.
+      pick = candidates.find(function (a) { return /universal/i.test(a.name); });
+      if (!pick) pick = candidates.find(function (a) {
+        return !_hasToken(a.name, _archTokens('x64').concat(_archTokens('arm64')));
+      });
+      if (!pick) return null;
     }
     if (!pick) {
       pick = candidates.filter(function (a) { return _isPreferredFormat(a.name, platform); })[0];
@@ -495,7 +506,8 @@ Orbit.UpdateCheck = (function() {
 
     function build(rel, highlights) {
       var latest = String(rel.tag_name || rel.name || '').replace(/^v/i, '');
-      var asset = pickAsset(rel, platform, arch);
+      var asset = pickAsset(rel, platform, arch, opts.portable === undefined
+        ? !!(window.orbitAPI && window.orbitAPI.portable) : opts.portable);
       // The release ships a SHA256SUMS.txt; hand its URL along so the desktop
       // downloader can verify what it just fetched (the README tells users to
       // check this by hand, so the app may as well do it for them).

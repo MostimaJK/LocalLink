@@ -2,21 +2,21 @@
 
 [繁體中文](README.zh-TW.md)
 
-LocalLink shares files, folders and text across a local network. **Desktop preview 1.0.2** is available for Windows x64 and macOS.
+LocalLink shares files, folders and text across a local network. **Desktop release 1.0.3** is available for Windows x64 and macOS.
 
 ## Download
 
-Choose a package from the [1.0.2 release](https://github.com/MostimaJK/LocalLink/releases/tag/v1.0.2).
+Choose a package from the [1.0.3 release](https://github.com/MostimaJK/LocalLink/releases/tag/v1.0.3).
 
 | Computer | Package |
 | --- | --- |
-| Windows x64 | `LocalLink-Setup-1.0.2.exe` or `LocalLink-1.0.2-Portable.exe` |
-| Mac with Apple silicon | `LocalLink-1.0.2-arm64.dmg` |
-| Intel Mac | `LocalLink-1.0.2-x64.dmg` |
+| Windows x64 | `LocalLink-Setup-1.0.3.exe` or `LocalLink-1.0.3-Portable.exe` |
+| Mac with Apple silicon | `LocalLink-1.0.3-arm64.dmg` |
+| Intel Mac | `LocalLink-1.0.3-x64.dmg` |
 
 The release includes SHA256SUMS.txt for all four packages. Windows builds are unsigned. Mac builds use ad-hoc signatures and have not been notarized by Apple. On Mac, open the matching DMG and drag LocalLink to Applications.
 
-Folder transfers now show scan and packing progress and support cancellation. If nearby discovery is unavailable, open **Connect device** to copy the address and port for a manual connection. [Release notes](docs/RELEASE-NOTES-1.0.2.md)
+Folder transfers now show scan and packing progress and support cancellation. If nearby discovery is unavailable, open **Connect device** to copy the address and port for a manual connection. [Release notes](docs/RELEASE-NOTES-1.0.3.md)
 
 ## Features
 
@@ -42,6 +42,12 @@ npm start
 
 Windows users can also run `Start-LocalLink.bat`.
 
+Choose **Share with phone**, scan the QR and enter the six digits shown on the computer. One browser can pair per session. Dismiss the QR panel to continue using the desktop app. Use the sharing indicator in the title bar to reopen the panel, or choose files there directly. An unused pairing code expires after 15 minutes. After pairing, sharing continues until you select End sharing or quit LocalLink. Minimizing the app or hiding it in the tray keeps sharing active. Each session accepts up to 100 uploads totaling 1 GiB.
+
+HTTPS deployments set `LOCALLINK_SHARE_HOST` to a hostname that resolves on the phone to the selected LAN address, `LOCALLINK_SHARE_CERT` to its PEM certificate chain and `LOCALLINK_SHARE_KEY` to its PEM private key before launching LocalLink. The phone must trust the certificate issuer. An invalid configuration stops sharing. Without TLS configuration, starting unencrypted HTTP requires explicit confirmation each session. Use HTTP only on a trusted private network for non-sensitive files.
+
+For Windows development, use `npm start` to try changes directly. Run `npm --prefix desktop run test:windows:preflight` for file handling, discovery recovery and updater checks. When both Windows packages are needed, `npm --prefix desktop run build:win:both` packages the app once and writes Setup and Portable to `desktop/dist/windows/`.
+
 ## macOS development preview
 
 On a Mac, use the source commands above. To build a disk image for the current CPU, run
@@ -55,4 +61,4 @@ The manual **Build and test macOS candidates** workflow builds on both architect
 
 ## Licensing
 
-Based on Orbit, inspired by LocalSend; no official affiliation. Retained [MIT license](LICENSE), [dependency notices](desktop/THIRD-PARTY-NOTICES.txt) and [security policy](SECURITY.md). See the [1.0.2 release notes](docs/RELEASE-NOTES-1.0.2.md).
+Based on Orbit, inspired by LocalSend; no official affiliation. Retained [MIT license](LICENSE), [dependency notices](desktop/THIRD-PARTY-NOTICES.txt) and [security policy](SECURITY.md). See the [1.0.3 release notes](docs/RELEASE-NOTES-1.0.3.md).

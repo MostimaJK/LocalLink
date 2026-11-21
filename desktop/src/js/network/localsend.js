@@ -233,7 +233,8 @@ class LocalSend {
   return false;
  }
  async discover(address){
-  const url=new URL(address.includes('://')?address:'https://'+address);
+  const url=typeof address==='string'?URL.parse(address.includes('://')?address:'https://'+address):null;
+  if(!url)throw new Error('Enter an IP address with an optional port');
   const ip=url.hostname.replace(/^\[|\]$/g,'');
   if(!net.isIP(ip)||!['https:','http:'].includes(url.protocol)||url.username||url.password||url.pathname!=='/'||url.search||url.hash)throw new Error('Enter an IP address with an optional port');
   const endpoint={ip,port:Number(url.port||53317),protocol:url.protocol.slice(0,-1)};

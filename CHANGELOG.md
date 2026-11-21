@@ -1,5 +1,9 @@
 # LocalLink Changelog
 
+## v1.0.3 — Desktop release
+
+Browser file sharing with QR pairing, persistent session controls, named network adapters and smaller desktop packages. [Release notes](docs/RELEASE-NOTES-1.0.3.md)
+
 ## v1.0.2 — Desktop preview
 
 Apple Silicon and Intel Mac disk images, cancellable folder packing, integrity checks, and manual connections when multicast discovery is unavailable. [Release notes](docs/RELEASE-NOTES-1.0.2.md)

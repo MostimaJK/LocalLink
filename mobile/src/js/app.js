@@ -7433,7 +7433,7 @@ document.addEventListener('DOMContentLoaded', function() {
           '</div>' +
         '</div>' +
         '<div class="settings-section-label">Links</div>' +
-        '<a href="https://github.com/D4niel-dev/Orbit-beta" target="_blank" rel="noopener noreferrer" class="settings-item-card" style="text-decoration:none;cursor:pointer;">' +
+        '<a href="https://github.com/MostimaJK/LocalLink" target="_blank" rel="noopener noreferrer" class="settings-item-card" style="text-decoration:none;cursor:pointer;">' +
           '<div class="settings-item-icon"><i data-lucide="code" style="width:18px;height:18px;color:var(--text-primary);"></i></div>' +
           '<div class="settings-item-info">' +
             '<span class="settings-item-title">GitHub Repository</span>' +
@@ -7441,7 +7441,7 @@ document.addEventListener('DOMContentLoaded', function() {
           '</div>' +
           '<div class="settings-item-action"><i data-lucide="external-link" style="width:16px;height:16px;color:var(--text-muted);"></i></div>' +
         '</a>' +
-        '<a href="https://github.com/D4niel-dev/Orbit-beta/issues" target="_blank" rel="noopener noreferrer" class="settings-item-card" style="text-decoration:none;cursor:pointer;">' +
+        '<a href="https://github.com/MostimaJK/LocalLink/issues" target="_blank" rel="noopener noreferrer" class="settings-item-card" style="text-decoration:none;cursor:pointer;">' +
           '<div class="settings-item-icon"><i data-lucide="bug" style="width:18px;height:18px;color:#ef4444;"></i></div>' +
           '<div class="settings-item-info">' +
             '<span class="settings-item-title">Report an Issue</span>' +

@@ -42,6 +42,21 @@ test('centered window, nearby sightings and explicit favorites have separate lif
   } finally { await app.close(); }
 });
 
+test('manual connection can retry after a discovery service exception',async()=>{
+ const {app,page}=await launchApp(tmpUserDataDir('connect-retry'));
+ try {
+  await app.evaluate(({ipcMain})=>{
+   ipcMain.removeHandler('locallink-discover');
+   ipcMain.handle('locallink-discover',()=>{throw new Error('Discovery unavailable');});
+  });
+  await page.evaluate(()=>window.LocalLinkDevices.connectDialog());
+  await page.locator('#ll-device-address').fill('127.0.0.1');
+  await page.locator('#ll-connect-submit').click();
+  await expect(page.locator('#ll-connect-error')).toHaveText('無法搜尋裝置，請重試');
+  await expect(page.locator('#ll-connect-submit')).toBeEnabled();
+ } finally { await app.close(); }
+});
+
 test('manual discovery preserves local metadata and suppresses unchanged heartbeats',async()=>{
  const {app,page}=await launchApp(tmpUserDataDir('manual-refresh'),[],{keepBootState:true});
  try{

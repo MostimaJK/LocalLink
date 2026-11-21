@@ -25,6 +25,17 @@ const { archiveFolder } = require('../src/js/network/folder-archive');
       assert.deepEqual(await fs.readdir(cache), []);
       assert.deepEqual(await fs.readFile(path.join(source, 'binary')), bytes);
     }
+    for (const size of [1, bytes.length + 1]) {
+      const file = path.join(source, 'binary');
+      await assert.rejects(archiveFolder(source, cache, undefined, {
+        onProgress(state) {
+          if (state.phase === 'pack' && state.bytes === 0) require('node:fs').truncateSync(file, size);
+          if (state.phase === 'pack') assert.ok(state.bytes <= state.total);
+        }
+      }), /File size changed/);
+      assert.deepEqual(await fs.readdir(cache), []);
+      await fs.writeFile(file, bytes);
+    }
     const measured = [];
     const zip = await archiveFolder(source, cache, undefined, {
       onProgress(state) { if (state.phase === 'pack') measured.push(state.bytes); }

@@ -54,11 +54,11 @@ window.LocalLinkDevices = {
   },
   key(id) { return 'locallink.device.' + window.store.getState().currentUser.userId + '.' + id; },
   get(peer) { return window.orbitAPI.dbGetSetting(this.key(peer.userId), {}) || {}; },
-  name(peer) { if (peer.userId === 'local-echo') return 'Local demo (Echo)'; return this.get(peer).alias || peer.username || 'Unnamed device'; },
+  name(peer) { if (peer.userId === 'local-echo') return window.LocalSendPanel.text('本機回音','本机回声','Local echo'); return this.get(peer).alias || peer.username || 'Unnamed device'; },
   icon(peer) { const meta=this.get(peer);const type=meta.type&&meta.type!=='unknown'?meta.type:peer.deviceType||meta.detectedType;return {phone:'smartphone',mobile:'smartphone',desktop:'monitor',laptop:'laptop',tablet:'tablet',server:'server',headless:'server',web:'globe'}[type]||'monitor-smartphone'; },
   connectDialog(){
     if(document.getElementById('ll-connect-dialog'))return;
-    const t=window.LocalSendPanel.text.bind(window.LocalSendPanel),esc=window.Sanitize.escapeHtml;
+    const t=window.LocalSendPanel.text.bind(window.LocalSendPanel);
     const dialog=document.createElement('dialog');dialog.id='ll-connect-dialog';dialog.className='ll-connect-dialog';
     dialog.innerHTML=`<form><button type="button" class="ll-dialog-close" aria-label="${t('關閉','关闭','Close')}">×</button><h2>${t('連接裝置','连接设备','Connect device')}</h2>
     <label for="ll-device-address">${t('裝置 IP 位址','设备 IP 地址','Device IP address')}</label><input id="ll-device-address" placeholder="192.168.1.10:53317" required autocomplete="off" spellcheck="false">
@@ -66,11 +66,22 @@ window.LocalLinkDevices = {
     dialog.querySelector('.ll-dialog-close').onclick=()=>dialog.close();
     dialog.onclose=()=>dialog.remove();
     dialog.querySelector('form').onsubmit=async event=>{
-      event.preventDefault();const button=dialog.querySelector('#ll-connect-submit');button.disabled=true;
-      const result=await window.orbitAPI.invoke('locallink-discover',dialog.querySelector('input').value.trim());
-      if(!dialog.isConnected)return;button.disabled=false;
-      if(result.ok){dialog.close();window.store.setState({activeChatId:result.peer.id});}
-      else dialog.querySelector('#ll-connect-error').textContent=window.LocalSendPanel.errorLabel(result.error);
+      event.preventDefault();
+      const button=dialog.querySelector('#ll-connect-submit');
+      if(button.disabled)return;
+      const status=dialog.querySelector('#ll-connect-error');
+      button.disabled=true;
+      status.textContent=t('正在尋找裝置…','正在查找设备…','Looking for device…');
+      try {
+        const result=await window.orbitAPI.invoke('locallink-discover',dialog.querySelector('input').value.trim());
+        if(!dialog.open)return;
+        if(result.ok){dialog.close();window.store.setState({activeChatId:result.peer.id});}
+        else status.textContent=window.LocalSendPanel.errorLabel(result.error);
+      } catch {
+        status.textContent=t('無法搜尋裝置，請重試','无法查找设备，请重试','Could not find the device. Try again.');
+      } finally {
+        button.disabled=false;
+      }
     };
     window.orbitAPI.invoke('locallink-diagnostics').then(info=>{
       if(!dialog.open || !info.running || !info.addresses.length)return;

@@ -220,6 +220,13 @@ let localSendInstance = null;
 let localSendStarting = null;
 let localSendError = null;
 let mainWindow = null;
+let browserShare = null;
+let shareGeneration = 0;
+function stopBrowserShare() {
+  shareGeneration++;
+  browserShare?.stop();
+  browserShare = null;
+}
 let tray = null;
 let isQuitting = false;
 let tempDirPath = null;
@@ -665,6 +672,9 @@ app.whenReady().then(() => {
     titleBarStyle: 'hidden',
   });
   require('./lib/update-restart').acknowledge(app,mainWindow);
+  mainWindow.webContents.on('did-navigate', stopBrowserShare);
+  mainWindow.webContents.on('render-process-gone', stopBrowserShare);
+  mainWindow.once('closed', stopBrowserShare);
   mainWindow.loadFile(path.join(__dirname, 'src/index.html'));
 
   // Use the same close policy for the caption button and native window close.
@@ -981,7 +991,7 @@ app.whenReady().then(() => {
     if(process.platform!=='win32'||!app.isPackaged)return {ok:false,error:'packaged-windows-only'};
     if(updatePreparing)return {ok:false,error:'update-in-progress'};
     if(typeof file!=='string'||!_downloadedFiles.has(file))return {ok:false,error:'unverified-update'};
-    const active=async()=>!!(folderPreparations.size||localSendInstance?.pending||localSendInstance?.sessions.size||localSendInstance?.outgoing.size||transferInstance?.activeReceives.size||transferInstance?.sendSessions.size||globalDb.transfers.list({statuses:['queued','preparing','awaiting','receiving','verifying','transferring','confirming'],limit:1}).length||await mainWindow.webContents.executeJavaScript('Boolean(window.CallManager?.activeCall || window.CallManager?.incomingCallData)'));
+    const active=async()=>!!((browserShare && !browserShare.closed)||folderPreparations.size||localSendInstance?.pending||localSendInstance?.sessions.size||localSendInstance?.outgoing.size||transferInstance?.activeReceives.size||transferInstance?.sendSessions.size||globalDb.transfers.list({statuses:['queued','preparing','awaiting','receiving','verifying','transferring','confirming'],limit:1}).length||await mainWindow.webContents.executeJavaScript('Boolean(window.CallManager?.activeCall || window.CallManager?.incomingCallData)'));
     if(await active())return {ok:false,error:'active-transfers'};
     updatePreparing=true;let job;
     try{
@@ -1705,6 +1715,40 @@ app.whenReady().then(() => {
 
   const llText=(tw,cn,en)=>{const lang=globalDb.getSetting('locallink.language','en');return lang==='en'?en:lang==='zh-Hans'?cn:tw;};
   const receiveDir=()=>globalDb.getSetting('locallink.receiveDir',path.join(app.getPath('downloads'),'LocalLink'));
+  const shareAddresses = () => Object.entries(os.networkInterfaces()).flatMap(([name,entries]) =>
+    (entries || []).filter(a => a.family === 'IPv4' && !a.internal)
+      .map(a => ({address:a.address, name, virtual:VIRTUAL_IFACE_RE.test(name)})))
+    .sort((a,b) => Number(a.virtual)-Number(b.virtual));
+  ipcMain.handle('locallink-web-share', async (event, request) => {
+    if (event.sender !== mainWindow?.webContents || event.senderFrame !== event.sender.mainFrame) return {ok:false};
+    if (request.action === 'state') return {ok:true, addresses:shareAddresses(), tls:require('./lib/browser-share').usesTLS(), session:browserShare && !browserShare.closed ? browserShare.snapshot() : null};
+    if (request.action === 'stop') { stopBrowserShare(); return {ok:true}; }
+    if (request.action === 'start') {
+      if (browserShare && !browserShare.closed) return {ok:true};
+      const generation = ++shareGeneration;
+      if (updatePreparing || !shareAddresses().some(row => row.address === request.address)) return {ok:false};
+      const share = await require('./lib/browser-share').startShare({
+        address:request.address, receiveDir, allowHttp:request.allowHttp === true,
+        onPaired() { if (!event.sender.isDestroyed()) event.sender.send('locallink-web-share-paired'); },
+        onStopped() { if (!event.sender.isDestroyed()) event.sender.send('locallink-web-share-ended'); },
+        record(row) {
+          globalDb.transfers.save(row);
+          if (!mainWindow?.isDestroyed()) mainWindow?.webContents.send('locallink-transfer-result', row);
+        }
+      });
+      if (generation !== shareGeneration || event.sender.isDestroyed()) { share.stop(); return {ok:false}; }
+      browserShare = share;
+      return {ok:true};
+    }
+    if (request.action === 'add') {
+      const share = browserShare;
+      if (!share || share.closed) return {ok:false};
+      const picked = await dialog.showOpenDialog(mainWindow,{properties:['openFile','multiSelections']});
+      if (share.closed || share !== browserShare) return {ok:false};
+      return {ok:true, files:await share.add(picked.filePaths)};
+    }
+    return {ok:false};
+  });
   function saveDeviceTrust(peerId, value) {
     globalDb.setSetting('locallink.trust.'+peerId,value);
     if(mainWindow&&!mainWindow.isDestroyed())mainWindow.webContents.send('locallink-trust-changed',{peerId});
@@ -1729,7 +1773,7 @@ app.whenReady().then(() => {
   ipcMain.handle('locallink-cancel-preparation', (_, peerId) => {
     folderPreparations.get(peerId)?.abort();
   });
-  const sendPaths=async(peerId,paths,pin,text)=>{
+  const sendPaths=async(peerId,paths,pin,text,onRegistered)=>{
     if(updatePreparing)return {ok:false,error:'Update in progress'};
     if(!localSendInstance)return {ok:false,error:llText('傳輸服務尚未啟動','传输服务尚未启动','Transport is not running')};
     const peer=localSendInstance.peers.get(peerId);
@@ -1769,7 +1813,10 @@ app.whenReady().then(() => {
       }
       controller.signal.throwIfAborted();
       if (lastPhase) notify({phase:'done'});
-      const records = await localSendInstance.sendBatch(peerId,prepared,{pin,text,onRegistered:file=>archives.delete(file)});
+      const records = await localSendInstance.sendBatch(peerId,prepared,{pin,text,onRegistered:file=>{
+        archives.delete(file);
+        onRegistered?.(file);
+      }});
       return {ok:true,records};
     } catch (error) {
       if (controller.signal.aborted) return {cancelled:true,preparationCancelled:true};
@@ -1844,21 +1891,29 @@ app.whenReady().then(() => {
   });
   ipcMain.handle('locallink-send-content',async(event,request)=>{
     if(updatePreparing)return {ok:false,error:'Update in progress'};
+    let temporaryFile;
     try{
-      const dir=path.join(app.getPath('userData'),'locallink-outbox');fs.mkdirSync(dir,{recursive:true});
-      const stamp=Date.now()+'-'+require('crypto').randomBytes(4).toString('hex');let dest;
+      const dir=path.join(app.getPath('userData'),'locallink-outbox');
+      const stamp=Date.now()+'-'+require('crypto').randomBytes(4).toString('hex');let dest,content;
       if(typeof request.text==='string'){
         if(localSendInstance?.peers.get(request.peerId)?.locallink?.messages===1)return {ok:true,record:await localSendInstance.sendMessage(request.peerId,request.text)};
         if(!request.text.trim()||Buffer.byteLength(request.text)>64*1024)throw new Error('Text must contain 1 byte to 64 KiB');
-        dest=path.join(dir,'Text-'+stamp+'.txt');fs.writeFileSync(dest,request.text,{flag:'wx'});
+        dest=path.join(dir,'Text-'+stamp+'.txt');content=request.text;
       }else{
         const ext={'image/png':'png','image/jpeg':'jpg','image/webp':'webp','image/gif':'gif'}[request.type];
         const bytes=Buffer.from(request.bytes||[]);
         if(!ext||!bytes.length||bytes.length>32*1024*1024)throw new Error('Paste an image up to 32 MiB');
-        dest=path.join(dir,'Image-'+stamp+'.'+ext);fs.writeFileSync(dest,bytes,{flag:'wx'});
+        dest=path.join(dir,'Image-'+stamp+'.'+ext);content=bytes;
       }
-      return sendPaths(request.peerId,[dest],null,request.text);
+      await fs.promises.mkdir(dir,{recursive:true});
+      const file=await fs.promises.open(dest,'wx');
+      temporaryFile=dest;
+      try { await file.writeFile(content); } finally { await file.close(); }
+      return await sendPaths(request.peerId,[dest],null,request.text,()=>{temporaryFile=undefined;});
     }catch(error){return {ok:false,error:error.message};}
+    finally {
+      if(temporaryFile)await fs.promises.unlink(temporaryFile).catch(error=>console.warn('Could not remove temporary content',error.message));
+    }
   });
   ipcMain.handle('locallink-preview-transfer',async(event,id)=>{
     const record=globalDb.transfers.get(id);
@@ -2343,6 +2398,7 @@ app.whenReady().then(() => {
 });
 
 app.on('before-quit', () => {
+  stopBrowserShare();
   isQuitting = true;
   if(localSendInstance)localSendInstance.stop();
   if (transferInstance) transferInstance.destroy();
