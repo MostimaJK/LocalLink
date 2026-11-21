@@ -943,6 +943,7 @@ window.SettingsModal = {
       window.orbitAPI.invoke('locallink-storage').then(showResult);
       content.querySelector('#ll-choose-directory').onclick=()=>window.orbitAPI.invoke('locallink-choose-directory').then(showResult);
       content.querySelector('#ll-open-directory').onclick=()=>window.orbitAPI.invoke('locallink-open-directory').then(showResult);
+      const manageTrust=document.createElement('button');manageTrust.type='button';manageTrust.id='ll-manage-trusted';manageTrust.textContent=t('管理可信裝置','管理可信设备','Manage trusted devices');manageTrust.onclick=()=>window.LocalLinkDevices.manageTrusted();receivingCard.querySelector('.ll-file-actions').appendChild(manageTrust);
       content.querySelector('#ll-rediscover').onclick=async()=>{
         window.orbitAPI.networkStart(window.store.getState().currentUser);
         const result=await window.orbitAPI.invoke('locallink-rediscover');showResult(result);

@@ -1550,11 +1550,16 @@ app.whenReady().then(() => {
           pair: async peer => {
             const result=await dialog.showMessageBox(mainWindow,{type:'question',title:'LocalLink',message:llText('配對此裝置？','配对此设备？','Pair this device?'),detail:peer.alias+'\n'+peer.ip+'\nSHA-256: '+peer.fingerprint,buttons:[llText('取消','取消','Cancel'),llText('配對','配对','Pair')],defaultId:0,cancelId:0});
             if(result.response!==1)return false;
-            globalDb.setSetting('locallink.trust.'+peer.id,{paired:true,autoReceive:false,alias:peer.alias});return true;
+            saveDeviceTrust(peer.id,{paired:true,autoReceive:false,alias:peer.alias});return true;
           },
           accept: async offer => {
-            if(offer.authenticatedPeerId&&globalDb.getSetting('locallink.trust.'+offer.authenticatedPeerId,{})?.autoReceive===true)return true;
-            const result = await dialog.showMessageBox(mainWindow, {type:'question',title:'LocalLink',message:llText('接收檔案？','接收文件？','Receive files?'),detail:offer.alias+' ('+offer.ip+')\n'+offer.files.map(f=>f.name+' · '+f.size+' bytes').join('\n')+'\n\n'+receiveDir(),buttons:[llText('拒絕','拒绝','Reject'),llText('接收','接收','Receive')],defaultId:0,cancelId:0,noLink:true});
+            const trusted=offer.authenticatedPeerId&&globalDb.getSetting('locallink.trust.'+offer.authenticatedPeerId,{});
+            if(trusted?.paired===true&&trusted.autoReceive===true)return true;
+            const result = await dialog.showMessageBox(mainWindow, {type:'question',title:'LocalLink',message:llText('接收檔案？','接收文件？','Receive files?'),detail:offer.alias+' ('+offer.ip+')\n'+offer.files.map(f=>f.name+' · '+f.size+' bytes').join('\n')+'\n\n'+receiveDir(),buttons:[llText('拒絕','拒绝','Reject'),llText('接收','接收','Receive')],defaultId:0,cancelId:0,noLink:true,...(trusted?.paired===true?{checkboxLabel:llText('以後自動接收此裝置的內容','以后自动接收此设备的内容','Automatically receive from this device in future'),checkboxChecked:false}:{})});
+            if(result.response===1&&result.checkboxChecked&&offer.authenticatedPeerId){
+              const current=globalDb.getSetting('locallink.trust.'+offer.authenticatedPeerId,{});
+              if(current.paired===true)saveDeviceTrust(offer.authenticatedPeerId,{...current,autoReceive:true});
+            }
             return result.response === 1;
           },
           result: record => {
@@ -1652,6 +1657,27 @@ app.whenReady().then(() => {
 
   const llText=(tw,cn,en)=>{const lang=globalDb.getSetting('locallink.language','en');return lang==='en'?en:lang==='zh-Hans'?cn:tw;};
   const receiveDir=()=>globalDb.getSetting('locallink.receiveDir',path.join(app.getPath('downloads'),'LocalLink'));
+  function saveDeviceTrust(peerId, value) {
+    globalDb.setSetting('locallink.trust.'+peerId,value);
+    if(mainWindow&&!mainWindow.isDestroyed())mainWindow.webContents.send('locallink-trust-changed',{peerId});
+  }
+  ipcMain.handle('locallink-list-trusted',()=>globalDb.db.prepare("SELECT key,value FROM settings WHERE key LIKE 'locallink.trust.%'").all().flatMap(row=>{
+    try{const value=JSON.parse(row.value);return value.paired===true?[{peerId:row.key.slice('locallink.trust.'.length),alias:value.alias||'',autoReceive:value.autoReceive===true}]:[];}catch{return [];}
+  }));
+  ipcMain.handle('locallink-set-trust',async(event,payload)=>{
+    if(!payload||typeof payload.peerId!=='string'||!['autoReceive','revoke'].includes(payload.action))return {ok:false,error:'Invalid trust request'};
+    const trust=globalDb.getSetting('locallink.trust.'+payload.peerId,{});
+    if(trust.paired!==true)return {ok:false,error:llText('請先配對此裝置','请先配对此设备','Pair this device first')};
+    if(payload.action==='autoReceive'){
+      if(typeof payload.enabled!=='boolean')return {ok:false,error:'Invalid permission'};
+      saveDeviceTrust(payload.peerId,{...trust,autoReceive:payload.enabled});
+    }else{
+      const answer=await dialog.showMessageBox(mainWindow,{type:'question',title:'LocalLink',message:llText('解除信任此裝置？','解除信任此设备？','Remove trust for this device?'),detail:trust.alias||payload.peerId,buttons:[llText('取消','取消','Cancel'),llText('解除信任','解除信任','Remove trust')],defaultId:0,cancelId:0});
+      if(answer.response!==1)return {cancelled:true};
+      saveDeviceTrust(payload.peerId,{});
+    }
+    return {ok:true};
+  });
   const sendPaths=async(peerId,paths,pin,text)=>{
     if(!localSendInstance)return {ok:false,error:llText('傳輸服務尚未啟動','传输服务尚未启动','Transport is not running')};
     const peer=localSendInstance.peers.get(peerId);
@@ -1673,12 +1699,12 @@ app.whenReady().then(() => {
     if(!trust.paired&&(!peer||peer.protocol!=='https'||peer.locallink?.messages!==1))return {ok:false,error:llText('需要新版 LocalLink 裝置','需要新版 LocalLink 设备','Requires a new LocalLink device')};
     if(trust.paired){
       const choice=await dialog.showMessageBox(mainWindow,{type:'question',title:'LocalLink',message:llText('已配對裝置','已配对设备','Paired device'),detail:peer.alias+'\nSHA-256: '+peer.fingerprint+'\n'+(trust.autoReceive?llText('自動接收已開啟','自动接收已开启','Automatic receive enabled'):llText('每次接收需確認','每次接收需确认','Each receive requires confirmation')),buttons:[llText('取消','取消','Cancel'),trust.autoReceive?llText('關閉自動接收','关闭自动接收','Disable automatic receive'):llText('授權自動接收','授权自动接收','Authorize automatic receive'),llText('撤銷配對','撤销配对','Revoke pairing')],defaultId:0,cancelId:0});
-      if(choice.response===1)globalDb.setSetting(key,{...trust,autoReceive:!trust.autoReceive});
-      if(choice.response===2)globalDb.setSetting(key,{});return {ok:true};
+      if(choice.response===1)saveDeviceTrust(peerId,{...trust,autoReceive:!trust.autoReceive});
+      if(choice.response===2)saveDeviceTrust(peerId,{});return {ok:true};
     }
     const choice=await dialog.showMessageBox(mainWindow,{type:'question',title:'LocalLink',message:llText('向此裝置請求配對？','向此设备请求配对？','Request pairing?'),detail:peer.alias+'\nSHA-256: '+peer.fingerprint,buttons:[llText('取消','取消','Cancel'),llText('請求配對','请求配对','Request pairing')],defaultId:0,cancelId:0});
     if(choice.response!==1)return {cancelled:true};
-    try{const result=await localSendInstance.request(peer,'locallink-pair',{info:localSendInstance.info()});if(result.paired!==true)throw new Error('Pairing was not confirmed');globalDb.setSetting(key,{paired:true,autoReceive:false,alias:peer.alias});return {ok:true};}catch(error){return {ok:false,error:error.message};}
+    try{const result=await localSendInstance.request(peer,'locallink-pair',{info:localSendInstance.info()});if(result.paired!==true)throw new Error('Pairing was not confirmed');saveDeviceTrust(peerId,{paired:true,autoReceive:false,alias:peer.alias});return {ok:true};}catch(error){return {ok:false,error:error.message};}
   });
   ipcMain.handle('locallink-send-selected', async(event,peerId)=>{
     const pick=await dialog.showOpenDialog(mainWindow,{properties:['openFile','multiSelections']});

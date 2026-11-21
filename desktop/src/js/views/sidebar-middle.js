@@ -1885,7 +1885,7 @@ window.SidebarMiddle = {
             window.ContextMenu.show(e.clientX,e.clientY,[
               {label:devices.isFavorite(friend)?t('取消收藏','取消收藏','Remove favorite'):t('收藏裝置','收藏设备','Favorite device'),icon:'star',onClick:()=>devices.toggleFavorite(friend)},
               {label:t('裝置資訊與備註','设备信息与备注','Device details and alias'),icon:'monitor-smartphone',onClick:()=>devices.edit(friend)},
-              {label:t('配對與接收授權','配对与接收授权','Pairing and receive permission'),icon:'shield-check',onClick:async()=>{const result=await window.orbitAPI.invoke('locallink-manage-trust',id);if(result.error)window.Toast?.show('LocalLink',result.error,'error');}},
+              {label:t('配對與接收授權','配对与接收授权','Pairing and receive permission'),icon:'shield-check',onClick:()=>devices.edit(friend)},
               'separator',
               {label:'Copy ID',icon:'copy',onClick:async()=>{try{await navigator.clipboard.writeText(id);window.Toast?.show('LocalLink',t('已複製裝置 ID','已复制设备 ID','Device ID copied'));}catch{window.Toast?.show('LocalLink',t('複製失敗','复制失败','Copy failed'),'error');}}}
             ]);return;

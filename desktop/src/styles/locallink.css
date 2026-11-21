@@ -175,6 +175,13 @@ html[data-theme="light"] .ll-history-date input { color-scheme:light; }
 .ll-switch:checked { background:var(--accent-primary); }
 .ll-switch:checked::after { transform:translateX(16px); }
 .ll-switch:focus-visible { outline:2px solid var(--accent-primary);outline-offset:3px; }
+.ll-icon-button.ll-trusted, .ll-device-trust h3.ll-trusted { color:#168bff; }
+.ll-icon-button.ll-trusted { background:rgba(22,139,255,.14); }
+.ll-device-trust { margin-top:20px;padding-top:16px;border-top:1px solid var(--border-subtle); }
+.ll-device-trust h3 { display:flex;align-items:center;gap:8px;font-size:15px; }
+.ll-device-trust h3 svg { width:20px;height:20px; }
+.ll-device-trust .ll-file-actions { justify-content:flex-end; }
+#device-details-dialog,#ll-trusted-dialog { max-height:85vh;overflow-y:auto; }
 @media (prefers-reduced-motion:reduce) { .ll-switch,.ll-switch::after { transition:none; } }
 
 #btn-nav-dms svg { fill:none; }

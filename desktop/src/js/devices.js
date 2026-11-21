@@ -45,6 +45,54 @@ window.LocalLinkDevices = {
     }
     return value.trim();
   },
+  trust(peerId) { return window.orbitAPI.dbGetSetting('locallink.trust.'+peerId,{})||{}; },
+  refreshTrust() {
+    const t=window.LocalSendPanel.text.bind(window.LocalSendPanel);
+    document.querySelectorAll('[data-trust-shield]').forEach(button=>{
+      const state=this.trust(button.dataset.trustShield),paired=state.paired===true;
+      button.classList.toggle('ll-trusted',paired);
+      button.title=paired?(state.autoReceive?t('已信任 · 自動接收','已信任 · 自动接收','Trusted · Automatic receive'):t('已信任 · 接收需確認','已信任 · 接收需确认','Trusted · Ask before receiving')):t('尚未信任 · 配對裝置','尚未信任 · 配对设备','Not trusted · Pair device');
+      button.setAttribute('aria-label',button.title);
+    });
+    document.querySelectorAll('[data-trust-editor]').forEach(section=>this.renderTrust(section,section._peer));
+  },
+  renderTrust(section,peer) {
+    const t=window.LocalSendPanel.text.bind(window.LocalSendPanel),state=this.trust(peer.userId),paired=state.paired===true;
+    section.dataset.trustEditor=peer.userId;section._peer=peer;section.className='ll-device-trust';
+    section.innerHTML=`<h3 class="${paired?'ll-trusted':''}"><i data-lucide="shield-check"></i>${paired?t('已信任的裝置','已信任的设备','Trusted device'):t('尚未配對','尚未配对','Not paired')}</h3>
+      <p class="ll-settings-copy">${t('僅控制本機接收對方內容的權限，收藏不代表信任。','仅控制本机接收对方内容的权限，收藏不代表信任。','Controls what this computer receives. Favorites do not grant trust.')}</p>
+      ${paired?`<label class="ll-setting-row">${t('自動接收此裝置的內容','自动接收此设备的内容','Automatically receive from this device')}<input class="ll-switch" type="checkbox" role="switch" data-auto-receive ${state.autoReceive?'checked':''}></label>`:''}
+      <div class="ll-file-actions"><button type="button" data-trust-action>${paired?t('解除信任','解除信任','Remove trust'):t('配對此裝置','配对此设备','Pair this device')}</button></div><p role="status" class="ll-settings-copy"></p>`;
+    const action=section.querySelector('[data-trust-action]');
+    action.disabled=!paired&&!this.isNearby(peer);
+    const run=async(channel,payload)=>{
+      section.querySelectorAll('button,input').forEach(el=>el.disabled=true);
+      try{
+        const result=await window.orbitAPI.invoke(channel,payload);
+        if(section.isConnected){this.renderTrust(section,peer);if(result.error)section.querySelector('[role="status"]').textContent=result.error;}
+      }catch(error){if(section.isConnected){this.renderTrust(section,peer);section.querySelector('[role="status"]').textContent=error.message;}}
+    };
+    action.onclick=()=>run(paired?'locallink-set-trust':'locallink-manage-trust',paired?{peerId:peer.userId,action:'revoke'}:peer.userId);
+    const toggle=section.querySelector('[data-auto-receive]');
+    if(toggle)toggle.onchange=()=>run('locallink-set-trust',{peerId:peer.userId,action:'autoReceive',enabled:toggle.checked});
+    window.lucide.createIcons({root:section});
+  },
+  async manageTrusted() {
+    if(document.getElementById('ll-trusted-dialog'))return;
+    const t=window.LocalSendPanel.text.bind(window.LocalSendPanel);
+    const dialog=document.createElement('dialog');dialog.id='ll-trusted-dialog';dialog.className='ll-connect-dialog';
+    dialog.innerHTML=`<button type="button" class="ll-dialog-close" aria-label="${t('關閉','关闭','Close')}">×</button><h2>${t('可信裝置','可信设备','Trusted devices')}</h2><div role="status"></div>`;
+    dialog.querySelector('button').onclick=()=>dialog.close();dialog.onclose=()=>dialog.remove();document.body.appendChild(dialog);dialog.showModal();
+    try{
+      const peers=await window.orbitAPI.invoke('locallink-list-trusted');if(!dialog.isConnected)return;
+      dialog.querySelector('[role="status"]').textContent=peers.length?'':t('尚無可信裝置','暂无可信设备','No trusted devices yet');
+      for(const item of peers){
+        const section=document.createElement('section'),heading=document.createElement('h3');
+        const peer=window.store.getState().friends.find(p=>p.userId===item.peerId)||{userId:item.peerId,username:item.alias||item.peerId};
+        heading.textContent=this.name(peer);dialog.appendChild(heading);dialog.appendChild(section);this.renderTrust(section,peer);
+      }
+    }catch(error){dialog.querySelector('[role="status"]').textContent=error.message;}
+  },
   edit(peer) {
     if (document.getElementById('device-details-dialog')) return;
     const meta = this.get(peer);
@@ -63,6 +111,9 @@ window.LocalLinkDevices = {
     dialog.querySelector('#device-reported-name').style.cssText='color:var(--text-secondary);margin-bottom:20px';
     dialog.querySelector('#device-alias').value = meta.alias || '';
     dialog.querySelector('#device-type').value = meta.type || 'unknown';
+    if(peer.userId.startsWith('localsend:')){
+      const section=document.createElement('section');dialog.querySelector('#device-error').before(section);this.renderTrust(section,peer);
+    }
     dialog.querySelector('#device-save').onclick = () => {
       try {
         const raw = dialog.querySelector('#device-alias').value;
@@ -94,6 +145,7 @@ document.addEventListener('click', function(event) {
 
 // LAN sightings are session-only, distinct from persisted history and favorites.
 if (window.orbitAPI) window.orbitAPI.on('locallink-lan-seen', peer => window.LocalLinkDevices.observe(peer));
+if (window.orbitAPI) window.orbitAPI.on('locallink-trust-changed',()=>window.LocalLinkDevices.refreshTrust());
 setInterval(() => {
   if (!window.store || !window.store.getState().currentUser) return;
   let expired = false;

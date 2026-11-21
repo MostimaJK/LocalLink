@@ -124,7 +124,7 @@ window.LocalSendPanel = {
    catch(error){this.feedback.set(peer.userId,error.message);}
    finally{this.busy.delete(peer.userId);if(stillActive())this.render(peer,host);}
   };
-  const trust=document.createElement('button');trust.className='ll-icon-button';trust.title=t('配對與接收授權','配对与接收授权','Pairing and receive permission');trust.setAttribute('aria-label',trust.title);trust.innerHTML=icon('shield-check');trust.disabled=!nearby&&!window.orbitAPI.dbGetSetting('locallink.trust.'+peer.userId,{})?.paired;trust.onclick=()=>run('locallink-manage-trust',peer.userId);host.querySelector('#localsend-send').before(trust);
+  const trust=document.createElement('button');trust.className='ll-icon-button';trust.id='ll-trust-shield';trust.dataset.trustShield=peer.userId;trust.innerHTML=icon('shield-check');trust.onclick=()=>window.LocalLinkDevices.edit(peer);host.querySelector('#localsend-send').before(trust);window.lucide.createIcons({root:trust});window.LocalLinkDevices.refreshTrust();
   host.querySelector('#ll-open-receive-folder').onclick=async()=>{
    try{const result=await window.orbitAPI.invoke('locallink-open-directory');if(!result.ok)throw new Error(result.error||t('無法開啟資料夾','无法打开文件夹','Could not open folder'));}
    catch(error){this.feedback.set(peer.userId,error.message);if(stillActive())host.querySelector('#localsend-feedback').textContent=error.message;}
