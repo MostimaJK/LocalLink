@@ -15878,7 +15878,7 @@ vBlock('0.8.7-beta', '', [
     });
 
     // Listen for messages
-    var _handleP2PPacketData = function(data, _pre) { try {
+    var _handleP2PPacketData = async function(data, _pre) { try {
       var packet = _pre;
       if (!packet) {
         if (!data || !data.data) {
@@ -16326,7 +16326,8 @@ vBlock('0.8.7-beta', '', [
           return;
         }
         var totalChunks = Math.min(packet.payload.totalChunks || 0, MAX_RECEIVE_CHUNKS);
-        if (totalChunks <= 0) return;
+        if (!Number.isInteger(totalChunks) || totalChunks < 0 ||
+            (totalChunks === 0 && (packet.payload.totalChunks !== 0 || packet.payload.fileSize !== 0))) return;
         window.activeTransfers = window.activeTransfers || {};
         var _startFileId = packet.payload.fileId;
         var _existingTx = window.activeTransfers[_startFileId];
@@ -16478,6 +16479,7 @@ vBlock('0.8.7-beta', '', [
           return;
         }
         if (txEnd) {
+          if (txEnd.verifying || (txEnd.senderId && txEnd.senderId !== msgFrom)) return;
           // Validate all chunks received before assembly (MSG-8)
           var allReceived = true;
           for (var ci = 0; ci < txEnd.chunks.length; ci++) {
@@ -16509,25 +16511,31 @@ vBlock('0.8.7-beta', '', [
             _mergedBuf.set(new Uint8Array(_chunkBufs[_c2]), _off);
             _off += _chunkBufs[_c2].byteLength;
           }
-          // N5: verify the sender's full-file hash against the assembled bytes.
-          // Non-fatal — a mismatch only warns and the file is still saved
-          // (mirrors desktop's handleEnd; desktop only discards on a
-          // resumed-transfer mismatch). Fire-and-forget: the async digest
-          // resolves after the synchronous save path below, so it never
-          // reorders or blocks it.
-          if (txEnd.hash) {
+          const hashes = [txEnd.hash, packet.payload.hash].filter(Boolean);
+          if (hashes.length) {
+            txEnd.verifying = true;
+            let verified = false;
             try {
-              crypto.subtle.digest('SHA-256', _mergedBuf.buffer).then(function(_hashBuf) {
-                var _hashHex = Array.from(new Uint8Array(_hashBuf)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
-                if (_hashHex.toLowerCase() !== String(txEnd.hash).toLowerCase()) {
-                  console.warn('[P2P] File hash mismatch for', txEnd.fileName, '— expected', txEnd.hash, 'actual', _hashHex, '— saving anyway (non-fatal)');
-                }
-              }).catch(function(err) {
-                console.warn('[P2P] File hash verification failed for', txEnd.fileName, err);
-              });
-            } catch(e) {
-              console.warn('[P2P] File hash verification unavailable for', txEnd.fileName, e);
+              const digest = await crypto.subtle.digest('SHA-256', _mergedBuf);
+              const hex = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+              verified = hashes.every(hash => hex === String(hash).toLowerCase());
+            } catch (error) {
+              console.warn('[P2P] File verification failed', error);
             }
+            if (window.activeTransfers[packet.payload.fileId] !== txEnd) return;
+            if (!verified) {
+              delete window.activeTransfers[packet.payload.fileId];
+              delete window._resumeExpectedReceives[packet.payload.fileId];
+              window.BlobStoreDB.partialDelete(packet.payload.fileId).catch(console.warn);
+              showToast('File integrity check failed. Please ask the sender to resend.', 'warning');
+              Orbit.P2P.send(msgFrom, Orbit.Protocol.createPacket(
+                Orbit.Protocol.Types.FILE_TRANSFER_CANCEL, MStore.user.id, msgFrom,
+                { fileId: packet.payload.fileId, error: 'File integrity check failed' }
+              ));
+              return;
+            }
+          } else {
+            showToast(txEnd.fileName + ' — received without checksum', 'info');
           }
           var extMatch = txEnd.fileName.match(/\.(png|jpe?g|gif|webp|svg|tiff?|bmp|heic|heif|avif)$/i);
           // NOTE: .webm intentionally only in videoMatch — do NOT add to audioMatch

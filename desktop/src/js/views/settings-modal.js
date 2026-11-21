@@ -37,10 +37,9 @@ window.SettingsModal = {
     this.container.style.cssText = 'display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:9999;align-items:center;justify-content:center;';
     document.body.appendChild(this.container);
     this.render();
-    // Live network-map refresh (Settings → Network tab). Skips itself while
-    // the modal is closed or the canvas is hidden, so it's idle-cheap.
     var self = this;
-    setInterval(function() { self._drawNetworkMap(); }, 250);
+    document.addEventListener('visibilitychange', () => this._syncNetworkMapTimer());
+    window.orbitAPI.on('locallink-window-visible', visible => {this._windowVisible = visible;this._syncNetworkMapTimer();});
     this.container.addEventListener('keydown',e=>{
       if(e.key==='Escape'&&!window.LocalLinkSelect.active){e.preventDefault();e.stopPropagation();this.close();}
       if(e.key==='Tab'){
@@ -200,6 +199,7 @@ window.SettingsModal = {
   },
 
   renderGeneral() {
+    this._stopNetworkMap();
     window.LocalLinkSelect.close();
     const content = this.container.querySelector('#settings-content');
     const draft = content.querySelector('#input-username');
@@ -236,12 +236,23 @@ window.SettingsModal = {
     if (languageCard) heading.after(languageCard);
     if (receivingCard) languageCard.after(receivingCard);
     if (accountSection && networkSection) networkSection.before(accountSection);
+    const t = window.LocalSendPanel.text;
+    const behavior = document.createElement('section');
+    behavior.className = 'll-settings-card';
+    behavior.innerHTML = `<div class="ll-settings-card-head"><i data-lucide="app-window"></i>${t('視窗行為','窗口行为','Window behavior')}</div><div class="ll-settings-card-body"><label class="ll-setting-row" for="ll-run-in-background">${t('關閉視窗後在背景執行','关闭窗口后在后台运行','Keep running after closing the window')}<input id="ll-run-in-background" type="checkbox" role="switch" class="ll-switch" aria-describedby="ll-background-help"></label><p id="ll-background-help" class="ll-settings-copy">${t('關閉時，點擊 × 會完全退出程式，並中斷進行中的傳輸與通話。開啟後則縮小至系統匣，繼續接收檔案。','关闭时，点击 × 会完全退出程序，并中断进行中的传输与通话。开启后则隐藏到托盘，继续接收文件。','When off, × quits the app and interrupts active transfers and calls. When on, it hides to the system tray and keeps receiving files.')}</p></div>`;
+    const background = behavior.querySelector('#ll-run-in-background');
+    background.checked = window.orbitAPI.dbGetSetting('locallink.runInBackground', false) === true;
+    background.onchange = () => window.orbitAPI.dbSetSetting('locallink.runInBackground', background.checked);
+    const historyCard = content.querySelector('#ll-show-history')?.closest('section');
+    if (historyCard) historyCard.after(behavior); else content.appendChild(behavior);
     if (adapterCard) content.appendChild(adapterCard);
     window.lucide.createIcons({root: content});
     content.scrollTop = 0;
+    this._syncNetworkMapTimer();
   },
 
   renderTab(tabName, target) {
+    if (!target) this._stopNetworkMap();
     if(!target&&['account','network','notifications','data','general'].includes(tabName)){this.renderGeneral();return;}
     window.LocalLinkSelect.close();
     var content = target || this.container.querySelector('#settings-content');
@@ -919,8 +930,9 @@ window.SettingsModal = {
       content.querySelector('#ll-upload-limit').onchange = saveBandwidth;
       content.querySelector('#ll-download-limit').onchange = saveBandwidth;
       const adapterCard=document.createElement('section');adapterCard.className='ll-settings-card';
-      adapterCard.innerHTML=`<div class="ll-settings-card-head"><i data-lucide="network"></i>${t('網卡與鏈路速度','网卡与链路速度','Network adapters and link speed')}</div><div class="ll-settings-card-body">
-        <p class="ll-settings-copy">${t('查看目前連線的理論上限；不是實際傳輸速度。虛擬網卡不代表物理頻寬；多張網卡的速度不會相加。','查看当前连接的理论上限；不是实际传输速度。虚拟网卡不代表物理带宽；多张网卡的速度不会相加。','Current link ceilings, not measured transfer speed. Virtual links do not represent physical bandwidth; adapter speeds do not add up.')}</p>
+      const macInterfaces=window.orbitAPI.platform==='darwin';
+      adapterCard.innerHTML=`<div class="ll-settings-card-head"><i data-lucide="network"></i>${macInterfaces?t('本機網路位址','本机网络地址','Local network addresses'):t('網卡與鏈路速度','网卡与链路速度','Network adapters and link speed')}</div><div class="ll-settings-card-body">
+        <p class="ll-settings-copy">${macInterfaces?t('手動連線時，在另一部裝置輸入這台 Mac 的區域網路位址。','手动连接时，在另一台设备输入这台 Mac 的局域网地址。','To connect manually, enter this Mac’s LAN address on the other device.'):t('查看目前連線的理論上限；不是實際傳輸速度。虛擬網卡不代表物理頻寬；多張網卡的速度不會相加。','查看当前连接的理论上限；不是实际传输速度。虚拟网卡不代表物理带宽；多张网卡的速度不会相加。','Current link ceilings, not measured transfer speed. Virtual links do not represent physical bandwidth; adapter speeds do not add up.')}</p>
         <div id="ll-adapters-result" role="status">${t('按下檢測以讀取本機網卡資訊。','点击检测读取本机网卡信息。','Check to read this computer’s adapter information.')}</div>
         <div class="ll-file-actions"><button id="ll-check-adapters">${t('檢測網卡','检测网卡','Check adapters')}</button></div></div>`;
       speedCard.after(adapterCard);
@@ -929,9 +941,10 @@ window.SettingsModal = {
         button.disabled=true;result.textContent=t('正在檢測…','正在检测…','Checking…');
         try{
           const info=await window.orbitAPI.invoke('locallink-network-adapters');
-          if(!info.ok){result.textContent=info.reason==='unsupported'?t('目前僅支援 Windows 鏈路檢測。','目前仅支持 Windows 链路检测。','Link detection currently supports Windows only.'):t('無法讀取網卡，請稍後重試。','无法读取网卡，请稍后重试。','Unable to read adapters. Please try again.');return;}
+          if(!info.ok){result.textContent=info.reason==='unsupported'?t('此平台暫不支援網卡檢測。','此平台暂不支持网卡检测。','Adapter detection is unavailable on this platform.'):t('無法讀取網卡，請稍後重試。','无法读取网卡，请稍后重试。','Unable to read adapters. Please try again.');return;}
           const speed=bps=>bps?`${(bps/1000000).toLocaleString()} Mbps ≈ ${(bps/8000000).toLocaleString(undefined,{maximumFractionDigits:2})} MB/s`:t('未知','未知','Unknown');
           result.innerHTML=info.adapters.map(adapter=>{
+            if(info.addressesOnly)return `<div><strong>${esc(adapter.name)}</strong><p class="ll-settings-copy selectable">${esc(adapter.description)}</p></div>`;
             const kind=adapter.kind==='wifi'?t('無線','无线','Wi-Fi'):adapter.kind==='ethernet'?t('有線','有线','Ethernet'):adapter.kind==='virtual'?t('虛擬網卡','虚拟网卡','Virtual adapter'):t('其他','其他','Other');
             return `<div style="padding:12px 0;border-bottom:1px solid var(--border-subtle)"><strong>${esc(adapter.name)}</strong> · ${kind} · ${adapter.connected?t('已連線','已连接','Connected'):t('未連線','未连接','Disconnected')}<p class="ll-settings-copy">${esc(adapter.description)}</p>${adapter.connected?`<div>${t('傳送','发送','Send')}: ${speed(adapter.sendBps)}</div><div>${t('接收','接收','Receive')}: ${speed(adapter.receiveBps)}</div>`:''}</div>`;
           }).join('')||t('未找到網卡。','未找到网卡。','No adapters found.');
@@ -1110,6 +1123,8 @@ window.SettingsModal = {
             window.SettingsModal._drawNetworkMap();
           }
         });
+        this._mapResizeObserver?.disconnect();
+        this._mapResizeObserver = ro;
         ro.observe(canvasContainer);
       }
 
@@ -1523,7 +1538,7 @@ window.SettingsModal = {
       content.innerHTML=`<h3 class="ll-settings-title">${t('診斷','诊断','Diagnostics')}</h3><section class="ll-settings-card"><div class="ll-settings-card-head"><i data-lucide="network"></i>LocalSend</div><div class="ll-settings-card-body"><dl class="ll-about-facts"><div><dt>${t('服務狀態','服务状态','Service status')}</dt><dd id="ll-diagnostic-status"></dd></div><div><dt>IP</dt><dd id="ll-diagnostic-addresses"></dd></div><div><dt>${t('接收埠','接收端口','Receive port')}</dt><dd id="ll-diagnostic-port"></dd></div></dl><button class="ll-primary-button" id="ll-diagnostic-retry">${t('重試連線','重试连接','Retry connection')}</button></div></section>`;
       const load=()=>window.orbitAPI.invoke('locallink-diagnostics').then(result=>{
         if(!content.querySelector('#ll-diagnostic-status'))return;
-        content.querySelector('#ll-diagnostic-status').textContent=result.running?t('運作中','运行中','Running'):result.error||t('尚未啟動','尚未启动','Not running');
+        content.querySelector('#ll-diagnostic-status').textContent=result.discoveryError?t('可手動連線，附近裝置探索暫不可用。','可手动连接，附近设备发现暂不可用。','Manual connections available. Nearby discovery is unavailable.'):result.running?t('運作中','运行中','Running'):result.error||t('尚未啟動','尚未启动','Not running');
         content.querySelector('#ll-diagnostic-addresses').textContent=result.addresses.join(', ');
         content.querySelector('#ll-diagnostic-port').textContent=result.port||'—';
       });load();
@@ -2374,7 +2389,7 @@ window.SettingsModal = {
         <div class="ll-about-brand"><span class="ll-about-mark"><i data-lucide="link"></i></span><div><h2>LocalLink</h2><p>${t('開發版','开发版','Development build')} · ${esc(version)}</p></div></div>
         <p class="ll-about-description">${t('個人裝置之間的檔案傳輸工具','个人设备之间的文件传输工具','File sharing across your devices')}</p>
         <section class="ll-settings-card"><div class="ll-settings-card-head"><i data-lucide="package"></i>${t('版本資訊','版本信息','Build information')}</div>
-          <div class="ll-settings-card-body"><dl class="ll-about-facts"><div><dt>${t('更新渠道','更新渠道','Updates')}</dt><dd>GitHub · MostimaJK/LocalLink</dd></div><div><dt>${t('檔案傳輸','文件传输','File transfer')}</dt><dd>LocalSend ${t('協定預覽','协议预览','protocol preview')}</dd></div></dl>
+          <div class="ll-settings-card-body"><dl class="ll-about-facts"><div><dt>${t('更新渠道','更新渠道','Updates')}</dt><dd>GitHub · MostimaJK/LocalLink</dd></div><div><dt>${t('檔案傳輸','文件传输','File transfer')}</dt><dd>LocalSend ${t('協定','协议','protocol')}</dd></div></dl>
           <label class="ll-setting-row" style="margin-top:20px">${t('啟動後檢查更新','启动后检查更新','Check for updates after startup')}<input type="checkbox" role="switch" id="ll-auto-update"></label>
           <div class="ll-file-actions" style="margin-top:20px"><button class="ll-action-button" id="settings-btn-check-update">${t('檢查更新','检查更新','Check for updates')}</button></div></div>
 
@@ -2396,7 +2411,7 @@ window.SettingsModal = {
     if(tabName==='network') {
       const section=document.createElement('section');section.className='ll-settings-card';
       section.innerHTML=`<div class="ll-settings-card-head">${t('進階連線選項','高级连接选项','Advanced connection options')}</div><div class="ll-settings-card-body">
-        <div class="ll-setting-row"><label for="transport-mode">${t('傳輸協定','传输协议','Transport')}</label><select class="ll-field" id="transport-mode"><option value="localsend">LocalSend ${t('（預覽）','（预览）','(preview)')}</option><option value="orbit">${t('舊版連線（支援通話）','旧版连接（支持通话）','Legacy connection (calls)')}</option></select></div>
+        <div class="ll-setting-row"><label for="transport-mode">${t('傳輸協定','传输协议','Transport')}</label><select class="ll-field" id="transport-mode"><option value="localsend">LocalSend</option><option value="orbit">${t('舊版連線（支援通話）','旧版连接（支持通话）','Legacy connection (calls)')}</option></select></div>
         <p class="ll-settings-copy" style="margin:12px 0 0">${t('變更後重新啟動生效','更改后重启生效','Restart to apply changes')}</p><p id="transport-save-msg" class="ll-settings-copy" role="status"></p>
       </div>`;
       content.appendChild(section);
@@ -2411,7 +2426,21 @@ window.SettingsModal = {
       const body=header.nextElementSibling;if(body?.classList.contains('collapsible-body'))body.style.display='block';
     });
     window.LocalLinkSelect.enhance(content);
+    if (!target) this._syncNetworkMapTimer();
 
+  },
+
+  _stopNetworkMap() {
+    clearInterval(this._networkMapTimer);this._networkMapTimer = null;
+    this._mapResizeObserver?.disconnect();this._mapResizeObserver = null;
+  },
+
+  _syncNetworkMapTimer() {
+    clearInterval(this._networkMapTimer);this._networkMapTimer = null;
+    const canvas = this.container?.querySelector('#network-map-canvas');
+    if (!this.isOpen || this._windowVisible === false || document.hidden || !canvas || canvas.offsetParent === null) return;
+    this._drawNetworkMap();
+    this._networkMapTimer = setInterval(() => this._drawNetworkMap(), 250);
   },
 
   // Stable per-string hash → deterministic node placement across redraws
@@ -2610,6 +2639,7 @@ window.SettingsModal = {
   },
 
   close() {
+    this._stopNetworkMap();
     window.LocalLinkSelect.close();
     const draft=this.container.querySelector('#input-username');if(draft)this.accountDraft=draft.value;
     // Save active tab

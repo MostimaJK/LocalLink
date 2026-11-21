@@ -26,7 +26,14 @@ test('trust shield, receiver permission, persistence and offline revocation',asy
   await page.evaluate(()=>window.SettingsModal.open('account'));
   await page.locator('#ll-manage-trusted').click();
   await expect(page.locator('#ll-trusted-dialog')).toContainText('My laptop');
-  await page.locator('#ll-trusted-dialog [data-auto-receive]').uncheck();
+  const toggle=page.locator('#ll-trusted-dialog [data-auto-receive]');
+  await expect(toggle).toHaveCSS('width','40px');await expect(toggle).toHaveCSS('height','24px');
+  await expect(toggle).toHaveCSS('background-color','rgb(10, 132, 255)');
+  await toggle.uncheck();
+  await expect(toggle).toHaveCSS('width','40px');
+  await toggle.focus();await page.keyboard.press('Space');await expect(toggle).toBeChecked();
+  await toggle.uncheck();
+  await page.screenshot({path:require('path').resolve('.agent/trust-switch-fixed.png')});
   await expect(page.locator('#ll-trust-shield')).toHaveAttribute('aria-label','Trusted · Ask before receiving');
   await app.evaluate(({dialog})=>{dialog.showMessageBox=async()=>({response:1});});
   await page.locator('#ll-trusted-dialog [data-trust-action]').click();

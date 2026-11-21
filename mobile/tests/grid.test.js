@@ -12,7 +12,7 @@
 //   4  2x2                               container 1:1
 //   5+ 2x2 with a "+N" on the last tile
 const H = require('./harness.js');
-const sharp = require('C:/Users/KHAC DUY/Desktop/Orbit Beta/desktop/node_modules/sharp');
+const sharp = require('../../desktop/node_modules/sharp');
 
 const make = async (w, h, rgb) => {
   const buf = await sharp({ create: { width: w, height: h, channels: 3, background: rgb } })

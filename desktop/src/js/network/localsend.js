@@ -41,15 +41,43 @@ class LocalSend {
   this.port=this.server.address().port;
   this.server.on('connection',socket=>{this.sockets.add(socket);socket.on('close',()=>this.sockets.delete(socket));});
   this.cleanup=setInterval(()=>this.sweep(),this.opts.cleanupIntervalMs||5000);
-  if(this.opts.discovery!==false){
-   this.udp=dgram.createSocket({type:'udp4',reuseAddr:true});
-   this.udp.on('error',error=>this.opts.error?.(error.message));
-   this.udp.on('message',(bytes,r)=>{if(bytes.length>65536)return;try{const p=JSON.parse(bytes);this.observe(p,r.address);if(p.announce===true&&p.fingerprint!==this.fingerprint)this.announce(false);}catch{}});
-   await new Promise((resolve,reject)=>{this.udp.once('error',reject);this.udp.bind(53317,resolve);});
-   this.interfaces=new Set();this.refreshInterfaces();this.udp.setMulticastTTL(1);this.announce(true);
-   this.beacons=setInterval(()=>this.announce(true),10000);
-  }
+  // Receiving and manual registration only need HTTPS. Keep them available
+  // when multicast is unavailable, and let Discover again retry the bind.
+  await this.rediscover().catch(()=>{});
+  if(this.closed)throw new Error('Transport stopped');
   return this.info();
+ }
+ async rediscover(){
+  if(this.opts.discovery===false)return;
+  if(this.closed)throw new Error('Transport stopped');
+  if(this.discoveryStarting)return this.discoveryStarting;
+  if(this.udp)return this.announce(true);
+  this.discoveryStarting=this.startDiscovery();
+  try{await this.discoveryStarting;}finally{this.discoveryStarting=null;}
+ }
+ async startDiscovery(){
+  const socket=dgram.createSocket({type:'udp4',reuseAddr:true});
+  try{
+   await new Promise((resolve,reject)=>{
+    socket.once('error',reject);
+    socket.bind(this.opts.discoveryPort??53317,()=>{socket.removeListener('error',reject);resolve();});
+   });
+   if(this.closed)throw new Error('Transport stopped');
+   socket.on('error',error=>this.opts.error?.(error.message));
+   this.udp=socket;
+   this.interfaces=new Set();
+   socket.setMulticastTTL(1);
+   socket.on('message',(bytes,r)=>{if(bytes.length>65536)return;try{const p=JSON.parse(bytes);this.observe(p,r.address);if(p.announce===true&&p.fingerprint!==this.fingerprint)this.announce(false);}catch{}});
+   await this.announce(true);
+   if(this.closed)throw new Error('Transport stopped');
+   this.discoveryError=null;
+   this.beacons=setInterval(()=>this.announce(true),10000);
+  }catch(error){
+   this.udp=null;
+   this.discoveryError=error.message;
+   try{socket.close();}catch{}
+   throw error;
+  }
  }
  refreshInterfaces(){
   const addresses=new Set(Object.values(os.networkInterfaces()).flat().filter(a=>a.family==='IPv4'&&!a.internal).map(a=>a.address));
@@ -65,7 +93,7 @@ class LocalSend {
    // the previous datagram has actually been submitted to the operating system.
    for(const ip of [...this.interfaces]){
     if(this.closed)break;
-    try{this.udp.setMulticastInterface(ip);await new Promise((resolve,reject)=>this.udp.send(bytes,53317,'224.0.0.167',error=>error?reject(error):resolve()));}
+    try{this.udp.setMulticastInterface(ip);await new Promise((resolve,reject)=>this.udp.send(bytes,this.opts.discoveryPort??53317,'224.0.0.167',error=>error?reject(error):resolve()));}
     catch(error){this.opts.error?.(error.message);}
    }
   }finally{this.announcing=false;}
@@ -253,7 +281,7 @@ class LocalSend {
   const batch={peerId,controller:new AbortController()};const signal=batch.controller.signal;
   const batchStartedAt=Date.now();
   const tasks=paths.map((filePath,index)=>({id:crypto.randomUUID(),peerId,name:path.basename(filePath),size:0,path:filePath,direction:'outgoing',startedAt:batchStartedAt+index,bytes:0,...(options.text!=null?{kind:'text',text:options.text}:{})}));
-  tasks.forEach(t=>{this.outgoing.set(t.id,batch);this.publish(t,'queued');});
+  tasks.forEach(t=>{this.outgoing.set(t.id,batch);this.publish(t,'queued');options.onRegistered?.(t.path);});
   let peer,prepared;
   try{
    peer=this.peers.get(peerId);if(!peer||Date.now()-peer.seen>45000)throw new Error('Device is no longer nearby');

@@ -2014,7 +2014,7 @@ button:active,
    column as well as a wide one. */
 /* ─── Welcome slides: atmosphere ────────────────────────────────────────
    The empty state is the first thing anyone sees, so it carries the app's mood:
-   a slow aurora behind a glass card. All of it is decoration — nothing here is
+   a static aurora behind a glass card. All of it is decoration — nothing here is
    content, and it all switches off under prefers-reduced-motion. */
 #chat-welcome-host {
   position: relative;
@@ -2041,7 +2041,8 @@ button:active,
     radial-gradient(30% 34% at 10% 76%, color-mix(in srgb, var(--accent-soft) 85%, transparent) 0%, transparent 60%);
   opacity: 0.4;
   filter: blur(34px);
-  animation: ows-aurora 26s ease-in-out infinite alternate;
+  /* Static atmosphere: full-panel animated blur keeps the GPU busy while idle. */
+  animation: none;
 }
 /* A light background needs less of it: the same alpha that reads as a glow on
    near-black reads as a stain on near-white. */

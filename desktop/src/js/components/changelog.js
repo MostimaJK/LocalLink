@@ -14,7 +14,14 @@ window.Changelog = {
         '<button id="changelog-close" style="background:transparent;border:none;cursor:pointer;color:var(--text-secondary);padding:4px;"><i data-lucide="x" style="width:20px;height:20px;"></i></button>' +
       '</div>' +
       '<div style="display:flex;flex-direction:column;gap:20px;">' +
-                versionBlock('1.0.0', 'Stable', [
+        versionBlock('1.0.1', 'Latest', [
+          ['New', [
+            'Manage paired devices and automatic receiving in Settings.',
+            'Receive files directly in your chosen folder. Duplicate names get a numbered suffix.',
+            'Update and restart after a verified Windows Setup or Portable download.'
+          ]]
+        ]) +
+        versionBlock('1.0.0', 'Stable', [
           ['New', [
             'Friends outside your network. Orbit used to be LAN-only — two machines on the same Wi-Fi or nothing. When there is no local route, the same packet now travels over a direct peer-to-peer connection instead. The encryption sits above the transport, so a message looks identical either way.',
             'Connect over the internet. Friend menu, then "Connect over the internet", then a pairing code you both type. The code is a shared secret: the room name comes from it, and anyone who knows the room can take the second seat. It is generated for you and meant to be sent out of band.',

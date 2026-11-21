@@ -1,0 +1,56 @@
+name: Build and test macOS candidates
+on:
+  push:
+    branches: ['codex/macos-candidate-*']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  candidate:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+            macho: arm64
+          - runner: macos-15-intel
+            arch: x64
+            macho: x86_64
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci
+      - run: npm run test:transfers
+      - name: Build native DMG
+        run: npm exec -- electron-builder --mac dmg --${{ matrix.arch }} --publish never
+      - name: Test the application inside the disk image
+        shell: bash
+        run: |
+          set -euo pipefail
+          images=(dist/*-${{ matrix.arch }}.dmg)
+          test "${#images[@]}" -eq 1
+          mountpoint="$(mktemp -d)"
+          hdiutil attach "${images[0]}" -readonly -nobrowse -mountpoint "$mountpoint"
+          trap 'hdiutil detach "$mountpoint"' EXIT
+          bundle="$mountpoint/LocalLink.app"
+          export LOCALLINK_TEST_EXECUTABLE="$bundle/Contents/MacOS/LocalLink"
+          lipo -verify_arch ${{ matrix.macho }} "$LOCALLINK_TEST_EXECUTABLE"
+          /usr/libexec/PlistBuddy -c 'Print :NSLocalNetworkUsageDescription' "$bundle/Contents/Info.plist"
+          npx playwright test tests/e2e/mac-window.spec.js tests/e2e/transfer-workflow.spec.js tests/e2e/update-notice.spec.js --workers=1
+          (cd dist && shasum -a 256 *-${{ matrix.arch }}.dmg > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LocalLink-macOS-${{ matrix.arch }}
+          if-no-files-found: error
+          path: |
+            desktop/dist/*-${{ matrix.arch }}.dmg
+            desktop/dist/SHA256SUMS.txt

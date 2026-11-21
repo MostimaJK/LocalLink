@@ -17,6 +17,10 @@ test('GitHub updates: settings, package selection, verified download and rejecti
    const assets=['LocalLink-9.0.0-Portable.exe','LocalLink-Setup-9.0.0.exe'].map(name=>({name,browser_download_url:'https://github.com/MostimaJK/LocalLink/releases/download/v9.0.0/'+name}));
    if(engine.pickAsset({assets},'win32','x64',true).name!==assets[0].name) throw Error('portable');
    if(engine.pickAsset({assets},'win32','x64',false).name!==assets[1].name) throw Error('setup');
+   if(window.orbitAPI.platform==='darwin'){
+     const name='LocalLink-9.0.0-'+window.orbitAPI.arch+'.dmg';
+     assets.push({name,browser_download_url:'https://github.com/MostimaJK/LocalLink/releases/download/v9.0.0/'+name});
+   }
    assets.push({name:'SHA256SUMS.txt',browser_download_url:'https://github.com/MostimaJK/LocalLink/releases/download/v9.0.0/SHA256SUMS.txt'});
    return window.UpdateNotice.checkManual({fetchImpl:async()=>({ok:true,json:async()=>[{tag_name:'v9.0.0',assets,body:'- Better transfers',html_url:'https://github.com/MostimaJK/LocalLink/releases/tag/v9.0.0'}]})});
   });
@@ -27,12 +31,13 @@ test('GitHub updates: settings, package selection, verified download and rejecti
    app.setPath('downloads',directory);
    global.__originalUpdateFetch=global.fetch;
    global.fetch=async url=>String(url).endsWith('SHA256SUMS.txt')
-    ? new Response(hash+'  LocalLink-Setup-9.0.0.exe\n')
+    ? new Response(hash+'  LocalLink-Setup-9.0.0.exe\n'+hash+'  LocalLink-9.0.0-'+process.arch+'.dmg\n')
     : new Response('fixture update bytes');
   },{directory,hash});
   await page.locator('#update-modal-download').click();
   await expect(page.locator('#update-download-status')).toContainText('Checksum verified');
-  await expect(page.locator('#update-open-file')).toBeVisible();
+  await expect(page.locator('#update-reveal-file')).toBeVisible();
+  await expect(page.locator('#update-open-file')).toBeVisible({visible:process.platform==='win32'});
   // Never execute the fixture. Exercise backend rejection with the real IPC handler.
   const rejected=await page.evaluate(()=>window.orbitAPI.downloadUpdate({url:'https://github.com/other/repo/releases/download/v1/test.exe',name:'test.exe'}));
   expect(rejected.ok).toBe(false);

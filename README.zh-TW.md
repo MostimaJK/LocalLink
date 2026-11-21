@@ -37,6 +37,12 @@ npm start
 
 Windows 亦可執行 Start-LocalLink.bat。
 
+## macOS 開發預覽
+
+在 Mac 上可使用上述原始碼啟動指令。Apple Silicon 使用 `npm run desktop:build:mac -- --arm64` 建立磁碟映像，Intel 使用 `npm run desktop:build:mac -- --x64`。
+
+手動工作流程 **Build and test macOS candidates** 會分別建置兩種架構、掛載 DMG，並從封裝後的程式測試檔案收發。區域網路探索及 Mac 與 Windows 之間的互通仍待雙機驗證。
+
 ## 限制
 
 每批 100 個檔案、資料夾 10000 個項目；ZIP 需要額外空間。重試從頭傳送，預設協定尚無斷點續傳，通話仍在舊協定。已驗證 600 MiB 本機傳輸，未做 50 GB 或完整跨平台實機驗收。本次僅提供 Windows x64 程式。

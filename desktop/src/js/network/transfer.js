@@ -758,23 +758,13 @@ class TransferManager {
       if (this.activeReceives.get(payload.fileId) !== transfer) return;
       try {
         const finalHash = transfer.sha256 ? transfer.sha256.digest('hex') : '';
-        const mismatch = transfer.hash && finalHash !== transfer.hash;
-
-        if (mismatch && transfer.resumed) {
-          // Resumed transfers must hash out — a mismatch here is real corruption
-          // (the partial was re-verified by hash at resume time), so discard.
+        const hashes = [transfer.hash, payload.hash].filter(Boolean);
+        if (hashes.some(hash => finalHash !== String(hash).toLowerCase())) {
           this.activeReceives.delete(payload.fileId);
           this._deleteTransferRow(payload.fileId);
-          try { if (fs.existsSync(transfer.tempPath)) fs.unlinkSync(transfer.tempPath); } catch (_) {}
-          if (onError) onError('Resumed transfer failed hash verification (expected=' + transfer.hash + ' actual=' + finalHash + ') — partial discarded. Please re-send.', payload.fileId);
+          fs.rmSync(transfer.tempPath, { force: true });
+          if (onError) onError('File integrity check failed. Please resend the file.', payload.fileId);
           return;
-        }
-
-        // Skip hash check when sender omitted hash (mobile sends without hash in some cases) — CRIT-1
-        if (mismatch) {
-          console.warn('[Transfer] Hash mismatch: expected=' + transfer.hash + ' actual=' + finalHash + ' file=' + transfer.fileName + ' — saving anyway (non-fatal). Platform hash differences are expected (e.g. crypto.subtle on Android WebView).');
-          // File is likely intact despite platform hash differences;
-          // save it so the user doesn't lose the transfer (CRIT-1 fix: non-fatal)
         }
         this.activeReceives.delete(payload.fileId);
         // F8: prefer persisted type/mimeType when the in-memory record lacks
@@ -784,7 +774,7 @@ class TransferManager {
         this._deleteTransferRow(payload.fileId); // success → drop persisted state
         if (onComplete) onComplete(transfer.tempPath, transfer.fileName, payload.fileId, transfer.fileSize,
           transfer.type || (row && row.type) || null,
-          transfer.mimeType || (row && row.mimeType) || null);
+          transfer.mimeType || (row && row.mimeType) || null, hashes.length ? 'verified' : 'unchecked');
       } catch (err) {
         this.activeReceives.delete(payload.fileId);
         if (onError) onError('handleEnd error: ' + (err && err.message), payload.fileId);

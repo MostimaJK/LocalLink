@@ -45,7 +45,7 @@ window.TransferCenter={
   host.querySelectorAll('[data-cancel]').forEach(e=>e.onclick=()=>this.action('locallink-cancel-transfer',e.dataset.cancel));
   host.querySelectorAll('[data-retry]').forEach(e=>e.onclick=async()=>{const r=rows.find(r=>r.id===e.dataset.retry);let pin;if(r.error?.includes('HTTP 401')){pin=await panel.askPin();if(pin===null)return;}e.disabled=true;await this.action('locallink-retry-transfer',{id:r.id,pin});});
   host.querySelectorAll('[data-open],[data-folder]').forEach(e=>e.onclick=()=>this.action('locallink-open-transfer',{id:e.dataset.open||e.dataset.folder,folder:!!e.dataset.folder}));
-  host.querySelectorAll('[data-preview]').forEach(e=>e.onclick=async()=>{const img=e.closest('article').querySelector('img');const src=await window.orbitAPI.invoke('locallink-preview-transfer',e.dataset.preview);if(src&&img.isConnected){img.src=src;img.hidden=!img.hidden;}else if(!src)host.querySelector('#ll-center-feedback').textContent=t('無法預覽此圖片','无法预览此图片','Preview unavailable');});
+  host.querySelectorAll('[data-preview]').forEach(e=>e.onclick=async()=>{const img=e.closest('article').querySelector('img');const src=await window.LocalSendPanel.previews.get(e.dataset.preview,()=>img.isConnected);if(src&&img.isConnected){img.src=src;img.hidden=!img.hidden;}else if(!src)host.querySelector('#ll-center-feedback').textContent=t('無法預覽此圖片','无法预览此图片','Preview unavailable');});
  }
 };
 const refreshTransferCenter=()=>{if(window.TransferCenter.timer)return;window.TransferCenter.timer=setTimeout(()=>{window.TransferCenter.timer=null;window.TransferCenter.badge();window.TransferCenter.rows();},200);};

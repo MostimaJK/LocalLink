@@ -45,7 +45,8 @@ const DEFAULT_ELECTRON_ARGS = [
 // project, because the launch happens here in the helper, not in the config.
 async function launchApp(userDataDir, extraArgs = [], opts = {}) {
   const app = await electron.launch({
-    args: ['.', `--user-data-dir=${userDataDir}`, ...DEFAULT_ELECTRON_ARGS, ...extraArgs],
+    executablePath: process.env.LOCALLINK_TEST_EXECUTABLE || undefined,
+    args: [...(process.env.LOCALLINK_TEST_EXECUTABLE ? [] : ['.']), `--user-data-dir=${userDataDir}`, ...DEFAULT_ELECTRON_ARGS, ...extraArgs],
     cwd: DESKTOP_DIR,
     env: {...process.env, LOCALLINK_TEST_NO_DISCOVERY:'1'}
   });

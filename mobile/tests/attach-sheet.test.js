@@ -184,12 +184,9 @@ const STUB_CLICK = `(() => {
 
   // Restore the real click and drive the input the way the picker would.
   await page.evaluate(() => { HTMLInputElement.prototype.click = window.__realClick; });
-  const sharp = require('C:/Users/KHAC DUY/Desktop/Orbit Beta/desktop/node_modules/sharp');
+  const sharp = require('../../desktop/node_modules/sharp');
   const png = await sharp({ create: { width: 40, height: 40, channels: 3, background: { r: 200, g: 90, b: 60 } } }).png().toBuffer();
-  const p = 'C:/Users/KHAC DUY/AppData/Local/Temp/attach-sheet-test.png';
-  require('fs').writeFileSync(p, png);
-
-  await page.setInputFiles('#file-input', [p]);
+  await page.setInputFiles('#file-input', { name:'attach-sheet-test.png', mimeType:'image/png', buffer:png });
   await page.waitForTimeout(1200);
   const staged = await page.evaluate(() => {
     const area = document.getElementById('file-preview-area');

@@ -68,9 +68,7 @@ check('the newest block carries the Latest tag', deskBlock && typeof deskBlock =
 check('the newest block IS the version in desktop/package.json', deskBlock === deskVer,
   { block: deskBlock, package: deskVer });
 
-console.log('\n== the two platforms agree ==');
-check('both platforms show the same newest version', appBlock === deskBlock,
-  { mobile: appBlock, desktop: deskBlock });
+// Desktop and mobile release independently. Each list follows its own manifest.
 
 // The CHANGELOG is where a version is DECLARED stable ("## v0.5.0-beta — **Stable
 // Release**"). Both What's New lists have to say so too, and they had drifted:

@@ -44,6 +44,13 @@ npm start
 
 Windows users can also run `Start-LocalLink.bat`.
 
+## macOS development preview
+
+On a Mac, use the source commands above. To build a disk image for the current CPU, run
+`npm run desktop:build:mac -- --arm64` on Apple Silicon or `npm run desktop:build:mac -- --x64` on Intel.
+
+The manual **Build and test macOS candidates** workflow builds on both architectures, mounts each DMG and exercises file transfers from the packaged app. Its artifacts are development candidates. Physical LAN discovery and Mac–Windows interoperability still need a two-device test.
+
 ## Limitations
 
 100 files per batch, 10,000 folder entries. ZIP needs extra disk space. Retry starts over; no resume in the default protocol. Calls remain in the legacy transport. Tested with 600 MiB loopback transfer, not 50 GB or full physical cross-platform validation. No mobile binaries.

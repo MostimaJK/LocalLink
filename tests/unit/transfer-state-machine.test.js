@@ -263,18 +263,17 @@ function finish(tm, packet) {
     } finally { h.cleanup(); }
   });
 
-  await ok('a hash mismatch on a FRESH transfer is non-fatal (CRIT-1)', async () => {
+  await ok('a fresh transfer with a mismatched digest is discarded', async () => {
     const h = harness();
     try {
       const a = Buffer.alloc(16, 0x41);
       const fileId = 'f-hash';
-      // Wrong hash on purpose — Android WebView vs desktop hashing differs, so the
-      // engine deliberately saves anyway rather than losing the user's file.
       h.tm.handleStart(start(fileId, 1, 'deadbeef'.repeat(8), a.length));
       h.tm.handleChunk(chunk(fileId, 0, a));
       const res = await finish(h.tm, end(fileId));
-      assert.strictEqual(res.ok, true, 'a fresh-transfer mismatch must still save: ' + res.err);
-      assert.deepStrictEqual(fs.readFileSync(res.tempPath), a);
+      assert.strictEqual(res.ok, false);
+      assert.match(res.err, /integrity check failed/);
+      assert.strictEqual(fs.existsSync(path.join(h.dir, 'orbit_' + fileId)), false);
     } finally { h.cleanup(); }
   });
 

@@ -221,6 +221,7 @@ let localSendStarting = null;
 let localSendError = null;
 let mainWindow = null;
 let tray = null;
+let isQuitting = false;
 let tempDirPath = null;
 // E2EE key material is owned by desktop/e2ee.js (see the e2ee instance below).
 const _autoConnectLastAttempt = new Map(); // peerId -> timestamp of last TCP attempt
@@ -307,8 +308,8 @@ app.whenReady().then(() => {
 
   protocol.handle('orbit-file', (request) => {
     const urlPath = request.url.replace('orbit-file://', '');
-    const decodedPath = decodeURIComponent(urlPath).replace(/\\/g, '/');
-    return net.fetch('file:///' + decodedPath).then(r => {
+    const decodedPath = decodeURIComponent(urlPath);
+    return net.fetch(pathToFileURL(decodedPath).href).then(r => {
       return new Response(r.body, { headers: cacheHeaders({ 'Content-Type': r.headers.get('Content-Type') || 'application/octet-stream' }) });
     });
   });
@@ -643,6 +644,8 @@ app.whenReady().then(() => {
   const workArea = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
   const windowWidth = Math.min(1200, Math.floor(workArea.width * 0.9));
   const windowHeight = Math.min(800, Math.floor(workArea.height * 0.9));
+  const isMac = process.platform === 'darwin';
+  const iconPath = path.join(__dirname, 'src/icons/app', process.platform === 'win32' ? 'locallink.ico' : 'locallink.png');
   mainWindow = new BrowserWindow({
     width: windowWidth,
     height: windowHeight,
@@ -650,25 +653,36 @@ app.whenReady().then(() => {
     y: workArea.y + Math.floor((workArea.height - windowHeight) / 2),
     minWidth: Math.min(860, windowWidth),
     minHeight: Math.min(600, windowHeight),
-    frame: false,          // Custom titlebar
-    transparent: true,
+    frame: isMac,
+    transparent: !isMac,
     backgroundColor: '#0E0F14',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
-    icon: path.join(__dirname, 'src/icons/app/locallink.ico'),
+    icon: iconPath,
     titleBarStyle: 'hidden',
   });
   require('./lib/update-restart').acknowledge(app,mainWindow);
   mainWindow.loadFile(path.join(__dirname, 'src/index.html'));
+
+  // Use the same close policy for the caption button and native window close.
+  mainWindow.on('close', event => {
+    if (isQuitting) return;
+    event.preventDefault();
+    if (globalDb.getSetting('locallink.runInBackground', false) === true) mainWindow.hide();
+    else app.quit();
+  });
 
   // Handle window controls
   ipcMain.on('locallink-window-state',event=>{event.returnValue={maximized:mainWindow.isMaximized()};});
   const reportWindowState=()=>{if(!mainWindow.isDestroyed())mainWindow.webContents.send('locallink-window-state',{maximized:mainWindow.isMaximized()});};
   mainWindow.on('maximize',reportWindowState);
   mainWindow.on('unmaximize',reportWindowState);
+  const reportVisibility=()=>{if(!mainWindow.isDestroyed())mainWindow.webContents.send('locallink-window-visible',mainWindow.isVisible()&&!mainWindow.isMinimized());};
+  for(const event of ['show','hide','minimize','restore'])mainWindow.on(event,reportVisibility);
+  mainWindow.webContents.on('did-finish-load',reportVisibility);
   ipcMain.on('window-controls', (event, action) => {
     if (action === 'minimize') mainWindow.minimize();
     if (action === 'maximize') {
@@ -679,8 +693,7 @@ app.whenReady().then(() => {
       }
     }
     if (action === 'close') {
-      // By default, just hide to tray
-      mainWindow.hide();
+      mainWindow.close();
     }
   });
 
@@ -783,6 +796,7 @@ app.whenReady().then(() => {
      objects.githubusercontent.com, so both hosts are allowed and fetch follows
      the redirect. Everything here treats the release payload as untrusted input. */
   const _downloadedFiles = new Map();
+  const folderPreparations = new Map();
   let updatePreparing=false;
   let _activeDownload = null;
 
@@ -967,7 +981,7 @@ app.whenReady().then(() => {
     if(process.platform!=='win32'||!app.isPackaged)return {ok:false,error:'packaged-windows-only'};
     if(updatePreparing)return {ok:false,error:'update-in-progress'};
     if(typeof file!=='string'||!_downloadedFiles.has(file))return {ok:false,error:'unverified-update'};
-    const active=async()=>!!(localSendInstance?.pending||localSendInstance?.sessions.size||localSendInstance?.outgoing.size||transferInstance?.activeReceives.size||transferInstance?.sendSessions.size||globalDb.transfers.list({statuses:['queued','preparing','awaiting','receiving','verifying','transferring','confirming'],limit:1}).length||await mainWindow.webContents.executeJavaScript('Boolean(window.CallManager?.activeCall || window.CallManager?.incomingCallData)'));
+    const active=async()=>!!(folderPreparations.size||localSendInstance?.pending||localSendInstance?.sessions.size||localSendInstance?.outgoing.size||transferInstance?.activeReceives.size||transferInstance?.sendSessions.size||globalDb.transfers.list({statuses:['queued','preparing','awaiting','receiving','verifying','transferring','confirming'],limit:1}).length||await mainWindow.webContents.executeJavaScript('Boolean(window.CallManager?.activeCall || window.CallManager?.incomingCallData)'));
     if(await active())return {ok:false,error:'active-transfers'};
     updatePreparing=true;let job;
     try{
@@ -996,9 +1010,14 @@ app.whenReady().then(() => {
   });
 
   // Tray Setup
-  const iconPath = path.join(__dirname, 'src/icons/app/locallink.ico');
   const icon = nativeImage.createFromPath(iconPath);
-  tray = new Tray(icon);
+  tray = new Tray(isMac ? icon.resize({width:18,height:18}) : icon);
+  if (isMac) app.on('activate', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  });
 
   // The tray menu mirrors live app state, so it is rebuilt rather than built
   // once. The RENDERER is the single writer for presence and mute — main only
@@ -1506,8 +1525,8 @@ app.whenReady().then(() => {
       } else if (packet.type === Protocol.Types.FILE_CHUNK) {
         transferInstance.handleChunk(packet);
       } else if (packet.type === Protocol.Types.FILE_TRANSFER_END) {
-        transferInstance.handleEnd(packet, (savedPath, fileName, fileId, fileSize, type, mimeType) => {
-           mainWindow.webContents.send('file-received', { path: savedPath, name: fileName, sender: packet.from, fileId: fileId, size: fileSize, type: type || undefined, mimeType: mimeType || undefined });
+        transferInstance.handleEnd(packet, (savedPath, fileName, fileId, fileSize, type, mimeType, verification) => {
+           mainWindow.webContents.send('file-received', { verification, path: savedPath, name: fileName, sender: packet.from, fileId: fileId, size: fileSize, type: type || undefined, mimeType: mimeType || undefined });
         }, (errorMsg, fileId) => {
            console.error('File Transfer Error:', errorMsg);
            if (mainWindow) {
@@ -1707,21 +1726,64 @@ app.whenReady().then(() => {
     }
     return {ok:true};
   });
+  ipcMain.handle('locallink-cancel-preparation', (_, peerId) => {
+    folderPreparations.get(peerId)?.abort();
+  });
   const sendPaths=async(peerId,paths,pin,text)=>{
     if(updatePreparing)return {ok:false,error:'Update in progress'};
     if(!localSendInstance)return {ok:false,error:llText('傳輸服務尚未啟動','传输服务尚未启动','Transport is not running')};
     const peer=localSendInstance.peers.get(peerId);
-    if(!peer)return {ok:false,error:llText('找不到此裝置','找不到此设备','Device is not nearby')};
+    if(!peer || Date.now()-peer.seen>45000)return {ok:false,error:llText('找不到此裝置','找不到此设备','Device is not nearby')};
     if(peer.protocol!=='https'){
       const choice=await dialog.showMessageBox(mainWindow,{type:'warning',message:llText('此裝置使用未加密 HTTP','此设备使用未加密 HTTP','This device uses unencrypted HTTP'),buttons:[llText('取消','取消','Cancel'),llText('繼續','继续','Continue')],defaultId:0,cancelId:0});
       if(choice.response!==1)return {cancelled:true};
     }
-    try{
-      const prepared=[];
-      for(const item of paths){const stat=await fs.promises.lstat(item);if(stat.isSymbolicLink())throw new Error('Symbolic links are not supported');prepared.push(stat.isDirectory()?await require('./src/js/network/folder-archive').archiveFolder(item,path.join(app.getPath('userData'),'locallink-outbox')):item);}
-      return {ok:true,records:await localSendInstance.sendBatch(peerId,prepared,{pin,text})};}
-
-    catch(error){return {ok:false,error:error.message,statusCode:error.statusCode};}
+    if (updatePreparing) return {ok:false,error:'Update in progress'};
+    if (folderPreparations.has(peerId)) return {ok:false,error:'A transfer to this device is already running'};
+    const controller = new AbortController();
+    const archives = new Set();
+    folderPreparations.set(peerId, controller);
+    let lastPhase, lastUpdate = 0;
+    const notify = state => {
+      if (state.phase === lastPhase && Date.now() - lastUpdate < 150) return;
+      lastPhase = state.phase;
+      lastUpdate = Date.now();
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('locallink-folder-progress', {peerId,...state});
+    };
+    try {
+      const prepared = [];
+      for (const item of paths) {
+        controller.signal.throwIfAborted();
+        const stat = await fs.promises.lstat(item);
+        if (stat.isSymbolicLink()) throw new Error('Symbolic links are not supported');
+        if (!stat.isDirectory()) {
+          prepared.push(item);
+          continue;
+        }
+        const archive = await require('./src/js/network/folder-archive').archiveFolder(
+          item, path.join(app.getPath('userData'),'locallink-outbox'), undefined,
+          {signal: controller.signal, onProgress: state => notify({...state,name:path.basename(item)})}
+        );
+        archives.add(archive);
+        prepared.push(archive);
+      }
+      controller.signal.throwIfAborted();
+      if (lastPhase) notify({phase:'done'});
+      const records = await localSendInstance.sendBatch(peerId,prepared,{pin,text,onRegistered:file=>archives.delete(file)});
+      return {ok:true,records};
+    } catch (error) {
+      if (controller.signal.aborted) return {cancelled:true,preparationCancelled:true};
+      return {ok:false,error:error.message,statusCode:error.statusCode};
+    } finally {
+      folderPreparations.delete(peerId);
+      if (lastPhase && lastPhase !== 'done') notify({phase:'done'});
+      for (const archive of archives) {
+        try {
+          await fs.promises.unlink(archive);
+          await fs.promises.rmdir(path.dirname(archive));
+        } catch (error) { console.warn('Could not remove temporary archive',error.message); }
+      }
+    }
   };
   ipcMain.handle('locallink-manage-trust',async(event,peerId)=>{
     const key='locallink.trust.'+peerId,trust=globalDb.getSetting(key,{});
@@ -1749,8 +1811,7 @@ app.whenReady().then(() => {
   });
   ipcMain.handle('locallink-send-folder',async(event,peerId)=>{
     const pick=await dialog.showOpenDialog(mainWindow,{properties:['openDirectory']});if(pick.canceled)return {cancelled:true};
-    try{const file=await require('./src/js/network/folder-archive').archiveFolder(pick.filePaths[0],path.join(app.getPath('userData'),'locallink-outbox'));return sendPaths(peerId,[file]);}
-    catch(error){return {ok:false,error:error.message};}
+    return sendPaths(peerId,pick.filePaths);
   });
   ipcMain.handle('locallink-clean-sent-cache',async()=>{
     const root=path.resolve(app.getPath('userData'),'locallink-outbox');
@@ -1816,8 +1877,10 @@ app.whenReady().then(() => {
   });
   ipcMain.handle('locallink-rediscover',async()=>{
     if(localSendStarting)await localSendStarting;
+    if(!localSendInstance&&discoveryInstance){discoveryInstance.broadcastBeacon();return {ok:true};}
     if(!localSendInstance){localSendStarting=null;return {ok:false,error:llText('請重新啟動傳輸服務','请重新启动传输服务','Restart the transport service')};}
-    localSendInstance.announce();return {ok:true};
+    try{await localSendInstance.rediscover();return {ok:true};}
+    catch(error){return {ok:false,error:error.message};}
   });
   ipcMain.handle('locallink-export-transfers',async(event,includeFiles)=>{
     const pick=await dialog.showOpenDialog(mainWindow,{properties:['openDirectory','createDirectory']});
@@ -1833,7 +1896,7 @@ app.whenReady().then(() => {
   });
   const readAdapters = require('./src/js/network/adapters').createAdapterReader();
   ipcMain.handle('locallink-network-adapters', () => readAdapters());
-  ipcMain.handle('locallink-diagnostics',async()=>({running:!!localSendInstance?.port&&!localSendInstance.closed,error:localSendError,port:localSendInstance?.port||null,addresses:Object.values(os.networkInterfaces()).flat().filter(a=>a?.family==='IPv4'&&!a.internal).map(a=>a.address)}));
+  ipcMain.handle('locallink-diagnostics',async()=>({running:!!localSendInstance?.port&&!localSendInstance.closed,error:localSendError,discoveryError:localSendInstance?.discoveryError||null,port:localSendInstance?.port||null,addresses:Object.values(os.networkInterfaces()).flat().filter(a=>a?.family==='IPv4'&&!a.internal).map(a=>a.address)}));
   ipcMain.handle('locallink-storage',async()=>({ok:true,path:receiveDir()}));
   ipcMain.handle('locallink-choose-directory',async()=>{
     const pick=await dialog.showOpenDialog(mainWindow,{defaultPath:receiveDir(),properties:['openDirectory','createDirectory']});
@@ -2280,6 +2343,7 @@ app.whenReady().then(() => {
 });
 
 app.on('before-quit', () => {
+  isQuitting = true;
   if(localSendInstance)localSendInstance.stop();
   if (transferInstance) transferInstance.destroy();
   if (discoveryInstance) discoveryInstance.stop();

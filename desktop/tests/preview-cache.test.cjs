@@ -1,0 +1,24 @@
+const assert=require('node:assert/strict');const PreviewCache=require('../src/js/preview-cache');
+const tick=()=>new Promise(r=>setImmediate(r));
+(async()=>{
+ let started=0;const complete=[];const parallel=new PreviewCache(()=>new Promise(resolve=>{started++;complete.push(resolve);}));
+ const jobs=Array.from({length:5},(_,i)=>parallel.get(i));await tick();assert.equal(started,4);
+ complete[0]('done');await tick();assert.equal(started,5);complete.slice(1).forEach(resolve=>resolve('done'));await Promise.all(jobs);
+ const defaults=new PreviewCache(async id=>id);
+ assert.equal(defaults.concurrency,4);assert.equal(defaults.maxEntries,100);assert.equal(defaults.maxBytes,Infinity);
+ for(let i=0;i<101;i++)await defaults.get(String(i));
+ assert.equal(defaults.cache.size,100);assert.equal(defaults.cache.has('0'),false);
+ const large='x'.repeat(5*1024*1024);const unlimited=new PreviewCache(async()=>large);await unlimited.get('large');assert.equal(unlimited.cache.size,1);
+ let active=0,peak=0,calls=[];const releases=new Map();
+ const cache=new PreviewCache(id=>new Promise(resolve=>{calls.push(id);active++;peak=Math.max(peak,active);releases.set(id,value=>{active--;resolve(value);});}),{concurrency:2,maxEntries:2,maxBytes:12});
+ const a=cache.get('a'),same=cache.get('a'),b=cache.get('b');let needed=true;
+ const stale=cache.get('stale',()=>needed);needed=false;const c=cache.get('c');await tick();
+ assert.equal(a,same);assert.deepEqual(calls,['a','b']);
+ releases.get('a')('aaa');await a;await tick();assert.deepEqual(calls,['a','b','c']);assert.equal(await stale,null);
+ releases.get('b')('bbb');await b;releases.get('c')('ccc');await c;await tick();
+ assert.equal(peak,2);assert.equal(cache.bytes,12);assert.equal(cache.cache.size,2);assert.equal(cache.cache.has('a'),false);
+ const pending=cache.get('old'),queued=cache.get('old2');await tick();cache.clear();
+ releases.get('old')('old');releases.get('old2')('old');assert.equal(await pending,null);assert.equal(await queued,null);await tick();assert.equal(cache.bytes,0);
+ const failure=new PreviewCache(()=>Promise.reject(Error('missing')));assert.equal(await failure.get('x'),null);
+ console.log('PASS preview concurrency, deduplication, stale queue skipping, byte/entry limits, invalidation and failures');
+})().catch(error=>{console.error(error);process.exitCode=1;});

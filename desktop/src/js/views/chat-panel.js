@@ -1874,7 +1874,7 @@ window.ChatPanel = {
 
       input.addEventListener('keydown', async function(e) {
         var enterSends = window.store.getState().settings.enterToSend !== false;
-        if (e.key === 'Enter' && (enterSends ? !e.shiftKey : e.ctrlKey || e.metaKey)) {
+        if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229 && (enterSends ? !e.shiftKey : !e.shiftKey && (e.ctrlKey || e.metaKey))) {
           e.preventDefault();
           // Clear typing indicator when sending
           if (typingTimeout) {

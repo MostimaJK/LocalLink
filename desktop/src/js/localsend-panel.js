@@ -1,10 +1,27 @@
 window.LocalSendPanel = {
+ preparations:new Map(),
+ updatePreparation(host, peerId){
+  const row=host.querySelector('.ll-preparation');
+  if(!row)return;
+  const state=this.preparations.get(peerId);
+  row.hidden=!state;
+  if(!state)return;
+  const t=this.text.bind(this);
+  const scanning=state.phase==='scan';
+  row.querySelector('span').textContent=state.name+' · '+(scanning
+    ? t('正在掃描','正在扫描','Scanning')+' · '+state.count
+    : t('正在打包','正在打包','Packing')+' · '+this.size(state.bytes)+' / '+this.size(state.total));
+  const bar=row.querySelector('progress');
+  if(scanning||!state.total)bar.removeAttribute('value');
+  else {bar.max=state.total;bar.value=Math.min(state.bytes,state.total);}
+  row.querySelector('button').onclick=()=>window.orbitAPI.invoke('locallink-cancel-preparation',peerId);
+ },
  busy: new Set(),
  feedback: new Map(),
  queries:new Map(),
  offsets:new Map(),
  drafts:new Map(),
- previews:new Map(),
+ previews:new window.PreviewCache(id=>window.orbitAPI.invoke('locallink-preview-transfer',id)),
  text(tw,cn,en){return window.I18n.locale==='en'?en:window.I18n.locale==='zh-Hans'?cn:tw;},
  statusLabel(status){
   const labels={queued:['排隊中','排队中','Queued'],receiving:['接收中','接收中','Receiving'],verifying:['正在校驗','正在校验','Verifying'],confirming:['等待送達確認','等待送达确认','Awaiting delivery confirmation'],cancelled:['已取消','已取消','Cancelled'],preparing:['正在準備檔案','正在准备文件','Preparing file'],awaiting:['等待對方接收','等待对方接收','Awaiting acceptance'],transferring:['傳輸中','传输中','Transferring'],delivered:['已送達','已送达','Delivered'],received:['已接收','已接收','Received'],failed:['傳輸失敗','传输失败','Failed']};
@@ -110,9 +127,14 @@ window.LocalSendPanel = {
   host.innerHTML='<section class="ll-conversation">'+
    '<header class="chat-header ll-chat-header"><span class="ll-device-icon">'+icon(window.LocalLinkDevices.icon(peer))+'</span><div class="ll-peer-heading"><h2>'+esc(name)+'</h2><p><span class="ll-presence '+(nearby?'online':'')+'"></span>'+t(nearby?'附近的裝置':'裝置離線',nearby?'附近的设备':'设备离线',nearby?'Nearby device':'Device offline')+'<span class="ll-protocol"> · LocalSend</span></p></div><button id="ll-open-receive-folder" class="ll-header-folder" title="'+t('開啟接收資料夾','打开接收文件夹','Open receive folder')+'">'+icon('folder-open')+'<span>'+t('開啟資料夾','打开文件夹','Open folder')+'</span></button><button id="btn-device-details" class="ll-icon-button" title="'+t('裝置詳情','设备详情','Device details')+'" aria-label="'+t('裝置詳情','设备详情','Device details')+'">'+icon('info')+'</button></header>'+
    '<div class="ll-conversation-tools"><input id="ll-search-files" type="search" value="'+esc(query)+'" placeholder="'+t('搜尋此裝置的檔案','搜索此设备的文件','Search files on this device')+'" aria-label="'+t('搜尋檔案','搜索文件','Search files')+'"></div>'+
-   '<div class="ll-timeline" role="region" aria-label="'+t('檔案會話','文件会话','File conversation')+'" tabindex="0" data-peer-id="'+esc(peer.userId)+'">'+(offset?'<button id="ll-newer-records" class="ll-load-more">'+t('較新記錄','较新记录','Newer records')+'</button>':'')+(records.length===limit?'<button id="ll-more-records" class="ll-load-more">'+t('載入更早記錄','加载更早记录','Load earlier records')+'</button>':'')+(feed||'<div class="ll-conversation-empty"><span class="ll-empty-icon">'+icon('files')+'</span><h3>'+t('與此裝置分享檔案','与此设备分享文件','Share files with this device')+'</h3><p>'+t('傳送和接收的檔案會依時間顯示在這裡','发送和接收的文件会按时间显示在这里','Sent and received files appear here in order')+'</p></div>')+'</div>'+
+   '<div class="ll-timeline" role="region" aria-label="'+t('檔案會話','文件会话','File conversation')+'" tabindex="0" data-peer-id="'+esc(peer.userId)+'">'+(offset?'<button id="ll-newer-records" class="ll-load-more">'+t('較新記錄','较新记录','Newer records')+'</button>':'')+(records.length===limit?'<button id="ll-more-records" class="ll-load-more">'+t('載入更早記錄','加载更早记录','Load earlier records')+'</button>':'')+(feed||(query?'<p class="ll-conversation-empty">'+t('沒有符合的檔案','没有匹配的文件','No matching files')+'</p>':'<div class="ll-conversation-empty"><span class="ll-empty-icon">'+icon('files')+'</span><h3>'+t('與此裝置分享檔案','与此设备分享文件','Share files with this device')+'</h3><p>'+t('傳送和接收的檔案會依時間顯示在這裡','发送和接收的文件会按时间显示在这里','Sent and received files appear here in order')+'</p></div>'))+'</div>'+
    '<footer class="ll-composer"><p id="localsend-feedback" role="status">'+esc(this.feedback.get(peer.userId)||'')+'</p><div class="ll-compose-wrapper"><button id="localsend-send" class="ll-icon-button" title="'+t('選擇檔案','选择文件','Choose files')+'" aria-label="'+t('選擇檔案','选择文件','Choose files')+'" '+(busy||!nearby?'disabled':'')+'>'+icon('file')+'</button><textarea id="ll-message-input" rows="1" maxlength="65000" placeholder="'+t(nearby?'輸入文字、連結，或拖入檔案':'裝置離線，仍可查看記錄',nearby?'输入文字、链接，或拖入文件':'设备离线，仍可查看记录',nearby?'Write text, a link, or drop files':'Offline — saved history is available')+'" aria-label="'+t('文字或連結','文字或链接','Text or link')+'">'+esc(this.drafts.get(peer.userId)||'')+'</textarea><button id="ll-send-text" class="ll-send" '+(busy||!nearby||!this.drafts.get(peer.userId)?.trim()?'disabled':'')+'>'+icon('send')+t('傳送','发送','Send')+'</button></div></footer></section>';
   window.lucide.createIcons({root:host});
+  const preparation=document.createElement('div');
+  preparation.className='ll-preparation';
+  preparation.innerHTML='<span role="status"></span><progress aria-label="'+t('打包進度','打包进度','Packing progress')+'"></progress><button type="button">'+t('取消準備','取消准备','Cancel preparation')+'</button>';
+  host.querySelector('.ll-compose-wrapper').before(preparation);
+  this.updatePreparation(host,peer.userId);
   const timeline=host.querySelector('.ll-timeline');
   timeline.scrollTop=atBottom?timeline.scrollHeight:top;
   if(focused){const el=host.querySelector('#'+focused);el?.focus({preventScroll:true});if(typeof selection==='number'&&el?.setSelectionRange)el.setSelectionRange(selection,selection);}
@@ -120,7 +142,7 @@ window.LocalSendPanel = {
   const run=async(channel,payload)=>{
    if(!stillActive()||this.busy.has(peer.userId))return;
    this.busy.add(peer.userId);this.feedback.delete(peer.userId);this.render(peer,host);
-   try{const result=await window.orbitAPI.invoke(channel,payload);if(!result.ok&&!result.cancelled)this.feedback.set(peer.userId,this.errorLabel(result.error));else if(result.ok&&channel==='locallink-send-content'&&payload.text===this.drafts.get(peer.userId))this.drafts.delete(peer.userId);}
+   try{const result=await window.orbitAPI.invoke(channel,payload);if(result.preparationCancelled)this.feedback.set(peer.userId,t('已取消準備','已取消准备','Preparation cancelled'));else if(!result.ok&&!result.cancelled)this.feedback.set(peer.userId,this.errorLabel(result.error));else if(result.ok&&channel==='locallink-send-content'&&payload.text===this.drafts.get(peer.userId))this.drafts.delete(peer.userId);}
    catch(error){this.feedback.set(peer.userId,error.message);}
    finally{this.busy.delete(peer.userId);if(stillActive())this.render(peer,host);}
   };
@@ -135,7 +157,7 @@ window.LocalSendPanel = {
   message.oninput=()=>{this.drafts.set(peer.userId,message.value);host.querySelector('#ll-send-text').disabled=busy||!nearby||!message.value.trim();};
   const sendText=()=>{if(nearby&&!this.busy.has(peer.userId)&&message.value.trim())run('locallink-send-content',{peerId:peer.userId,text:message.value});};
   host.querySelector('#ll-send-text').onclick=sendText;
-  message.onkeydown=event=>{if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)&&!event.isComposing){event.preventDefault();sendText();}};
+  message.onkeydown=event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing&&event.keyCode!==229){event.preventDefault();sendText();}};
   host.onpaste=async event=>{
    if(!nearby||this.busy.has(peer.userId))return;
    const files=[...(event.clipboardData?.files||[])];if(!files.length)return;
@@ -148,11 +170,7 @@ window.LocalSendPanel = {
   host.querySelectorAll('[data-copy]').forEach(button=>button.onclick=()=>window.orbitAPI.send('write-clipboard',records.find(r=>r.id===button.dataset.copy)?.text||''));
   host.querySelectorAll('[data-preview]').forEach(async img=>{
    const id=img.dataset.preview;
-   if(!this.previews.has(id)){
-    if(this.previews.size>=100)this.previews.delete(this.previews.keys().next().value);
-    this.previews.set(id,window.orbitAPI.invoke('locallink-preview-transfer',id).catch(()=>null));
-   }
-   const src=await this.previews.get(id);if(src&&img.isConnected){const follow=timeline.scrollHeight-timeline.clientHeight-timeline.scrollTop<60;const before=timeline.scrollTop;img.onload=()=>{if(follow&&Math.abs(timeline.scrollTop-before)<2)timeline.scrollTop=timeline.scrollHeight;};img.src=src;img.hidden=false;}
+   const src=await this.previews.get(id,()=>img.isConnected);if(src&&img.isConnected){const follow=timeline.scrollHeight-timeline.clientHeight-timeline.scrollTop<60;const before=timeline.scrollTop;img.onload=()=>{if(follow&&Math.abs(timeline.scrollTop-before)<2)timeline.scrollTop=timeline.scrollHeight;};img.src=src;img.hidden=false;}
   });
 
   host.querySelector('#ll-search-files').oninput=event=>{this.queries.set(peer.userId,event.target.value);this.offsets.delete(peer.userId);this.render(peer,host);};
@@ -191,4 +209,12 @@ window.orbitAPI.on('locallink-history-changed',()=>{
  window.LocalSendPanel.previews.clear();const state=window.store.getState();
  const peer=state.friends.find(p=>p.userId===state.activeChatId);
  if(peer?.userId.startsWith('localsend:'))window.LocalSendPanel.render(peer,window.ChatPanel.container);
+});
+
+window.orbitAPI.on('locallink-folder-progress', state=>{
+ const panel=window.LocalSendPanel;
+ if(state.phase==='done')panel.preparations.delete(state.peerId);
+ else panel.preparations.set(state.peerId,state);
+ const timeline=document.querySelector('.ll-timeline');
+ if(timeline?.dataset.peerId===state.peerId)panel.updatePreparation(timeline.parentElement,state.peerId);
 });

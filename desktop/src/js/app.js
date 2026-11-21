@@ -512,7 +512,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return f;
       });
-      window.store.setState({ friends: updated });
+      if (updated.some((friend, index) => friend !== state.friends[index])) {
+        window.store.setState({ friends: updated });
+      }
     }, perfMode ? 60000 : 15000);
   };
 
@@ -1134,6 +1136,9 @@ document.addEventListener('DOMContentLoaded', () => {
       };
 
       window.orbitAPI.on('file-received', (data) => {
+        if (data.verification === 'unchecked') {
+          window.Toast?.show(data.name, window.LocalSendPanel.text('未提供校驗碼', '未提供校验码', 'Received without checksum'), 'info');
+        }
         console.log('File received:', data);
         var settings = window.store.getState().settings || {};
         if (settings.notifySound && !settings.notifyDnd && window.NotificationSound) {

@@ -14,9 +14,18 @@ function normalizeAdapters(rows){
   return {name:String(row.Name||''),description:String(row.InterfaceDescription||''),connected,kind,sendBps:speed(row.TransmitLinkSpeed),receiveBps:speed(row.ReceiveLinkSpeed)};
  }).sort((a,b)=>Number(b.connected)-Number(a.connected)||a.name.localeCompare(b.name));
 }
-function createAdapterReader({platform=process.platform,run=execute,now=Date.now}={}){
+function createAdapterReader({platform=process.platform,run=execute,now=Date.now,interfaces=require("node:os").networkInterfaces}={}){
  let cached=null,inflight=null;
  return async()=>{
+  if(platform==='darwin'){
+   try {
+    const adapters=Object.entries(interfaces()).flatMap(([name,addresses])=>{
+     const external=(addresses || []).filter(address=>!address.internal && (address.family==='IPv4' || address.family===4));
+     return external.length ? [{name, description:external.map(address=>address.address).join(', ')}] : [];
+    });
+    return {ok:true,addressesOnly:true,checkedAt:now(),adapters};
+   } catch { return {ok:false,reason:'unavailable',adapters:[]}; }
+  }
   if(platform!=='win32')return {ok:false,reason:'unsupported',adapters:[]};
   if(cached&&now()-cached.checkedAt<5000)return cached;
   if(inflight)return inflight;

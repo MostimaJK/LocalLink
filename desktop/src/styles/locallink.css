@@ -129,7 +129,7 @@ select[data-ll-select][hidden] { display:none !important; }
 .ll-connect-dialog,.ll-history-dialog { position:relative;margin:auto;padding:28px;border:1px solid var(--border-subtle);border-radius:16px;background:var(--bg-surface);color:var(--text-primary);width:440px;max-width:92vw; }
 .ll-connect-dialog::backdrop,.ll-history-dialog::backdrop { background:#0008;backdrop-filter:blur(4px); }
 .ll-connect-dialog h2,.ll-history-dialog h2 { font-size:20px;margin:0 40px 24px 0; }
-.ll-connect-dialog input,.ll-history-filters input { display:block;margin:10px 0;padding:12px;width:100%;background:var(--bg-base);color:var(--text-primary);border:1px solid var(--border-subtle);border-radius:10px; }
+.ll-connect-dialog input:not([type="checkbox"]):not([type="radio"]),.ll-history-filters input:not([type="checkbox"]):not([type="radio"]) { display:block;margin:10px 0;padding:12px;width:100%;background:var(--bg-base);color:var(--text-primary);border:1px solid var(--border-subtle);border-radius:10px; }
 #ll-connect-error,#ll-network-result { font-size:12px;color:var(--text-secondary);margin:12px 0;overflow-wrap:anywhere; }
 #ll-receive-path { overflow-wrap:anywhere;max-width:300px; }
 .ll-history-dialog { width:720px;max-height:85vh; }
@@ -170,7 +170,7 @@ html[data-theme="light"] .ll-history-date input { color-scheme:light; }
 .ll-device-row:hover { background:var(--bg-hover,rgba(128,128,128,.12)); }
 .ll-device-row .list-row,.ll-device-row .list-row.active { margin:0;background:transparent;box-shadow:none;border-radius:0; }
 .ll-device-row [data-favorite-id] { flex:0 0 44px;align-self:stretch;display:grid;place-items:center;border-left:0; }
-.ll-switch { appearance:none;position:relative;width:40px;height:24px;min-width:40px;border:1px solid var(--border-subtle);border-radius:999px;background:var(--text-muted);cursor:pointer;transition:background .15s; }
+.ll-switch { box-sizing:border-box;flex:0 0 40px;max-width:40px;padding:0;margin:0;appearance:none;position:relative;width:40px;height:24px;min-width:40px;border:1px solid var(--border-subtle);border-radius:999px;background:var(--text-muted);cursor:pointer;transition:background .15s; }
 .ll-switch::after { content:'';position:absolute;width:18px;height:18px;left:2px;top:2px;border-radius:50%;background:white;transition:transform .15s; }
 .ll-switch:checked { background:var(--accent-primary); }
 .ll-switch:checked::after { transform:translateX(16px); }
@@ -231,3 +231,25 @@ html[data-theme="light"] .ll-history-date input { color-scheme:light; }
   max-width:100%;
   white-space:normal;
 }
+
+.ll-device-refresh { margin-left:0; flex:0 0 34px; height:34px; display:grid; place-items:center; border:1px solid var(--border-subtle); border-radius:8px; background:var(--bg-hover); color:var(--text-primary); }
+.ll-device-refresh svg { width:16px; height:16px; }
+.ll-device-refresh:hover { background:var(--bg-active); }
+.ll-device-refresh:focus-visible { outline:2px solid var(--accent-primary); outline-offset:2px; }
+.ll-device-refresh:disabled { opacity:.55; cursor:wait; }
+.ll-device-refresh-status { margin:0; padding:0 16px 12px; font-size:12px; color:var(--text-muted); }
+
+.ll-device-trust .ll-setting-label { flex:1;min-width:0;line-height:1.5; }
+
+.ll-preparation:not([hidden]) { display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:6px 0; }
+.ll-preparation span { overflow-wrap:anywhere; }
+.ll-preparation progress { width:6rem; accent-color:var(--accent); }
+.ll-preparation button { margin-inline-start:auto; }
+
+/* Leave the leading edge free for the macOS window controls. */
+html[data-platform="darwin"] #titlebar { padding-left: 78px; }
+html[data-platform="darwin"] #titlebar .controls { display: none; }
+
+.ll-connect-addresses { margin-top:12px; color:var(--text-secondary); }
+.ll-connect-addresses summary { cursor:pointer; }
+.ll-connect-addresses > div { display:flex; align-items:center; justify-content:space-between; gap:12px; padding-top:6px; }

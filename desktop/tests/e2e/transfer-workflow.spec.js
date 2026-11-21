@@ -18,8 +18,15 @@ test('real file conversation: manual discovery, text, batch, paste, folder and h
   await expect(page.locator('.tabs-container')).not.toBeVisible();
   await expect(page.locator('#localsend-send svg')).toHaveAttribute('data-lucide','file');
   await expect(page.locator('#ll-open-receive-folder')).toBeVisible();
-  await page.locator('#ll-message-input').fill('你好，這是 LocalLink 的文字與連結。\nhttps://localsend.org');
-  await page.locator('#ll-send-text').click();
+  const composer=page.locator('#ll-message-input');
+  await composer.fill('你好，這是 LocalLink 的文字與連結。');
+  await composer.press('End');await composer.press('Shift+Enter');
+  await expect(composer).toHaveValue('你好，這是 LocalLink 的文字與連結。\n');
+  await composer.fill('你好，這是 LocalLink 的文字與連結。\nhttps://localsend.org');
+  await composer.dispatchEvent('keydown',{key:'Enter',isComposing:true});
+  await expect(page.locator('[data-status="delivered"]')).toHaveCount(0);
+  await expect(composer).not.toHaveValue('');
+  await composer.press('Enter');
   await expect(page.locator('[data-status="delivered"]')).toHaveCount(1);
   await expect(page.locator('.ll-text-content')).toContainText('https://localsend.org');
   expect(incoming.find(r=>r.status==='received').text).toContain('你好');

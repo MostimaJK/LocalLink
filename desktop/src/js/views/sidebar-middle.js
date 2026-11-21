@@ -788,7 +788,7 @@ window.SidebarMiddle = {
     [['nearby',window.I18n.t('s12')],['favorites',window.I18n.t('s13')],['history',window.LocalSendPanel.text('全部裝置','全部设备','All devices')]].forEach(([id, label]) => {
       html += '<button data-device-scope="' + id + '" aria-pressed="' + (scope === id) + '" style="padding:7px 10px;border-radius:8px;border:1px solid var(--border-subtle);color:var(--text-primary);background:' + (scope === id ? 'var(--bg-hover)' : 'transparent') + '">' + label + ' ' + sets[id].length + '</button>';
     });
-    html += '</div><div style="padding:0 16px 12px;display:flex;justify-content:space-between;gap:8px"><button id="btn-add-friend" style="color:var(--accent-primary)"><span data-i18n="s15">连接设备</span></button><button id="btn-all-friends" style="color:var(--text-muted)"><span data-i18n="s16">全部记录</span></button></div>';
+    html += '</div><p id="ll-device-refresh-status" role="status" class="ll-device-refresh-status" hidden></p><div style="padding:0 16px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px"><button id="btn-add-friend" style="color:var(--accent-primary)"><span data-i18n="s15">连接设备</span></button><button id="btn-all-friends" style="color:var(--text-muted)"><span data-i18n="s16">全部记录</span></button><button type="button" data-device-refresh class="ll-device-refresh"><i data-lucide="refresh-cw"></i></button></div>';
     const hint = {nearby:window.I18n.t('s38'), favorites:window.I18n.t('s39'), history:window.I18n.t('s40')};
     html += '<p style="padding:0 16px 12px;font-size:12px;color:var(--text-muted);line-height:1.6">' + hint[scope] + '</p>';
     const query = (this.container.querySelector('.search-input').value || '').toLowerCase();
@@ -800,6 +800,8 @@ window.SidebarMiddle = {
     if (!rows.length) html += '<div style="padding:24px 16px;color:var(--text-muted);font-size:13px">' + (query ? window.I18n.t('s41') : scope === 'nearby' ? window.I18n.t('s44') : scope === 'favorites' ? window.I18n.t('s43') : window.I18n.t('s42')) + '</div>';
     listContainer.innerHTML = html;
     lucide.createIcons({root:listContainer});
+    devices.renderRefresh();
+    listContainer.querySelector('[data-device-refresh]').onclick=()=>devices.refresh();
     listContainer.querySelectorAll('[data-device-scope]').forEach(button => button.onclick = () => {
       this.deviceScope = button.dataset.deviceScope;
       this.renderList(window.store.getState());
@@ -813,6 +815,7 @@ window.SidebarMiddle = {
   },
 
   _buildFriendRowHtml(friend, state, opts) {
+    if(friend.userId.startsWith('localsend:'))friend={...friend,status:window.LocalLinkDevices.isNearby(friend)?'online':'offline'};
     opts = opts || {};
     var self = this;
     var activeChatId = state.activeChatId;

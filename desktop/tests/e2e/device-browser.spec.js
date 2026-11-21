@@ -41,3 +41,33 @@ test('centered window, nearby sightings and explicit favorites have separate lif
     await expect(page.locator('#friends-list-container')).toContainText('Test laptop');
   } finally { await app.close(); }
 });
+
+test('manual discovery preserves local metadata and suppresses unchanged heartbeats',async()=>{
+ const {app,page}=await launchApp(tmpUserDataDir('manual-refresh'),[],{keepBootState:true});
+ try{
+  await page.evaluate(()=>{
+   const d=window.LocalLinkDevices,p={userId:'localsend:refresh-fixture',username:'Laptop',status:'online',deviceType:'laptop',lastSeen:Date.now()};
+   d.observe(p);window.orbitAPI.dbSetSetting(d.key(p.userId),{...d.get(p),alias:'My laptop',favorite:true});
+   window.store.setState({friends:[...window.store.getState().friends]});
+   window.__peerUpdates=0;window.store.subscribe((state,changed)=>{if(changed.friends)window.__peerUpdates++;});
+   d.observe({...p,lastSeen:Date.now()+1});
+  });
+  expect(await page.evaluate(()=>window.__peerUpdates)).toBe(0);
+  await app.evaluate(({ipcMain})=>{global.__refreshCount=0;ipcMain.removeHandler('locallink-rediscover');ipcMain.handle('locallink-rediscover',()=>{global.__refreshCount++;return {ok:true};});});
+  await page.locator('[data-device-refresh]').click();await expect(page.locator('[data-device-refresh]')).toBeDisabled();
+  await page.evaluate(()=>window.LocalLinkDevices.refresh());
+  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].webContents.send('locallink-lan-seen',{userId:'localsend:new-device',username:'New phone',status:'online',deviceType:'mobile',lastSeen:Date.now()}));
+  await expect(page.locator('#friends-list-container')).toContainText('New phone');
+  await expect(page.locator('[data-device-refresh]')).toBeDisabled();
+  await expect(page.locator('[data-device-refresh]')).toBeEnabled();expect(await app.evaluate(()=>global.__refreshCount)).toBe(1);
+  expect(await page.evaluate(()=>window.LocalLinkDevices.get({userId:'localsend:refresh-fixture'}))).toMatchObject({alias:'My laptop',favorite:true});
+  for(const [locale,label] of [['en','Refresh devices'],['zh-Hans','刷新设备'],['zh-Hant','重新搜尋裝置']]){
+   await page.evaluate(locale=>window.I18n.set(locale),locale);await expect(page.getByRole('button',{name:label,exact:true})).toBeVisible();
+  }
+  await app.evaluate(({ipcMain})=>{ipcMain.removeHandler('locallink-rediscover');ipcMain.handle('locallink-rediscover',()=>({ok:false,error:'Network unavailable'}));});
+  await page.locator('[data-device-refresh]').click();await expect(page.locator('#ll-device-refresh-status')).toContainText('Network unavailable');await expect(page.locator('[data-device-refresh]')).toBeEnabled();
+  await page.evaluate(()=>{const d=window.LocalLinkDevices;d.nearby.set(d.key('localsend:refresh-fixture'),Date.now()-46000);d.expireNearby();});
+  await page.locator('[data-device-scope="favorites"]').click();await expect(page.locator('#friends-list-container')).toContainText('My laptop');
+  await expect(page.locator('[data-id="localsend:refresh-fixture"]')).toHaveAttribute('data-debug',/Status: offline/);
+ }finally{await app.close();}
+});

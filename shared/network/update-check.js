@@ -274,6 +274,14 @@ Orbit.UpdateCheck = (function() {
         pick = candidates.filter(function (a) { return _hasToken(a.name, tokens); })[0];
       }
     }
+    if (!pick && platform === 'darwin' && arch) {
+      // A disk image explicitly built for another CPU cannot serve as a native update.
+      pick = candidates.find(function (a) { return /universal/i.test(a.name); });
+      if (!pick) pick = candidates.find(function (a) {
+        return !_hasToken(a.name, _archTokens('x64').concat(_archTokens('arm64')));
+      });
+      if (!pick) return null;
+    }
     if (!pick) {
       pick = candidates.filter(function (a) { return _isPreferredFormat(a.name, platform); })[0];
     }

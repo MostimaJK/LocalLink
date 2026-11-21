@@ -222,9 +222,9 @@ window.I18n = {
     "zh-Hans": "点击设备旁的星标即可收藏。"
   },
   "s44": {
-    "en": "No devices found. Open LocalLink or LocalSend on another device. LocalSend protocol preview is available; original-client interoperability testing is pending.",
-    "zh-Hant": "尚未發現裝置，請在另一台裝置上開啟 LocalLink 或 LocalSend。已接入 LocalSend 協定預覽版，原版客戶端互測待完成。",
-    "zh-Hans": "暂未发现设备，请在另一台设备上打开 LocalLink 或 LocalSend。已接入 LocalSend 协议预览版，原版客户端互测待完成。"
+    "en": "No devices found. Open LocalLink or LocalSend on another device.",
+    "zh-Hant": "尚未發現裝置，請在另一台裝置上開啟 LocalLink 或 LocalSend。",
+    "zh-Hans": "暂未发现设备，请在另一台设备上打开 LocalLink 或 LocalSend。"
   },
   "s45": {
     "en": "Set the name other devices see. Renaming preserves your identity and local history.",

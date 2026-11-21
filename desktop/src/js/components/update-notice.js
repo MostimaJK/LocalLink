@@ -40,6 +40,7 @@ window.UpdateNotice = {
     if (this._busy) return;
     this.closeModal();
     const t = this._t.bind(this), esc = this._esc;
+    const windowsUpdate = window.orbitAPI.platform === 'win32';
     const overlay = document.createElement('div');
     overlay.id = 'update-notice-modal';
     overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:#0009;display:grid;place-items:center';
@@ -47,7 +48,7 @@ window.UpdateNotice = {
       <button id="update-modal-close" aria-label="${t('關閉','关闭','Close')}" style="position:absolute;right:16px;top:12px" class="ll-action-button">×</button>
       <h3 id="ll-update-title">LocalLink ${esc(result.latest)}</h3>
       <p>${t('目前版本','当前版本','Current version')}: ${esc(result.current)}${result.prerelease ? ' · '+t('預覽版','预览版','Prerelease') : ''}</p>
-      <p>${t('校驗完成後可更新並重新啟動，設定與記錄會保留。請先完成傳輸與通話。','校验完成后可更新并重启，设置与记录会保留。请先完成传输和通话。','After verification, update and restart while keeping settings and history. Finish transfers and calls first.')}</p>
+      <p>${windowsUpdate ? t('校驗完成後可更新並重新啟動，設定與記錄會保留。請先完成傳輸與通話。','校验完成后可更新并重启，设置与记录会保留。请先完成传输和通话。','After verification, update and restart while keeping settings and history. Finish transfers and calls first.') : t('校驗完成後，開啟下載資料夾並手動安裝。','校验完成后，打开下载文件夹并手动安装。','After verification, open the download folder to install the update manually.')}</p>
       <ul>${(result.highlights || []).map(note=>`<li>${esc(note)}</li>`).join('')}</ul>
       <p>${esc(result.asset?.name)} ${result.asset?.size ? '('+(result.asset.size/1048576).toFixed(1)+' MiB)' : ''}</p>
       <p id="update-download-status" role="status" aria-live="polite"></p>
@@ -89,6 +90,7 @@ window.UpdateNotice = {
         button.hidden = true;
         find('update-reveal-file').hidden = false;
         find('update-reveal-file').onclick = () => window.orbitAPI.revealDownloadedFile(out.path);
+        if (!windowsUpdate) return;
         find('update-open-file').hidden = false;
         find('update-open-file').onclick = async () => {
           const install=find('update-open-file');install.disabled=true;

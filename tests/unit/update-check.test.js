@@ -245,6 +245,8 @@ check('unknown platform falls back to windows', UC.pickAsset(RELEASE, 'solaris')
 check('missing asset -> null', UC.pickAsset({ assets: [] }, 'win32'), null);
 check('no assets key -> null', UC.pickAsset({}, 'win32'), null);
 check('deb-only linux build still matches', UC.pickAsset({ assets: [{ name: 'o.deb', browser_download_url: 'https://x/o.deb' }] }, 'linux').name, 'o.deb');
+check('Intel Mac skips an Apple Silicon only release', UC.pickAsset({assets:[{name:'LocalLink-arm64.dmg'}]}, 'darwin', 'x64'), null);
+check('Intel Mac can use the universal image', UC.pickAsset({assets:[{name:'LocalLink-arm64.dmg'},{name:'LocalLink-universal.dmg'}]}, 'darwin', 'x64').name, 'LocalLink-universal.dmg');
 check('arm64-only mac build still matches with no arch', UC.pickAsset({ assets: [{ name: 'o-arm64.dmg', browser_download_url: 'https://x/o.dmg' }] }, 'darwin').name, 'o-arm64.dmg');
 
 /* ---------------------------------------------------------------- *

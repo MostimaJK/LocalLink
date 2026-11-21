@@ -60,6 +60,7 @@ test('rounded menus support keyboard, dismissal, short windows and modal close',
 
 test('caption buttons minimize, maximize, restore and close with correct small glyphs',async()=>{
  const {app,page}=await launchApp(tmpUserDataDir('caption'),[],{keepBootState:true});
+ let closed=false;const process=app.process();
  try {
   for(const id of ['btn-minimize','btn-maximize','btn-close']) {
    await expect(page.locator('#'+id+' svg')).toHaveCSS('width','12px');
@@ -78,7 +79,35 @@ test('caption buttons minimize, maximize, restore and close with correct small g
   await page.locator('#btn-close').hover();
   await expect(page.locator('#btn-close')).toHaveCSS('background-color','rgb(196, 43, 28)');
   await page.screenshot({path:path.resolve('../artifacts/window-chrome-refined.png')});
-  await page.locator('#btn-close').click();
-  await expect.poll(()=>app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].isVisible())).toBe(false);
- }finally{await app.close();}
+  const exit=app.waitForEvent('close');
+  await page.locator('#btn-close').click();await exit;closed=true;
+  await expect.poll(()=>process.exitCode).not.toBeNull();
+ }finally{if(!closed)await app.close();}
+});
+
+
+test('background switch persists and native close follows the chosen policy',async()=>{
+ const dir=tmpUserDataDir('background');let session=await launchApp(dir,[],{keepBootState:true,fixtureLocale:false});let closed=false;
+ try{
+  await session.page.evaluate(()=>window.SettingsModal.open('account'));
+  const toggle=session.page.locator('#ll-run-in-background');await expect(toggle).not.toBeChecked();
+  await toggle.check();await session.page.locator('#btn-close-settings').click();
+  await session.page.locator('#btn-close').click();
+  await expect.poll(()=>session.app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].isVisible())).toBe(false);
+  // Explicit quit must still exit even when closing to the tray is enabled.
+  await session.app.close();
+  session=await launchApp(dir,[],{keepBootState:true,fixtureLocale:false});
+  await session.page.evaluate(()=>window.SettingsModal.open('account'));await expect(session.page.locator('#ll-run-in-background')).toBeChecked();
+  for(const [locale,label] of [['zh-Hant','關閉視窗後在背景執行'],['zh-Hans','关闭窗口后在后台运行'],['en','Keep running after closing the window']]){
+   await session.page.evaluate(locale=>{window.I18n.set(locale);window.SettingsModal.open('account');},locale);
+   await expect(session.page.getByRole('switch',{name:label})).toBeChecked();
+  }
+  await session.app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].close());
+  await expect.poll(()=>session.app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].isVisible())).toBe(false);
+  await session.app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].show());
+  await session.page.locator('#ll-run-in-background').uncheck();
+  const process=session.app.process(),exit=session.app.waitForEvent('close');
+  await session.app.evaluate(({BrowserWindow})=>{setImmediate(()=>BrowserWindow.getAllWindows()[0].close());});
+  await exit;closed=true;await expect.poll(()=>process.exitCode).not.toBeNull();
+ }finally{if(!closed)await session.app.close();}
 });

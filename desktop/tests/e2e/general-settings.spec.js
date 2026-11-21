@@ -14,6 +14,8 @@ test('general settings prioritize folders and retain preferences across sections
     node.querySelector('#interface-language')?'language':node.querySelector('#ll-receive-path')?'receiving':node.querySelector('#input-username')?'name':'other'
   ))).toEqual(['language','receiving','name']);
   await expect(page.locator('#settings-content')).not.toContainText('單次傳輸上限');
+  expect(await page.locator('#ll-show-history').evaluate(el=>!!el.closest('section').nextElementSibling.querySelector('#ll-run-in-background'))).toBe(true);
+  await expect(page.locator('#transport-mode option[value=localsend]')).toHaveText('LocalSend');
   await expect(page.locator('#settings-content > :last-child #ll-check-adapters')).toHaveCount(1);
   await expect(page.locator('#ll-receive-path')).not.toHaveText('…');
   expect(await page.locator('#settings-content [id]').evaluateAll(nodes=>{const ids=nodes.map(n=>n.id);return ids.length===new Set(ids).size;})).toBe(true);
@@ -44,4 +46,40 @@ test('general settings prioritize folders and retain preferences across sections
   await page.evaluate(()=>window.SettingsModal.open('about'));
   await expect(page.locator('#settings-btn-check-update')).toBeVisible();
  }finally {await app.close();}
+});
+
+
+test('idle polling avoids unchanged renders and network-map work follows visibility',async()=>{
+ const {app,page}=await launchApp(tmpUserDataDir('idle-work'),[],{keepBootState:true});
+ try{
+  expect(await page.locator('#chat-welcome-host').evaluate(el=>getComputedStyle(el,'::before').animationName)).toBe('none');
+  const result=await page.evaluate(()=>{
+   const original=window.setInterval;let check;
+   window.setInterval=function(fn,delay,...args){if(delay===15000)check=fn;return original(fn,delay,...args);};
+   try{window.store.setState({settings:{...window.store.getState().settings,experimentalPerformanceMode:false}});}finally{window.setInterval=original;}
+   if(!check)throw Error('Offline poller not captured');
+   const old=window.store.getState().friends;
+   window.store.setState({friends:[{userId:'idle-fixture',username:'Idle fixture',status:'online',lastSeen:Date.now()}]});
+   let changes=0;const unsubscribe=window.store.subscribe((state,changed)=>{if(changed.friends)changes++;});
+   check();const unchanged=changes;
+   window.store.getState().friends[0].lastSeen=Date.now()-60000;check();
+   const expired=window.store.getState().friends[0].status;const changed=changes;
+   unsubscribe();window.store.setState({friends:old});return {unchanged,changed,expired};
+  });
+  expect(result).toEqual({unchanged:0,changed:1,expired:'offline'});
+  await page.evaluate(()=>window.SettingsModal.open('account'));
+  expect(await page.evaluate(()=>window.SettingsModal._networkMapTimer)).toBeNull();
+  for(const locale of ['en','zh-Hant','zh-Hans']){
+   await page.evaluate(locale=>{window.I18n.set(locale);window.SettingsModal.open('account');},locale);
+   await expect(page.locator('#transport-mode option[value=localsend]')).toHaveText('LocalSend');
+  }
+  await page.evaluate(()=>{window.orbitAPI.dbSetSetting('locallink.transport','orbit');window.SettingsModal.open('account');});
+  await expect.poll(()=>page.evaluate(()=>!!window.SettingsModal._networkMapTimer)).toBe(true);
+  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].hide());
+  await expect.poll(()=>page.evaluate(()=>window.SettingsModal._networkMapTimer)).toBeNull();
+  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].show());
+  await expect.poll(()=>page.evaluate(()=>!!window.SettingsModal._networkMapTimer)).toBe(true);
+  await page.evaluate(()=>window.SettingsModal.close());
+  expect(await page.evaluate(()=>({timer:window.SettingsModal._networkMapTimer,observer:window.SettingsModal._mapResizeObserver}))).toEqual({timer:null,observer:null});
+ }finally{await app.close();}
 });

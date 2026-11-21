@@ -1,10 +1,45 @@
 // Local-only presentation metadata. Never broadcast aliases or infer trust.
 window.LocalLinkDevices = {
   nearby: new Map(),
+  refreshing: false,
+  refreshMessage: '',
+  renderRefresh() {
+    const t=window.LocalSendPanel.text;
+    document.querySelectorAll('[data-device-refresh]').forEach(button=>{
+      button.disabled=this.refreshing;button.setAttribute('aria-busy',String(this.refreshing));
+      button.title=t(this.refreshing?'正在搜尋…':'重新搜尋裝置',this.refreshing?'正在搜索…':'刷新设备',this.refreshing?'Searching…':'Refresh devices');
+      button.setAttribute('aria-label',button.title);
+    });
+    const status=document.getElementById('ll-device-refresh-status');if(status){status.textContent=this.refreshMessage;status.hidden=!this.refreshMessage;}
+  },
+  expireNearby() {
+    let expired=false;const now=Date.now();
+    this.nearby.forEach((seen,key)=>{if(now-seen>=45000){this.nearby.delete(key);expired=true;}});
+    if(expired)window.store.setState({friends:[...window.store.getState().friends]});
+  },
+  async refresh() {
+    if(this.refreshing)return;
+    const t=window.LocalSendPanel.text;this.refreshing=true;this.refreshMessage='';this.renderRefresh();this.expireNearby();
+    try{
+      const result=await window.orbitAPI.invoke('locallink-rediscover');
+      if(!result?.ok)throw new Error(result?.error||t('無法搜尋裝置','无法搜索设备','Could not discover devices'));
+      // Allow LAN replies to arrive; silence is not proof that a device is offline.
+      await new Promise(resolve=>setTimeout(resolve,2000));this.expireNearby();
+      this.refreshMessage=t('已重新搜尋，裝置狀態會持續更新。','已重新搜索，设备状态会持续更新。','Discovery requested. Device status continues to update.');
+    }catch(error){this.refreshMessage=t('搜尋失敗：','搜索失败：','Discovery failed: ')+error.message;}
+    finally{this.refreshing=false;this.renderRefresh();}
+  },
   observe(peer) {
     if (!peer || !peer.userId || peer.userId === 'local-echo') return;
+    const wasNearby=this.isNearby(peer);
     this.nearby.set(this.key(peer.userId), Date.now());
-    if(peer.deviceType)window.orbitAPI.dbSetSetting(this.key(peer.userId),{...this.get(peer),detectedType:peer.deviceType});
+    const meta=this.get(peer);
+    if(peer.deviceType&&meta.detectedType!==peer.deviceType)window.orbitAPI.dbSetSetting(this.key(peer.userId),{...meta,detectedType:peer.deviceType});
+    const existing=window.store.getState().friends.find(friend=>friend.userId===peer.userId);
+    if(wasNearby&&existing&&Object.keys(peer).every(key=>key==='lastSeen'||existing[key]===peer[key])){
+      if(peer.lastSeen)existing.lastSeen=peer.lastSeen;
+      return;
+    }
     window.store.addOrUpdatePeer(peer);
   },
   isNearby(peer, now = Date.now()) {
@@ -37,6 +72,26 @@ window.LocalLinkDevices = {
       if(result.ok){dialog.close();window.store.setState({activeChatId:result.peer.id});}
       else dialog.querySelector('#ll-connect-error').textContent=window.LocalSendPanel.errorLabel(result.error);
     };
+    window.orbitAPI.invoke('locallink-diagnostics').then(info=>{
+      if(!dialog.open || !info.running || !info.addresses.length)return;
+      const details=document.createElement('details');
+      const summary=document.createElement('summary');
+      summary.textContent=t('本機連線位址','本机连接地址','This computer’s connection addresses');
+      details.appendChild(summary);
+      for(const ip of new Set(info.addresses)){
+        const endpoint=ip+':'+info.port;
+        const row=document.createElement('div');
+        const address=document.createElement('code');
+        address.className='selectable';address.textContent=endpoint;
+        const copy=document.createElement('button');copy.type='button';
+        const label=t('複製','复制','Copy');
+        copy.textContent=label;copy.setAttribute('aria-label',label+' '+endpoint);
+        copy.onclick=()=>{window.orbitAPI.writeClipboard(endpoint);copy.textContent=t('已複製','已复制','Copied');};
+        row.append(address,copy);details.appendChild(row);
+      }
+      details.className='ll-connect-addresses';
+      dialog.querySelector('form').appendChild(details);
+    }).catch(()=>{});
     document.body.appendChild(dialog);dialog.showModal();dialog.querySelector('input').focus();
   },
   validateName(value) {
@@ -61,7 +116,7 @@ window.LocalLinkDevices = {
     section.dataset.trustEditor=peer.userId;section._peer=peer;section.className='ll-device-trust';
     section.innerHTML=`<h3 class="${paired?'ll-trusted':''}"><i data-lucide="shield-check"></i>${paired?t('已信任的裝置','已信任的设备','Trusted device'):t('尚未配對','尚未配对','Not paired')}</h3>
       <p class="ll-settings-copy">${t('僅控制本機接收對方內容的權限，收藏不代表信任。','仅控制本机接收对方内容的权限，收藏不代表信任。','Controls what this computer receives. Favorites do not grant trust.')}</p>
-      ${paired?`<label class="ll-setting-row">${t('自動接收此裝置的內容','自动接收此设备的内容','Automatically receive from this device')}<input class="ll-switch" type="checkbox" role="switch" data-auto-receive ${state.autoReceive?'checked':''}></label>`:''}
+      ${paired?`<label class="ll-setting-row"><span class="ll-setting-label">${t('自動接收此裝置的內容','自动接收此设备的内容','Automatically receive from this device')}</span><input class="ll-switch" type="checkbox" role="switch" data-auto-receive ${state.autoReceive?'checked':''}></label>`:''}
       <div class="ll-file-actions"><button type="button" data-trust-action>${paired?t('解除信任','解除信任','Remove trust'):t('配對此裝置','配对此设备','Pair this device')}</button></div><p role="status" class="ll-settings-copy"></p>`;
     const action=section.querySelector('[data-trust-action]');
     action.disabled=!paired&&!this.isNearby(peer);
@@ -148,10 +203,5 @@ if (window.orbitAPI) window.orbitAPI.on('locallink-lan-seen', peer => window.Loc
 if (window.orbitAPI) window.orbitAPI.on('locallink-trust-changed',()=>window.LocalLinkDevices.refreshTrust());
 setInterval(() => {
   if (!window.store || !window.store.getState().currentUser) return;
-  let expired = false;
-  const now = Date.now();
-  window.LocalLinkDevices.nearby.forEach((seen, key) => {
-    if (now - seen >= 45000) { window.LocalLinkDevices.nearby.delete(key); expired = true; }
-  });
-  if (expired) window.store.setState({friends: [...window.store.getState().friends]});
+  window.LocalLinkDevices.expireNearby();
 }, 5000);

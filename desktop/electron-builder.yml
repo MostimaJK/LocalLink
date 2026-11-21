@@ -16,6 +16,12 @@ files:
   - "!playwright-report/**"
   - "!src/icons/frames/**"
   - "!.gemini/**"
+  # Development and documentation assets are not application runtime files.
+  - "!scripts/**"
+  - "!docs/**"
+  - "!playwright.config.*"
+  - "!src/icons/screenshots/**"
+  - "!src/icons/app/orbit_banner.png"
 
 # shared/ lives OUTSIDE the app directory (desktop/), so `files` cannot reach it.
 # The renderer loads ../../shared/* from desktop/src/ and the main process
@@ -57,6 +63,8 @@ mac:
   icon: src/icons/app/locallink.png
   category: public.app-category.utilities
   darkModeSupport: true
+  extendInfo:
+    NSLocalNetworkUsageDescription: LocalLink discovers nearby devices and transfers files over your local network.
 
 dmg:
   title: "LocalLink ${version}"
