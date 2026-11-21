@@ -62,7 +62,11 @@ ok('a normal asset name is kept', () => {
 ok('path traversal cannot escape the download directory', () => {
   // path.basename first, so nothing with a separator survives at all.
   assert.strictEqual(safeAssetName('../../etc/passwd'), 'passwd');
-  assert.strictEqual(safeAssetName('..\\..\\windows\\system32\\evil.exe'), 'evil.exe');
+  const windowsName = safeAssetName('..\\..\\windows\\system32\\evil.exe');
+  // Windows basename removes backslash paths; POSIX treats them as filename
+  // characters, which the sanitizer replaces. Both must stay a single filename.
+  assert.strictEqual(windowsName, process.platform === 'win32' ? 'evil.exe' : '_.._windows_system32_evil.exe');
+  assert.ok(!/[\\/]/.test(windowsName));
   assert.strictEqual(safeAssetName('/etc/shadow'), 'shadow');
   assert.strictEqual(safeAssetName('a/b/c/Orbit.exe'), 'Orbit.exe');
 });
