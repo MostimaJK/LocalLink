@@ -2276,7 +2276,7 @@ window.SettingsModal = {
     } else if (tabName === 'about') {
       const version = window.orbitAPI.getAppVersion();
       content.innerHTML=`<h3 class="ll-settings-title">${t('關於','关于','About')}</h3>
-        <div class="ll-about-brand"><span class="ll-about-mark"><i data-lucide="link"></i></span><div><h2>LocalLink <span style="font-size:16px;font-weight:400;color:var(--text-secondary)">· ${t('近連','近连','近連')}</span></h2><p>${t('開發版','开发版','Development build')} · ${esc(version)}</p></div></div>
+        <div class="ll-about-brand"><span class="ll-about-mark"><i data-lucide="link"></i></span><div><h2>LocalLink</h2><p>${t('開發版','开发版','Development build')} · ${esc(version)}</p></div></div>
         <p class="ll-about-description">${t('個人裝置之間的檔案傳輸工具','个人设备之间的文件传输工具','File sharing across your devices')}</p>
         <section class="ll-settings-card"><div class="ll-settings-card-head"><i data-lucide="package"></i>${t('版本資訊','版本信息','Build information')}</div>
           <div class="ll-settings-card-body"><dl class="ll-about-facts"><div><dt>${t('更新渠道','更新渠道','Updates')}</dt><dd>${t('手動更新','手动更新','Manual updates')}</dd></div><div><dt>${t('檔案傳輸','文件传输','File transfer')}</dt><dd>LocalSend ${t('協定預覽','协议预览','protocol preview')}</dd></div></dl></div>

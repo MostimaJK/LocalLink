@@ -1090,7 +1090,7 @@ app.whenReady().then(() => {
     refreshTrayMenu();
   });
 
-  tray.setToolTip('LocalLink · 近连');
+  tray.setToolTip('LocalLink');
   refreshTrayMenu();
   tray.on('click', () => {
     if (mainWindow.isVisible()) {

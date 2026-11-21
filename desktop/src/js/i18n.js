@@ -253,8 +253,8 @@ window.I18n = {
   },
   "s50": {
     "en": "About LocalLink",
-    "zh-Hant": "關於 LocalLink · 近連",
-    "zh-Hans": "关于 LocalLink · 近连"
+    "zh-Hant": "關於 LocalLink",
+    "zh-Hans": "关于 LocalLink"
   },
   "s51": {
     "en": "LocalLink development build",
