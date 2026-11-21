@@ -18,6 +18,8 @@ The release includes SHA256SUMS.txt for all four packages. Windows builds are un
 
 Folders transfer directly and retain their relative paths. If delivery confirmation is lost between two 1.0.8 desktops, retry checks the receiver’s saved copy before uploading again. If nearby discovery is unavailable, open **Connect device** to copy the address and port for a manual connection. [Release notes](docs/RELEASE-NOTES-1.0.8.md)
 
+If a 1.0.7 Windows update downloads but does not restart, exit LocalLink completely and run the verified Setup in the update folder, or replace the old Portable executable with the new Portable package.
+
 ## Features
 
 Nearby discovery, favorites, aliases, files, images, folders with their directory structure and native LocalLink text. Includes progress, cancellation, retry, history, backups, receive-folder selection, pairing, authorized auto-receive, bandwidth limits and Windows adapter information.

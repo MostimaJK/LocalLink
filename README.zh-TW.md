@@ -18,6 +18,8 @@ SHA256SUMS.txt 列出四個套件的校驗值。Windows 版本尚未簽章，Mac
 
 不設固定容量上限，仍受磁碟與系統限制。新使用者預設英文，可在 **Settings → General → Interface language → 繁體中文** 切換。既有偏好保留，亦支援簡體中文。
 
+若 Windows 1.0.7 下載後未重新啟動，請完全退出 LocalLink，再執行更新目錄中的 Setup 覆蓋安裝。免安裝版請使用新版 Portable 取代舊執行檔。
+
 ## 介面預覽
 
 以下為示範資料。

@@ -31,7 +31,8 @@ class Fixture { public static void Main(string[] args) {
   const parent=spawn(process.execPath,['-e','setTimeout(()=>{},60000)'],{windowsHide:true,stdio:'ignore'});
   const job=await updater.prepare({file:download,sha256,target,userData:data,portable:true,pid:parent.pid,version:'1.0.1'});
   job.config.readyTimeout=3;fs.writeFileSync(path.join(job.job,'config.json'),JSON.stringify(job.config));
-  const child=spawn(ps,['-NoProfile','-ExecutionPolicy','Bypass','-File',path.join(job.job,'update.ps1'),'-ConfigPath',path.join(job.job,'config.json'),'-NoErrorDialog'],{windowsHide:true,stdio:'ignore',env:{...process.env,LOCALLINK_TEST_SKIP_READY:rollback?'1':'0'}});
+  const child=rollback?spawn(ps,['-NoProfile','-ExecutionPolicy','Bypass','-File',path.join(job.job,'update.ps1'),'-ConfigPath',path.join(job.job,'config.json'),'-NoErrorDialog'],{windowsHide:true,stdio:'ignore',env:{...process.env,LOCALLINK_TEST_SKIP_READY:'1'}}):null;
+  if(!rollback)await updater.start(job);
   try{
    for(let i=0;i<100&&!fs.existsSync(path.join(job.job,'helper-ready'));i++)await sleep(100);
    assert.ok(fs.existsSync(path.join(job.job,'helper-ready')));assert.equal(await updater.hashFile(target),oldHash);
@@ -40,7 +41,7 @@ class Fixture { public static void Main(string[] args) {
    const result=JSON.parse(fs.readFileSync(path.join(job.job,'result.json'),'utf8').replace(/^\uFEFF/,''));
    assert.equal(result.status,rollback?'rolled-back':'updated',JSON.stringify(result));
    assert.equal(await updater.hashFile(target),rollback?oldHash:sha256);
-  }finally{parent.kill();child.kill();}
+  }finally{parent.kill();child?.kill();}
  }
  // A Setup process may exit successfully without replacing the installed binary.
  const data=path.join(root,'unchanged install');
