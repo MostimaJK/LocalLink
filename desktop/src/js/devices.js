@@ -85,10 +85,10 @@ window.LocalLinkDevices = {
     };
     window.orbitAPI.invoke('locallink-diagnostics').then(info=>{
       if(!dialog.open || !info.running || !info.addresses.length)return;
-      const details=document.createElement('details');
-      const summary=document.createElement('summary');
-      summary.textContent=t('本機連線位址','本机连接地址','This computer’s connection addresses');
-      details.appendChild(summary);
+      const addresses=document.createElement('section');
+      const heading=document.createElement('h3');
+      heading.textContent=t('本機連線位址','本机连接地址','This computer’s connection addresses');
+      addresses.appendChild(heading);
       for(const ip of new Set(info.addresses)){
         const endpoint=ip+':'+info.port;
         const row=document.createElement('div');
@@ -98,10 +98,10 @@ window.LocalLinkDevices = {
         const label=t('複製','复制','Copy');
         copy.textContent=label;copy.setAttribute('aria-label',label+' '+endpoint);
         copy.onclick=()=>{window.orbitAPI.writeClipboard(endpoint);copy.textContent=t('已複製','已复制','Copied');};
-        row.append(address,copy);details.appendChild(row);
+        row.append(address,copy);addresses.appendChild(row);
       }
-      details.className='ll-connect-addresses';
-      dialog.querySelector('form').appendChild(details);
+      addresses.className='ll-connect-addresses';
+      dialog.querySelector('form').appendChild(addresses);
     }).catch(()=>{});
     document.body.appendChild(dialog);dialog.showModal();dialog.querySelector('input').focus();
   },

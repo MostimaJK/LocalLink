@@ -14,7 +14,10 @@ window.Changelog = {
         '<button id="changelog-close" style="background:transparent;border:none;cursor:pointer;color:var(--text-secondary);padding:4px;"><i data-lucide="x" style="width:20px;height:20px;"></i></button>' +
       '</div>' +
       '<div style="display:flex;flex-direction:column;gap:20px;">' +
-        versionBlock('1.0.8', 'Latest', [
+        versionBlock('1.0.9', 'Latest', [
+          ['Interface', ['Navigation highlights slide between pages. Chat actions align on the right, and local connection addresses are always visible.']]
+        ]) +
+        versionBlock('1.0.8', '', [
           ['Transfers', ['Send folders with their directory structure. Compatible desktops can confirm previously saved files on retry.', 'Phone senders can cancel a request. Disconnected members no longer hold up the group.']],
           ['Recovery', ['Back up desktop and browser transfer history together and see which original files were skipped.', 'Improved Windows update restart and temporary file cleanup.']]
         ]) +

@@ -252,7 +252,12 @@ html[data-platform="darwin"] #titlebar { padding-left: 78px; }
 html[data-platform="darwin"] #titlebar .controls { display: none; }
 
 .ll-connect-addresses { margin-top:12px; color:var(--text-secondary); }
-.ll-connect-addresses summary { cursor:pointer; }
+#ll-connect-submit { margin-inline-start:auto; }
+.ll-connect-addresses { padding-top:14px; border-top:1px solid var(--border-subtle); }
+.ll-connect-addresses h3 { font-size:13px; color:var(--text-primary); }
+.ll-connect-addresses code { overflow-wrap:anywhere; }
+.ll-connect-addresses button { flex:none; min-height:32px; padding:4px 12px; border:1px solid var(--border-subtle); border-radius:8px; background:var(--bg-hover); color:var(--text-primary); }
+.ll-connect-addresses button:hover { border-color:var(--accent-primary); }
 .ll-connect-addresses > div { display:flex; align-items:center; justify-content:space-between; gap:12px; padding-top:6px; }
 .ll-home-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; width:min(100%, 340px); margin:24px auto 14px; }
 .ll-home-actions button { display:flex; align-items:center; justify-content:center; gap:10px; min-height:44px; padding:8px 12px; border-radius:10px; border:1px solid var(--border-subtle); color:var(--text-primary); background:var(--bg-surface); font:inherit; font-weight:600; }
@@ -412,8 +417,10 @@ label:has(> input[type="checkbox"]:not(.ll-switch, .orbit-switch input, #profile
 .ll-transfer .ll-file-actions { gap:6px; }
 .ll-transfer .ll-file-actions button,.ll-receipt-actions button { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:32px; padding:5px 10px; border-radius:9px; font-size:12px; font-weight:600; }
 .ll-receipt-actions svg { width:15px; height:15px; }
-.ll-bubble:has(.ll-text-content) .ll-file-state,.ll-bubble:has(.ll-text-content) .ll-file-actions { display:inline-flex; vertical-align:middle; margin:8px 0 0; }
-.ll-bubble:has(.ll-text-content) .ll-file-actions { border:0; padding:0; margin-inline-start:10px; }
+.ll-message-footer { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; margin-top:8px; }
+.ll-message-footer > .ll-file-state { margin:0; }
+.ll-message-footer > .ll-file-actions { margin:0; margin-inline-start:auto; padding:0; border:0; max-width:100%; }
+.ll-message-footer button:focus-visible { outline:2px solid var(--accent-primary); outline-offset:-2px; }
 .ll-timeline .ll-receipt-card { align-self:flex-start; width:fit-content; max-width:min(90%,34rem); box-sizing:border-box; }
 
 .ll-receive-options .ll-setting-row { min-height:46px; padding-block:5px; }
@@ -425,3 +432,25 @@ label:has(> input[type="checkbox"]:not(.ll-switch, .orbit-switch input, #profile
 
 .ll-skipped-folders {max-height:8rem;overflow:auto;color:var(--text-secondary);overflow-wrap:anywhere}
 .ll-skipped-folders summary {cursor:pointer}
+
+/* Shared navigation highlight, sized to the selected control in each theme. */
+.ll-smooth-nav { position: relative; isolation: isolate; }
+.ll-nav-ready::after {
+  content: ''; position: absolute; top: 0; left: 0; z-index: -1;
+  width: var(--nav-w); height: var(--nav-h); pointer-events: none;
+  transform: translate(var(--nav-x), var(--nav-y));
+  background: var(--bg-hover); border-radius: var(--radius-md);
+  transition: transform 300ms linear(0, .3 15%, .73 35%, .96 55%, 1.018 72%, 1);
+}
+#left-sidebar-container.ll-nav-ready::after { background: var(--accent-soft); }
+#left-sidebar-container.ll-nav-ready .sidebar-top .icon-btn.active,
+.ll-nav-ready > button.settings-tab.active { background: transparent !important; }
+#left-sidebar-container.ll-nav-ready .sidebar-top .icon-btn.active::before { content: none; }
+#left-sidebar-container .sidebar-top .icon-btn { transform: none; }
+.ll-smooth-nav button:focus-visible,
+.ll-primary-button:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: -3px; }
+.ll-primary-button:enabled:active { scale: .98; }
+@media (prefers-reduced-motion: reduce) {
+  .ll-nav-ready::after { transition: none; }
+  .ll-primary-button:enabled:active { scale: none; }
+}

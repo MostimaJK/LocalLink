@@ -155,6 +155,7 @@ window.SettingsModal = {
   attachEvents() {
     var self = this;
     var tabs = this.container.querySelectorAll('.settings-tab');
+    window.LocalLinkNav.mount(tabs[0]?.parentElement, '.settings-tab');
     tabs.forEach(function(tab) {
       tab.addEventListener('click', function(e) {
         // ⚠ The class is the ONLY writer now. This used to also set `background` and

@@ -251,6 +251,23 @@ test('real file conversation: manual discovery, text, batch, paste, folder and h
   },[...png]);
   await expect(page.locator('[data-status="delivered"]')).toHaveCount(4);
   await expect(page.locator('.ll-image-preview')).toBeVisible();
+  const textFooter=page.locator('.ll-message-footer:has([data-copy])').first();
+  const fileFooter=page.locator('.ll-message-footer:has([data-folder])').last();
+  for(const footer of [textFooter,fileFooter]){
+   const layout=await footer.evaluate(el=>{
+    const state=el.querySelector('.ll-file-state').getBoundingClientRect();
+    const last=el.querySelector('button:last-child').getBoundingClientRect();
+    return {rightGap:el.getBoundingClientRect().right-last.right,sameRow:last.top<state.bottom&&last.bottom>state.top};
+   });
+   expect(Math.abs(layout.rightGap)).toBeLessThan(2);
+   expect(layout.sameRow).toBe(true);
+  }
+  const narrowFits=await fileFooter.evaluate(el=>{
+   el.style.width='145px';
+   try{return el.scrollWidth<=el.clientWidth+1;}
+   finally{el.style.removeProperty('width');}
+  });
+  expect(narrowFits).toBe(true);
   expect(fs.readFileSync(incoming.find(r=>r.status==='received'&&r.name.endsWith('.png')).path)).toEqual(png);
   await page.locator('#ll-search-files').fill('中文');await expect(page.locator('.ll-transfer')).toHaveCount(1);
   await page.locator('#ll-search-files').fill('');await expect(page.locator('.ll-transfer')).toHaveCount(4);

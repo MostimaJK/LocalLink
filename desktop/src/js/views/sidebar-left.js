@@ -5,6 +5,7 @@ window.SidebarLeft = {
     this.container = document.getElementById('left-sidebar-container');
     this.container.style.cssText = 'display:flex; flex-direction:column; flex:1; align-items:center; overflow:hidden;';
     this.render();
+    window.LocalLinkNav.mount(this.container, '.sidebar-top .icon-btn');
     this.attachEvents();
     
     this.unsubscribe = window.store.subscribe((state, changedState) => {
@@ -37,6 +38,7 @@ window.SidebarLeft = {
   },
 
   render() {
+    const focused = this.container.contains(document.activeElement) && document.activeElement.id;
     var s = (window.store.getState().settings || {}).sidebarButtons || {};
     var localSend=window.orbitAPI.dbGetSetting('locallink.transport','localsend')==='localsend';
     var showActivity = !localSend && s.activity !== false;
@@ -83,6 +85,7 @@ window.SidebarLeft = {
     window.TransferCenter?.badge();
     // Re-initialize icons for newly added HTML
     lucide.createIcons({ root: this.container });
+    if (focused) document.getElementById(focused)?.focus({preventScroll:true});
   },
 
   attachEvents() {

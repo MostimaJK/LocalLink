@@ -162,14 +162,16 @@ window.LocalSendPanel = {
    const fileIcon=['png','jpg','jpeg','webp','gif'].includes(ext)?'file-image':['mp4','mov','mkv'].includes(ext)?'file-video':['zip','7z','rar'].includes(ext)?'file-archive':'file-text';
    feed+='<article class="ll-transfer '+(incoming?'ll-incoming':'ll-outgoing')+'" data-transfer-id="'+esc(r.id)+'" data-status="'+esc(r.status)+'">'+
     '<div class="ll-bubble">'+(r.kind==='text'?'<p class="ll-text-content selectable">'+esc(r.text||'')+'</p>':((done&&['png','jpg','jpeg','webp','gif'].includes(ext)?'<img class="ll-image-preview" data-preview="'+esc(r.id)+'" alt="'+esc(r.name)+'" hidden>':'')+'<div class="ll-file-main"><span class="ll-file-icon">'+icon(fileIcon)+'</span><div class="ll-file-copy"><strong class="selectable">'+esc(r.name)+'</strong><span>'+this.size(r.size)+'</span></div></div>'))+
+    (done?'<div class="ll-message-footer">':'')+
     '<div class="ll-file-state '+(failed?'ll-error':'')+'">'+icon(failed?'circle-alert':done?'check-check':'clock-3')+'<span>'+esc(this.statusLabel(r.status))+'</span></div>'+
     (progress?'<div class="ll-progress"><progress max="'+Math.max(1,r.size)+'" value="'+Math.min(r.bytes,r.size)+'" aria-label="'+esc(this.statusLabel(r.status))+'"></progress><span>'+this.size(r.bytes)+' / '+this.size(r.size)+(r.rate?' · '+this.size(r.rate)+'/s':'')+'</span></div>':'')+
     (active?'<div class="ll-file-actions"><button data-cancel="'+esc(r.id)+'">'+icon('x')+t('取消本批次','取消本批次','Cancel batch')+'</button></div>':'')+
     ((!incoming&&(failed||r.status==='cancelled'))?'<div class="ll-file-actions"><button data-retry="'+esc(r.id)+'" '+(!canSend||busy?'disabled':'')+'>'+icon('rotate-ccw')+t('重試','重试','Retry')+'</button></div>':'')+
     (failed?'<p class="ll-error-detail selectable">'+esc(this.errorLabel(r.error)||t('請重新選擇檔案再試一次','请重新选择文件再试一次','Choose the file to try again'))+'</p>':'')+
-    (done&&r.kind==='text'&&!r.path?'<div class="ll-file-actions"><button data-copy="'+esc(r.id)+'">'+icon('copy')+t('複製','复制','Copy')+'</button></div>':'')+
-    (done&&r.path?'<div class="ll-file-actions">'+(r.kind==='text'?'<button data-copy="'+esc(r.id)+'">'+icon('copy')+t('複製','复制','Copy')+'</button>':'')+'<button data-open="'+esc(r.id)+'">'+icon('file')+t('開啟','打开','Open')+'</button><button data-folder="'+esc(r.id)+'">'+icon('folder-open')+t('所在資料夾','所在目录','Show in folder')+'</button></div>':'')+
-    ''+'</div>'+
+    (done&&(r.path||r.kind==='text')?'<div class="ll-file-actions">'+
+     (r.path?'<button data-open="'+esc(r.id)+'">'+icon('file')+t('開啟','打开','Open')+'</button><button data-folder="'+esc(r.id)+'">'+icon('folder-open')+t('所在資料夾','所在目录','Show in folder')+'</button>':'')+
+     (r.kind==='text'?'<button data-copy="'+esc(r.id)+'">'+icon('copy')+t('複製','复制','Copy')+'</button>':'')+'</div>':'')+
+    (done?'</div>':'')+'</div>'+
     '<div class="ll-message-meta">'+esc(incoming?name:t('本裝置','本设备','This device'))+' · <time datetime="'+date.toISOString()+'">'+date.toLocaleTimeString(locale,{hour:'2-digit',minute:'2-digit',hour12:false})+'</time></div></article>';
   }
   host.style.display='flex';host.style.flexDirection='column';

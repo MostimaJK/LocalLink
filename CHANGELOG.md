@@ -1,5 +1,9 @@
 # LocalLink Changelog
 
+## v1.0.9 — Desktop release
+
+Smooth navigation, compact chat actions and visible local connection addresses. [Release notes](docs/RELEASE-NOTES-1.0.9.md)
+
 ## v1.0.8 — Desktop release
 
 Direct folder transfers, verified delivery receipts, phone sharing cancellation, safer transfer backups and a Windows update restart fix. [Release notes](docs/RELEASE-NOTES-1.0.8.md)
