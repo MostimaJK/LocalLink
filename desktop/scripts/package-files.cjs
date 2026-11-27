@@ -9,7 +9,7 @@ const common = [
   "!mobile-harness.js",
   "!capacitor.config.json",
   "!tests/**",
-  "!test-results/**",
+  "!test-results{,-*}/**",
   "!playwright-report/**",
   "!src/icons/frames/**",
   "!.gemini/**",
@@ -31,7 +31,7 @@ function files(binding) {
 }
 
 module.exports = {
-  win: { files: files('win32-${arch}') },
+  win: { files: [...files('win32-${arch}'), '!node_modules/bare-*/prebuilds/!(win32-${arch})/**'] },
   mac: { files: files('darwin-${arch}') },
   linux: { files: files('linux-${arch}|linuxmusl-${arch}') },
 };

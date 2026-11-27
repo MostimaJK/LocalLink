@@ -1,6 +1,12 @@
 window.LocalSendPanel = {
+ cleanupMessage(incoming,name){
+  const t=this.text;
+  return (incoming?t('圖片已清理','图片已清理','Image cleared'):t('傳送快取已清理','发送缓存已清理','Sent image cache cleared'))+' · '+name;
+ },
  batches:new Map(),
  expandedBatches:new Set(),
+ cleaningImages:new Set(),
+ imageCleanupErrors:new Map(),
  preparations:new Map(),
  droppedFiles:new Map(),
  skippedFolders:new Map(),
@@ -125,7 +131,9 @@ window.LocalSendPanel = {
   const t=this.text.bind(this), esc=window.Sanitize.escapeHtml;
   const old=host.querySelector('.ll-timeline');
   const same=old?.dataset.peerId===peer.userId;
-  const top=old?.scrollTop||0, atBottom=!same||old.scrollHeight-old.clientHeight-top<60;
+  const top=old?.scrollTop||0;
+  const gap=same?Math.max(0,old.scrollHeight-old.clientHeight-top):0;
+  const nearEnd=gap<=2||(top>0&&gap<=Math.min(180,old.clientHeight*.3));
   const activeElement=document.activeElement;
   const focused=host.contains(activeElement)?activeElement.id:null;
   const selection=focused&&activeElement.selectionStart;
@@ -134,6 +142,16 @@ window.LocalSendPanel = {
   const name=window.LocalLinkDevices.name(peer);
   const query=this.queries.get(peer.userId)||'',limit=100,offset=this.offsets.get(peer.userId)||0;
   const records=window.orbitAPI.sendSync('locallink-list-transfers',{peerId:peer.userId,query,limit,offset}).reverse();
+  const latest=offset?window.orbitAPI.sendSync('locallink-list-transfers',{peerId:peer.userId,query,limit:1})[0]:records.at(-1);
+  const latestId=String(latest?.id||'');
+  const changed=same&&old.dataset.query===query&&latestId&&old.dataset.latest!==latestId;
+  const incoming=changed&&(latest.direction==='incoming'||latest.status==='received');
+  if(incoming&&offset){
+   this.offsets.delete(peer.userId);
+   this.render(peer,host);return;
+  }
+  const follow=!same||incoming||(!offset&&(gap<=2||(changed&&nearEnd)));
+  const pendingSent=!follow&&same&&(changed||old.dataset.pendingSent==='true')&&old.dataset.query===query;
   const icon=type=>'<i data-lucide="'+type+'" aria-hidden="true"></i>';
   const locale=window.I18n.locale==='en'?'en':window.I18n.locale==='zh-Hans'?'zh-CN':'zh-TW';
   let lastDate='', feed='';
@@ -160,8 +178,17 @@ window.LocalSendPanel = {
    const progress=Number.isFinite(r.bytes)&&['transferring','receiving','confirming'].includes(r.status);
    const ext=(r.name.split('.').pop()||'').toLowerCase();
    const fileIcon=['png','jpg','jpeg','webp','gif'].includes(ext)?'file-image':['mp4','mov','mkv'].includes(ext)?'file-video':['zip','7z','rar'].includes(ext)?'file-archive':'file-text';
+   const imageCard=fileIcon==='file-image'&&r.kind!=='text';
+   if(done&&imageCard&&r.fileRemoved&&!r.path){
+    feed+='<article class="ll-transfer '+(incoming?'ll-incoming':'ll-outgoing')+'" data-transfer-id="'+esc(r.id)+'" data-status="'+esc(r.status)+'"><p class="ll-cleanup-result" role="status">'+esc(this.cleanupMessage(incoming,r.name))+'</p></article>';
+    continue;
+   }
+   const canClean=imageCard&&r.path&&(incoming||r.hasSendCache);
+   const trashLabel=canClean?
+    (incoming?t('將這張圖片移到資源回收筒','将这张图片移到回收站','Move this image to the Recycle Bin'):t('清理這張圖片的快取','清理这张图片的缓存','Clear this cached image')):
+    t('原始檔案沒有快取','原始文件没有缓存','Original file has no cached copy');
    feed+='<article class="ll-transfer '+(incoming?'ll-incoming':'ll-outgoing')+'" data-transfer-id="'+esc(r.id)+'" data-status="'+esc(r.status)+'">'+
-    '<div class="ll-bubble">'+(r.kind==='text'?'<p class="ll-text-content selectable">'+esc(r.text||'')+'</p>':((done&&['png','jpg','jpeg','webp','gif'].includes(ext)?'<img class="ll-image-preview" data-preview="'+esc(r.id)+'" alt="'+esc(r.name)+'" hidden>':'')+'<div class="ll-file-main"><span class="ll-file-icon">'+icon(fileIcon)+'</span><div class="ll-file-copy"><strong class="selectable">'+esc(r.name)+'</strong><span>'+this.size(r.size)+'</span></div></div>'))+
+    '<div class="ll-bubble">'+(r.kind==='text'?'<p class="ll-text-content selectable">'+esc(r.text||'')+'</p>':((done&&r.path&&imageCard?'<img class="ll-image-preview" data-preview="'+esc(r.id)+'" alt="'+esc(r.name)+'" hidden>':'')+'<div class="ll-file-main"><span class="ll-file-icon">'+icon(fileIcon)+'</span><div class="ll-file-copy"><strong class="selectable">'+esc(r.name)+'</strong><span>'+this.size(r.size)+'</span></div></div>'))+
     (done?'<div class="ll-message-footer">':'')+
     '<div class="ll-file-state '+(failed?'ll-error':'')+'">'+icon(failed?'circle-alert':done?'check-check':'clock-3')+'<span>'+esc(this.statusLabel(r.status))+'</span></div>'+
     (progress?'<div class="ll-progress"><progress max="'+Math.max(1,r.size)+'" value="'+Math.min(r.bytes,r.size)+'" aria-label="'+esc(this.statusLabel(r.status))+'"></progress><span>'+this.size(r.bytes)+' / '+this.size(r.size)+(r.rate?' · '+this.size(r.rate)+'/s':'')+'</span></div>':'')+
@@ -170,8 +197,12 @@ window.LocalSendPanel = {
     (failed?'<p class="ll-error-detail selectable">'+esc(this.errorLabel(r.error)||t('請重新選擇檔案再試一次','请重新选择文件再试一次','Choose the file to try again'))+'</p>':'')+
     (done&&(r.path||r.kind==='text')?'<div class="ll-file-actions">'+
      (r.path?'<button data-open="'+esc(r.id)+'">'+icon('file')+t('開啟','打开','Open')+'</button><button data-folder="'+esc(r.id)+'">'+icon('folder-open')+t('所在資料夾','所在目录','Show in folder')+'</button>':'')+
+     (r.path&&fileIcon==='file-image'?'<button data-copy-image="'+esc(r.id)+'" title="'+t('複製圖片','复制图片','Copy image')+'" aria-label="'+t('複製圖片','复制图片','Copy image')+'">'+icon('copy')+'</button>':'')+
+     (imageCard?'<button data-trash-image="'+esc(r.id)+'" title="'+trashLabel+'" aria-label="'+trashLabel+'" '+(canClean&&!this.cleaningImages.has(r.id)?'':'disabled')+'>'+icon('trash-2')+'</button>':'')+
      (r.kind==='text'?'<button data-copy="'+esc(r.id)+'">'+icon('copy')+t('複製','复制','Copy')+'</button>':'')+'</div>':'')+
-    (done?'</div>':'')+'</div>'+
+    (done?'</div>':'')+
+    (imageCard&&this.cleaningImages.has(r.id)?'<p role="status">'+t('正在清理…','正在清理…','Clearing…')+'</p>':'')+
+    (imageCard&&r.path&&this.imageCleanupErrors.has(r.id)?'<p role="alert" class="ll-error-detail selectable">'+esc(this.imageCleanupErrors.get(r.id))+'</p>':'')+'</div>'+
     '<div class="ll-message-meta">'+esc(incoming?name:t('本裝置','本设备','This device'))+' · <time datetime="'+date.toISOString()+'">'+date.toLocaleTimeString(locale,{hour:'2-digit',minute:'2-digit',hour12:false})+'</time></div></article>';
   }
   host.style.display='flex';host.style.flexDirection='column';
@@ -206,7 +237,32 @@ window.LocalSendPanel = {
    host.querySelector('.ll-compose-wrapper').before(details);
   }
   const timeline=host.querySelector('.ll-timeline');
-  timeline.scrollTop=atBottom?timeline.scrollHeight:top;
+  timeline.dataset.latest=latestId;
+  timeline.dataset.query=query;
+  timeline.dataset.pendingSent=String(Boolean(pendingSent));
+  const jump=document.createElement('button');
+  jump.className='ll-jump-latest';
+  const tip=t('回到最新位置','回到最新位置','Jump to latest');
+  jump.title=tip;
+  const jumpText=document.createElement('span');
+  jump.innerHTML=icon('arrow-down');
+  jump.prepend(jumpText);
+  host.querySelector('.ll-composer').prepend(jump);
+  window.lucide.createIcons({root:jump});
+  const updateJump=()=>{
+   jump.hidden=!offset&&timeline.scrollHeight-timeline.clientHeight-timeline.scrollTop<=3;
+   if(jump.hidden)timeline.dataset.pendingSent='false';
+   jumpText.hidden=timeline.dataset.pendingSent!=='true';
+   jumpText.textContent=t('新傳送訊息','新发送消息','New sent message');
+   jump.setAttribute('aria-label',jumpText.hidden?tip:jumpText.textContent+' · '+tip);
+  };
+  jump.onclick=()=>{
+   if(offset){this.offsets.delete(peer.userId);this.render(peer,host);}
+   const current=host.querySelector('.ll-timeline');
+   current.scrollTop=current.scrollHeight;current.focus({preventScroll:true});
+   current.dispatchEvent(new Event('scroll'));
+  };
+  timeline.onscroll=updateJump;
   if(focused){const el=host.querySelector('#'+focused);el?.focus({preventScroll:true});if(typeof selection==='number'&&el?.setSelectionRange)el.setSelectionRange(selection,selection);}
   const stillActive=()=>window.store.getState().activeChatId===peer.userId&&host.isConnected;
   const run=async(channel,payload)=>{
@@ -243,6 +299,55 @@ window.LocalSendPanel = {
    if(this.expandedBatches.has(id))this.expandedBatches.delete(id);else this.expandedBatches.add(id);
    this.render(peer,host);
   });
+  host.querySelectorAll('[data-trash-image]:enabled').forEach(button=>button.onclick=async()=>{
+   const id=button.dataset.trashImage;
+   const row=records.find(record=>record.id===id);
+   if(this.cleaningImages.has(id))return;
+   button.disabled=true;
+   this.cleaningImages.add(id);
+   this.imageCleanupErrors.delete(id);
+   try{
+    button.closest('article').querySelector('[role=alert]')?.remove();
+    const result=await window.orbitAPI.invoke(row.direction==='incoming'?'locallink-storage-cleanup':'locallink-clean-sent-cache',id);
+    if(!result?.ok||result.count!==1)throw Error(result?.error||t('檔案狀態已變更，請重試','文件状态已变更，请重试','File state changed. Please retry.'));
+   }catch(error){
+    this.imageCleanupErrors.set(id,t('清理失敗：','清理失败：','Cleanup failed: ')+error.message);
+   }finally{
+    this.cleaningImages.delete(id);
+    if(stillActive()){
+      const current=host.querySelector('[data-trash-image="'+CSS.escape(id)+'"]');
+      if(current){
+       current.disabled=false;
+       const bubble=current.closest('.ll-bubble');
+       bubble.querySelector('[role=status]')?.remove();
+       const error=this.imageCleanupErrors.get(id);
+       if(error){
+        const line=document.createElement('p');line.className='ll-error-detail selectable';line.setAttribute('role','alert');line.textContent=error;bubble.append(line);
+       }
+      }
+    }
+   }
+  });
+  host.querySelectorAll('[data-copy-image]').forEach(button=>button.onclick=async()=>{
+   const id=button.dataset.copyImage;
+   const request=this.copyRequest=(this.copyRequest||0)+1;
+   let result;
+   try{result=await window.orbitAPI.invoke('locallink-copy-image',id);}
+   catch{result={error:t('無法複製圖片','无法复制图片','Could not copy image')};}
+   if(request!==this.copyRequest||result.superseded||!stillActive())return;
+   const current=host.querySelector('[data-copy-image="'+CSS.escape(id)+'"]');
+   if(!current)return;
+   const bubble=current.closest('.ll-bubble');
+   host.querySelector('.ll-copy-notice')?.remove();
+   const notice=document.createElement('span');
+   notice.className='ll-copy-notice';notice.setAttribute('role','status');
+   notice.textContent=result.ok?t('已複製','已复制','Copied'):result.error;
+   if(!result.ok)notice.classList.add('ll-error');
+   bubble.append(notice);
+   const bounds=notice.getBoundingClientRect(),viewport=timeline.getBoundingClientRect();
+   if(bounds.right>viewport.right-6||bounds.left<viewport.left+6)notice.classList.add('ll-copy-inside');
+   setTimeout(()=>notice.remove(),result.ok?3000:5000);
+  });
   host.querySelectorAll('[data-copy]').forEach(button=>button.onclick=()=>window.orbitAPI.send('write-clipboard',records.find(r=>r.id===button.dataset.copy)?.text||''));
   host.querySelectorAll('[data-preview]').forEach(async img=>{
    const id=img.dataset.preview;
@@ -257,11 +362,19 @@ window.LocalSendPanel = {
   const mergeSelection=items=>[...new Map(items.map(item=>[typeof item==='string'?item:item.path,item])).values()];
   const staged=this.droppedFiles.get(peer.userId)||[];
   if(staged.length){
-   const bar=document.createElement('div');bar.className='ll-file-actions';
-   const label=document.createElement('span');label.textContent=t('待傳送','待发送','Selected')+' · '+staged.length;label.title=staged.map(item=>item.path||item).join('\n');
-   const clear=document.createElement('button');clear.textContent=t('清空','清空','Clear');
+   const bar=document.createElement('div');bar.className='ll-draft-bubble';
+   const label=document.createElement('strong');
+   label.textContent=t('待傳送','待发送','Selected')+' · '+staged.length;
+   const list=document.createElement('ul');
+   for(const item of staged.slice(0,5)){
+    const path=typeof item==='string'?item:item.path;
+    const row=document.createElement('li');row.textContent=path.split(/[\\/]/).filter(Boolean).pop()||path;row.title=path;list.append(row);
+   }
+   if(staged.length>5){const more=document.createElement('li');more.textContent='+ '+(staged.length-5);list.append(more);}
+   const actions=document.createElement('div');actions.className='ll-draft-actions';
+   const clear=document.createElement('button');clear.textContent=t('取消','取消','Cancel');
    clear.onclick=()=>{this.droppedFiles.delete(peer.userId);this.render(peer,host);};
-   const send=document.createElement('button');send.disabled=busy||!canSend;send.textContent=t('傳送檔案','发送文件','Send files');
+   const send=document.createElement('button');send.className='ll-draft-confirm';send.disabled=busy||!canSend;send.textContent=t('確認','确认','Confirm');
    send.onclick=async()=>{
     this.droppedFiles.delete(peer.userId);
     const result=await run('locallink-send-paths',{peerId:peer.userId,paths:staged});
@@ -271,8 +384,10 @@ window.LocalSendPanel = {
      if(stillActive())this.render(peer,host);
     }
    };
-   bar.append(label,clear,send);host.querySelector('.ll-compose-wrapper').before(bar);
+   actions.append(clear,send);bar.append(label,list,actions);host.querySelector('.ll-compose-wrapper').before(bar);
   }
+  timeline.scrollTop=follow?timeline.scrollHeight:top;
+  updateJump();
   this.bindFileDrop(host.querySelector('.ll-conversation'),()=>canSend,paths=>{
    this.droppedFiles.set(peer.userId,mergeSelection([...paths,...staged]));this.render(peer,host);
   });
@@ -312,7 +427,19 @@ window.orbitAPI.on('locallink-batch-progress',batch=>{
 window.orbitAPI.on('locallink-transport-status',status=>{window.localSendStatus=status;if(!status.ok)window.Toast?.show('LocalSend',status.error,'error');});
 window.orbitAPI.on('locallink-transfer-error',error=>window.Toast?.show('LocalSend',error,'error'));
 
-window.orbitAPI.on('locallink-history-changed',()=>{
+window.orbitAPI.on('locallink-history-changed',change=>{
+ if(change?.imageId){
+  const panel=window.LocalSendPanel;
+  panel.previews.forget(change.imageId);
+  const card=window.ChatPanel.container?.querySelector('.ll-transfer[data-transfer-id="'+CSS.escape(change.imageId)+'"]');
+  const name=card?.querySelector('.ll-file-copy strong')?.textContent;
+  if(name){
+   const line=document.createElement('p');line.className='ll-cleanup-result';line.setAttribute('role','status');
+   line.textContent=panel.cleanupMessage(card.classList.contains('ll-incoming'),name);
+   card.replaceChildren(line);
+  }
+  return;
+ }
  window.LocalSendPanel.previews.clear();const state=window.store.getState();
  const peer=state.friends.find(p=>p.userId===state.activeChatId);
  if(peer?.userId.startsWith('localsend:'))window.LocalSendPanel.render(peer,window.ChatPanel.container);

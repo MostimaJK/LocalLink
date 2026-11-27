@@ -233,6 +233,8 @@ window.SettingsModal = {
     const heading = content.querySelector(':scope > h3');
     if (languageCard) heading.after(languageCard);
     if (receivingCard) languageCard.after(receivingCard);
+    const adminCard=content.querySelector('#ll-admin-launch')?.closest('section');
+    if(languageCard&&adminCard)languageCard.after(adminCard);
     if (accountSection && networkSection) networkSection.before(accountSection);
     const t = window.LocalSendPanel.text;
     const behavior = document.createElement('section');
@@ -282,6 +284,41 @@ window.SettingsModal = {
           <div><label for="interface-language">${t('介面語言','界面语言','Interface language')}</label></div>
           <select class="ll-field" id="interface-language"><option value="zh-Hant">繁體中文</option><option value="zh-Hans">简体中文</option><option value="en">English</option></select>
         </div></section>`;
+      if(window.orbitAPI.platform==='win32'){
+        const card=document.createElement('section');card.className='ll-settings-card';
+        card.innerHTML=`<div class="ll-settings-card-body">
+          <label class="ll-setting-row">${t('以系統管理員身分啟動','以管理员身份启动','Launch as administrator')}<input type="checkbox" id="ll-admin-launch" disabled></label>
+          <p class="ll-settings-copy" role="status"></p></div>`;
+        content.append(card);
+        const input=card.querySelector('input'),status=card.querySelector('[role=status]');
+        const failure=t('無法取得或變更執行權限','无法获取或更改运行权限','Could not read or change privileges');
+        window.orbitAPI.invoke('locallink-get-privileges').then(state=>{
+          input.checked=state.enabled;input.disabled=!state.available;
+        }).catch(()=>{status.textContent=failure;});
+        input.onchange=async()=>{
+          const enabled=input.checked;input.disabled=true;
+          try{
+            if(enabled){
+              const dialog=document.createElement('dialog');dialog.className='ll-connect-dialog';
+              dialog.setAttribute('aria-labelledby','ll-admin-restart-title');
+              dialog.innerHTML=`<form method="dialog"><h2 id="ll-admin-restart-title">${t('以系統管理員身分重新啟動？','以管理员身份重启？','Restart as administrator?')}</h2>
+                <div class="ll-file-actions"><button value="cancel" autofocus>${t('取消','取消','Cancel')}</button>
+                <button class="ll-primary-button" value="restart">${t('重新啟動','重启','Restart')}</button></div></form>`;
+              document.body.append(dialog);
+              const confirmed=await new Promise(resolve=>{
+                dialog.onclose=()=>{dialog.remove();resolve(dialog.returnValue==='restart');};dialog.showModal();
+              });
+              if(!confirmed){input.checked=false;return;}
+            }
+            const result=await window.orbitAPI.invoke('locallink-set-admin-launch',enabled);
+            if(!result.ok){
+              input.checked=!enabled;
+              status.textContent=result.error==='busy'?t('請等傳輸、通話或更新完成後重試','请等传输、通话或更新完成后重试','Wait for transfers, calls or updates to finish'):
+                result.error==='cancelled'?t('已取消授權','已取消授权','Authorization cancelled'):failure;
+            }else status.textContent='';
+          }catch{input.checked=!enabled;status.textContent=failure;}finally{input.disabled=false;}
+        };
+      }
       if (window.Identity.getAll().length > 1) {
         const legacy=document.createElement('button');
         legacy.textContent=t('查看舊身份記錄','查看旧身份记录','Previous identities');

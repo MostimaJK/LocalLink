@@ -17,11 +17,30 @@ async function prepare({file,sha256,target,userData,portable,pid=process.pid,ver
  }catch(error){await fs.promises.unlink(source).catch(()=>{});throw error;}
 }
 async function start(job){
- const log=fs.openSync(path.join(job.job,'helper.log'),'a');
- const child=spawn(path.join(process.env.SystemRoot||'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe'),['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',path.join(job.job,'update.ps1'),'-ConfigPath',path.join(job.job,'config.json')],{windowsHide:true,stdio:['ignore',log,log]});
- try{await new Promise((resolve,reject)=>{child.once('spawn',resolve);child.once('error',reject);});}finally{fs.closeSync(log);}child.unref();
+ const ps=path.join(process.env.SystemRoot||'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
+ let child;
+ if(job.config.portable){
+  const log=fs.openSync(path.join(job.job,'helper.log'),'a');
+  try{
+   child=spawn(ps,['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',path.join(job.job,'update.ps1'),'-ConfigPath',path.join(job.job,'config.json')],{windowsHide:true,stdio:['ignore',log,log]});
+   await new Promise((resolve,reject)=>{child.once('spawn',resolve);child.once('error',reject);});
+  }finally{fs.closeSync(log);}
+  child.unref();
+ }else{
+  // Start-Process gives the worker its own console lifetime on Windows. A worker
+  // inheriting the launcher's console can disappear as soon as LocalLink exits.
+  const launch=`$ErrorActionPreference='Stop'
+    $arguments='-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'+(Join-Path $env:LL_UPDATE_JOB 'update.ps1')+'" -ConfigPath "'+(Join-Path $env:LL_UPDATE_JOB 'config.json')+'"'
+    Start-Process -FilePath (Join-Path $PSHOME 'powershell.exe') -ArgumentList $arguments -WorkingDirectory $env:LL_UPDATE_JOB -WindowStyle Hidden`;
+  await require('node:util').promisify(require('node:child_process').execFile)(ps,['-NoProfile','-NonInteractive','-Command',launch],{windowsHide:true,env:{...process.env,LL_UPDATE_JOB:job.job}});
+ }
  // Do not exit the app until the helper has loaded its configuration.
- for(let i=0;i<100;i++){if(fs.existsSync(path.join(job.job,'helper-ready')))return;await new Promise(r=>setTimeout(r,100));}
+ const deadline=Date.now()+60000;
+ while(Date.now()<deadline){
+  if(fs.existsSync(path.join(job.job,'helper-ready')))return;
+  if(child&&(child.exitCode!==null||child.signalCode))throw Error('Update helper exited before startup (code '+child.exitCode+')');
+  await new Promise(r=>setTimeout(r,100));
+ }
  fs.writeFileSync(path.join(job.job,'cancel'),'1');throw Error('Update helper could not start');
 }
 function acknowledge(app,window){
@@ -56,11 +75,8 @@ async function lastInstall(userData,target,current){
  const diff=current.split('.').map((n,i)=>Number(n)-Number(cfg.version.split('.')[i])).find(n=>n!==0)||0;
  if(diff>0)return null;
  const file=path.join(job,'Setup.exe');
- return {id:cfg.id,version:cfg.version,updated:diff===0,file,sha256:cfg.sha256,available:diff<0&&await fs.promises.stat(file).then(s=>s.isFile(),()=>false)};
+ const outcome=await fs.promises.readFile(path.join(job,'result.json'),'utf8').then(raw=>JSON.parse(raw.replace(/^\uFEFF/,''))).catch(()=>null);
+ const reason=outcome?.status==='failed'&&typeof outcome.message==='string'?outcome.message.slice(0,500):'';
+ return {id:cfg.id,version:cfg.version,updated:diff===0,reason,file,sha256:cfg.sha256,available:diff<0&&await fs.promises.stat(file).then(s=>s.isFile(),()=>false)};
 }
-async function openVerifiedSetup(attempt,open){
- if(!attempt?.available||attempt.updated||await hashFile(attempt.file)!==attempt.sha256)throw Error('unverified-update');
- const error=await open(attempt.file);
- if(error)throw Error(error);
-}
-module.exports={hashFile,prepare,start,acknowledge,lastInstall,openVerifiedSetup};
+module.exports={hashFile,prepare,start,acknowledge,lastInstall};

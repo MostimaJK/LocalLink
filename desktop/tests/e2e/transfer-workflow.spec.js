@@ -37,7 +37,8 @@ test('home QR opens a temporary browser session for sending and receiving',async
   await expect(page.locator('#ll-browser-share')).toHaveCount(0);
   await page.locator('.share-quick-add').click();
   await page.locator('.share-indicator').click();
-  await expect(page.locator('.share-files summary')).toContainText('1');
+  await expect(page.locator('#ll-browser-share .share-files')).toHaveCount(0);
+  await expect.poll(()=>page.evaluate(async()=>(await window.orbitAPI.invoke('locallink-web-share',{action:'state'})).session.files.length)).toBe(1);
   expect(await readCode()).toBe(url);
   const opened=app.waitForEvent('window');
   await app.evaluate(async({BrowserWindow},url)=>{
@@ -206,7 +207,21 @@ test('real file conversation: manual discovery, text, batch, paste, folder and h
  const receiver=new LocalSend({dataDir:receiverDir,receiveDir:path.join(receiverDir,'files'),alias:()=> 'Test laptop',maxBytes:1e7,port:0,discovery:false,pair:async()=>true,accept:async()=>true,result:r=>incoming.push(r)});
  await receiver.start();let app;
  try{
-  const launched=await launchApp(dir,[],{keepBootState:true});app=launched.app;const page=launched.page;
+  // Exercise the Windows elevation handoff after the original launcher has already exited.
+  const handoff=process.platform==='win32'&&process.env.LOCALLINK_TEST_EXECUTABLE?['--locallink-parent=2147483647']:[];
+  const launched=await launchApp(dir,handoff,{keepBootState:true});app=launched.app;const page=launched.page;
+  if(process.platform==='win32'&&process.env.LOCALLINK_TEST_EXECUTABLE){
+   await page.evaluate(()=>window.SettingsModal.open('account'));
+   const admin=page.locator('#ll-admin-launch');
+   await expect(admin).toBeEnabled();
+   await expect(admin).not.toBeChecked();
+   expect(await admin.evaluate(input=>input.closest('section').previousElementSibling.contains(document.querySelector('#interface-language')))).toBe(true);
+   await admin.check();await page.locator('dialog[open] button[value=cancel]').click();await expect(admin).not.toBeChecked();
+   const state=await page.evaluate(()=>window.orbitAPI.invoke('locallink-get-privileges'));
+   expect(typeof state.elevated).toBe('boolean');
+   expect((await page.evaluate(()=>window.orbitAPI.invoke('locallink-set-admin-launch',false))).ok).toBe(true);
+   await page.locator('#btn-close-settings').click();
+  }
   const offline=await page.evaluate(()=>window.orbitAPI.invoke('locallink-send-content',{peerId:'offline-fixture',type:'image/png',bytes:[1]}));
   expect(offline.ok).toBe(false);
   expect(fs.readdirSync(path.join(dir,'locallink-outbox'))).toEqual([]);
@@ -241,16 +256,36 @@ test('real file conversation: manual discovery, text, batch, paste, folder and h
    window.addDropped([paths[0]]);window.addDropped(paths);
   },files);
   await expect(page.locator('.ll-composer')).toContainText('待傳送 · 2');
-  await page.getByRole('button',{name:'傳送檔案',exact:true}).click();
+  await expect(page.locator('.ll-draft-bubble')).toContainText('Notes.txt');
+  await page.locator('.ll-draft-actions').getByRole('button',{name:'取消',exact:true}).click();
+  await expect(page.locator('.ll-draft-bubble')).toHaveCount(0);
+  expect(incoming.filter(r=>r.status==='received')).toHaveLength(1);
+  await page.evaluate(paths=>window.addDropped(paths),files);
+  await page.locator('.ll-draft-confirm').click();
   await expect(page.locator('[data-status="delivered"]')).toHaveCount(3);
   expect(incoming.filter(r=>r.status==='received').length).toBe(3);
-  const png=await require('sharp')({create:{width:300,height:160,channels:3,background:'#2463ba'}}).png().toBuffer();
+  const png=await require('sharp')({create:{width:900,height:480,channels:3,background:'#2463ba'}}).png().toBuffer();
   await page.evaluate(bytes=>{
    const clipboardData=new DataTransfer();clipboardData.items.add(new File([new Uint8Array(bytes)],'pasted.png',{type:'image/png'}));
    document.getElementById('ll-message-input').dispatchEvent(new ClipboardEvent('paste',{clipboardData,bubbles:true,cancelable:true}));
   },[...png]);
   await expect(page.locator('[data-status="delivered"]')).toHaveCount(4);
   await expect(page.locator('.ll-image-preview')).toBeVisible();
+  // Capture the native clipboard payload without touching the user's clipboard.
+  await app.evaluate(({clipboard})=>{
+   global.originalWrite=clipboard.write;
+   global.capturePng=async items=>{
+    const png=Buffer.from(await (await items[0].getType('image/png')).arrayBuffer());
+    global.copiedImageSize={width:png.readUInt32BE(16),height:png.readUInt32BE(20)};
+   };
+   clipboard.write=global.capturePng;
+  });
+  try{
+   await page.locator('[data-copy-image]').click();
+   await expect.poll(()=>app.evaluate(()=>global.copiedImageSize)).toEqual({width:900,height:480});
+  }finally{await app.evaluate(({clipboard})=>{clipboard.write=global.originalWrite;});}
+  await expect(page.locator('#ll-clean-chat')).toHaveCount(0);
+  await expect(page.locator('[data-copy-image] + [data-trash-image]')).toBeEnabled();
   const textFooter=page.locator('.ll-message-footer:has([data-copy])').first();
   const fileFooter=page.locator('.ll-message-footer:has([data-folder])').last();
   for(const footer of [textFooter,fileFooter]){
@@ -293,9 +328,13 @@ test('real file conversation: manual discovery, text, batch, paste, folder and h
   await page.locator('#ll-open-receive-folder').click();expect(await app.evaluate(()=>globalThis.__llOpened)).toBe(receiveDir);
   // register supplied the app endpoint to this independent receiver.
   const peer=[...receiver.peers.values()][0];
+  const timeline=page.locator('.ll-timeline');
+  const gapToLatest=()=>timeline.evaluate(el=>el.scrollHeight-el.clientHeight-el.scrollTop);
+  await timeline.evaluate(el=>{el.scrollTop=0;});
   const request=receiver.send(peer.id,files[0]).catch(()=>{});
   const chatCard=page.locator('.ll-timeline .ll-receipt-card');
   await expect(chatCard).toContainText(path.basename(files[0]));
+  await expect.poll(gapToLatest).toBeLessThan(3);
   expect(fs.readdirSync(receiveDir)).toEqual([]);
   await chatCard.locator('.ll-receipt-reject').click();
   await request;
@@ -325,7 +364,71 @@ test('real file conversation: manual discovery, text, batch, paste, folder and h
   await page.locator('#ll-history-dialog .ll-load-more').click();
   await expect(page.locator('[data-trash-file]')).toHaveCount(0);expect(fs.existsSync(received.path)).toBe(false);
   expect(fs.existsSync(files[0])).toBe(true);
-  const cleaned=await page.evaluate(()=>window.orbitAPI.invoke('locallink-clean-sent-cache'));expect(cleaned.ok).toBe(true);expect(cleaned.count).toBeGreaterThanOrEqual(1);expect(fs.existsSync(files[0])).toBe(true);
+  await page.locator('#ll-history-dialog .ll-dialog-close').click();
+  const clipboardFixture=process.env.LOCALLINK_CLIPBOARD_TEST_IMAGE;
+  const sourceImage=path.join(receiverDir,clipboardFixture?'one-click.png':'one-click.jpg');
+  if(clipboardFixture)fs.copyFileSync(clipboardFixture,sourceImage);else await require('sharp')(png).jpeg().toFile(sourceImage);
+  await Promise.all([receiver.send(peer.id,sourceImage),chatCard.locator('.ll-receipt-accept').click()]);
+  const receivedImage=path.join(receiveDir,path.basename(sourceImage));
+  await expect(page.locator('.ll-incoming .ll-image-preview')).toBeVisible();
+  if(clipboardFixture)await app.evaluate(({clipboard})=>clipboard.writeText('LocalLink clipboard test: previous text'));
+  if(!clipboardFixture)await app.evaluate(({clipboard})=>{clipboard.write=global.capturePng;});
+  // Measure the same interval the user experiences, without Playwright's click/poll overhead.
+  await page.evaluate(()=>{
+   const button=document.querySelector('.ll-incoming [data-copy-image]');
+   button.addEventListener('click',()=>{
+    const start=performance.now();
+    const observer=new MutationObserver(()=>{
+     if(document.querySelector('.ll-incoming .ll-copy-notice')){
+      window.copyNoticeMs=Math.round(performance.now()-start);observer.disconnect();
+     }
+    });
+    observer.observe(document.body,{subtree:true,childList:true});
+   },{once:true,capture:true});
+  });
+  try{
+   await page.locator('.ll-incoming [data-copy-image]').click();
+   const notice=page.locator('.ll-incoming .ll-copy-notice');
+   await expect(notice).toHaveText('已複製');
+   if(clipboardFixture){
+    console.log('Received image click to clipboard confirmation:',await page.evaluate(()=>window.copyNoticeMs),'ms');
+    await page.evaluate(()=>{
+     const box=document.createElement('div');box.contentEditable='true';box.id='test-paste-target';
+     document.body.append(box);box.focus();
+     box.onpaste=event=>{event.preventDefault();box.dataset.type=event.clipboardData.files[0]?.type||'text';};
+    });
+    await page.keyboard.press('Control+v');
+    await expect(page.locator('#test-paste-target')).toHaveAttribute('data-type','image/png');
+    await page.locator('#test-paste-target').evaluate(el=>el.remove());
+   }
+   await expect(notice).toHaveCount(0,{timeout:5000});
+  }finally{await app.evaluate(({clipboard})=>{clipboard.write=global.originalWrite;});}
+  await expect.poll(()=>fs.existsSync(receivedImage)).toBe(true);
+  await app.evaluate(({dialog})=>{global.cleanupPrompts=0;dialog.showMessageBox=async()=>{global.cleanupPrompts++;return {response:0};};});
+  await app.evaluate(({shell})=>{
+   const original=shell.trashItem;
+   shell.trashItem=async()=>{shell.trashItem=original;throw Error('simulated file in use');};
+  });
+  await page.locator('.ll-incoming [data-trash-image]').first().click();
+  await expect(page.locator('.ll-incoming [role=alert]')).toContainText('simulated file in use');
+  expect(fs.existsSync(receivedImage)).toBe(true);
+  if(process.platform==='win32')await app.evaluate(({shell})=>{
+   const original=shell.trashItem;
+   shell.trashItem=async()=>{shell.trashItem=original;throw Error('Operation was aborted');};
+  });
+  for(const direction of ['incoming','outgoing']){
+   const trash=page.locator('.ll-'+direction+' [data-trash-image]').first();
+   const card=page.locator('[data-transfer-id="'+await trash.getAttribute('data-trash-image')+'"]');
+   const count=await page.locator('[data-transfer-id]').count();
+   await trash.click();await expect(card.locator('.ll-cleanup-result')).toBeVisible();
+   await expect(card.locator('button,img,.ll-bubble')).toHaveCount(0);
+   await expect(page.locator('[data-transfer-id]')).toHaveCount(count);
+  }
+  expect(await app.evaluate(()=>global.cleanupPrompts)).toBe(0);
+  expect(fs.existsSync(receivedImage)).toBe(false);expect(fs.existsSync(sourceImage)).toBe(true);
+  await expect(page.locator('[data-copy-image]')).toHaveCount(0);
+  expect(fs.existsSync(files[0])).toBe(true);
+  await app.evaluate(({dialog})=>{dialog.showMessageBox=async()=>({response:1});});
   const peerId='localsend:'+receiver.fingerprint;
   expect((await page.evaluate(id=>window.orbitAPI.invoke('locallink-manage-trust',id),peerId)).ok).toBe(true);
   expect(await page.evaluate(id=>window.orbitAPI.dbGetSetting('locallink.trust.'+id).autoReceive,peerId)).toBe(false);
@@ -352,7 +455,6 @@ test('real file conversation: manual discovery, text, batch, paste, folder and h
    expect((await page.evaluate(id=>window.orbitAPI.invoke('locallink-retry-transfer',{id}),record.id)).ok).toBe(true);
    expect(fs.readFileSync(path.join(receiver.opts.receiveDir,record.name),'utf8')).toBe(branch);
   }
-  await page.locator('#ll-history-dialog .ll-dialog-close').click();
   const empty=path.join(dir,'only-empty');fs.mkdirSync(empty);
   const noFiles=await page.evaluate(args=>window.orbitAPI.invoke('locallink-send-paths',args),{peerId,paths:[empty]});
   expect(noFiles.error).toBe('Only empty folders selected');
@@ -379,9 +481,23 @@ test('real file conversation: manual discovery, text, batch, paste, folder and h
   await expect(page.locator('[data-show-batch]').first()).toBeVisible();
   const finished=await page.evaluate(n=>[...window.LocalSendPanel.batches.values()].find(b=>b.total===n),batchSize);
   expect(finished.finished).toBe(batchSize);expect(finished.failed).toBe(0);
-  expect(await app.evaluate(()=>globalThis.__llShown.length)).toBe(2);
+  expect(await app.evaluate(()=>globalThis.__llShown.length)).toBe(3);
   await page.locator('[data-show-batch]').first().click();
   await expect(page.locator('[data-status="received"]')).toHaveCount(100);
+  const jump=page.locator('.ll-jump-latest');
+  await timeline.evaluate(el=>{el.scrollTop=0;});
+  await expect(jump).toBeVisible();
+  await composer.fill('scroll regression: reading history');
+  await composer.press('Enter');
+  await expect(jump).toHaveAccessibleName(/新傳送訊息/);
+  expect(await timeline.evaluate(el=>el.scrollTop)).toBeLessThan(3);
+  await jump.click();
+  await expect.poll(gapToLatest).toBeLessThan(3);
+  await timeline.evaluate(el=>{el.scrollTop=el.scrollHeight-el.clientHeight-40;});
+  await composer.fill('scroll regression: following latest');
+  await composer.press('Enter');
+  await expect(page.locator('.ll-text-content').last()).toHaveText('scroll regression: following latest');
+  await expect.poll(gapToLatest).toBeLessThan(3);
   const summary=await page.evaluate(id=>window.orbitAPI.sendSync('locallink-batch-summary',id),finished.id);
   expect(summary.finished).toBe(batchSize);
   const gap=await page.evaluate(()=>{clearInterval(window.chatHeartbeat);return window.chatMaxGap;});

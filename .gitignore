@@ -60,6 +60,8 @@ mobile/tests/.shots/
 !docs/**
 /test-results/
 /desktop/test-results/
+/desktop/test-results-*/
+/artifacts/local-builds/
 
 # Local credentials and runtime identities
 .env.*

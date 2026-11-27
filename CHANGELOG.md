@@ -1,5 +1,9 @@
 # LocalLink Changelog
 
+## v1.1.0 — Desktop release
+
+Image clipboard and cleanup actions, drag-and-drop confirmation, conversation scrolling and optional Windows administrator startup. [Release notes](docs/RELEASE-NOTES-1.1.0.md)
+
 ## v1.0.9 — Desktop release
 
 Smooth navigation, compact chat actions and visible local connection addresses. [Release notes](docs/RELEASE-NOTES-1.0.9.md)

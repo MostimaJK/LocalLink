@@ -1,4 +1,4 @@
-const { app, screen, BrowserWindow, ipcMain, Tray, Menu, Notification, nativeImage, protocol, net, dialog, clipboard, shell } = require('electron');
+const { app, screen, BrowserWindow, ipcMain, Tray, Menu, Notification, nativeImage, protocol, net, dialog, clipboard, ClipboardItem, shell } = require('electron');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const fs = require('fs');
@@ -324,7 +324,19 @@ protocol.registerSchemesAsPrivileged([
   { scheme: 'orbit-emoji', privileges: { secure: true, standard: true, supportFetchAPI: true } }
 ]);
 
-app.whenReady().then(() => {
+const privileges=require('./lib/windows-privileges');
+const adminPreference='locallink.adminOnLaunch';
+app.whenReady().then(async () => {
+  if(process.platform==='win32'&&app.isPackaged){
+    const parentArg=process.argv.find(arg=>arg.startsWith('--locallink-parent='));
+    if(parentArg){
+      try{await privileges.waitForParent(parentArg.split('=')[1]);}catch{dialog.showErrorBox('LocalLink','上一个 LocalLink 进程未能正常完成重启。请完全退出旧窗口后再打开应用。');app.quit();return;}
+    }else if(persistentStore.get(adminPreference,false)&&!process.argv.some(arg=>arg.startsWith('--locallink-update-id='))){
+      try{
+        if(!await privileges.elevated()){await privileges.restartElevated(app);app.quit();return;}
+      }catch(error){console.warn('Administrator startup declined or unavailable:',error.code);}
+    }
+  }
   // Windows App User Model ID — tells the taskbar to group this as "Orbit" instead of "Electron"
   if (process.platform === 'win32') app.setAppUserModelId('com.orbit.desktop');
 
@@ -1036,19 +1048,40 @@ app.whenReady().then(() => {
   });
 
   const updateBlocked=async()=>!!((browserShare && !browserShare.closed)||folderPreparations.size||localSendInstance?.pending||localSendInstance?.sessions.size||localSendInstance?.outgoing.size||transferInstance?.activeReceives.size||transferInstance?.sendSessions.size||globalDb.transfers.list({statuses:['queued','preparing','awaiting','receiving','verifying','transferring','confirming'],limit:1}).length||await mainWindow.webContents.executeJavaScript('Boolean(window.CallManager?.activeCall || window.CallManager?.incomingCallData)'));
-  ipcMain.handle('update-install',async(event,file)=>{
-    if(process.platform!=='win32'||!app.isPackaged)return {ok:false,error:'packaged-windows-only'};
-    if(updatePreparing)return {ok:false,error:'update-in-progress'};
-    if(typeof file!=='string'||!_downloadedFiles.has(file))return {ok:false,error:'unverified-update'};
+  let adminRestartPending=false;
+  ipcMain.handle('locallink-get-privileges',async()=>({
+    elevated:await privileges.elevated(),enabled:persistentStore.get(adminPreference,false),available:app.isPackaged
+  }));
+  ipcMain.handle('locallink-set-admin-launch',async(event,enabled)=>{
+    if(process.platform!=='win32'||!app.isPackaged||typeof enabled!=='boolean'||event.senderFrame!==mainWindow?.webContents.mainFrame)return {error:'unavailable'};
+    if(adminRestartPending)return {error:'busy'};
+    adminRestartPending=true;
+    let restarting=false;
+    try{
+      if(enabled&&!await privileges.elevated()){
+        if(updatePreparing||await updateBlocked())return {error:'busy'};
+        updatePreparing=true;
+        try{await privileges.restartElevated(app);}catch(error){updatePreparing=false;throw error;}
+        restarting=true;
+      }
+      persistentStore.set(adminPreference,enabled);
+      if(restarting)setImmediate(()=>app.quit());
+      return {ok:true};
+    }catch(error){return {error:error.code===1223?'cancelled':'failed'};}
+    finally{if(!restarting)adminRestartPending=false;}
+  });
 
-    if(await updateBlocked())return {ok:false,error:'active-transfers'};
+  ipcMain.on('locallink-installed-setup',event=>{
+    event.returnValue=process.platform==='win32'&&app.isPackaged&&!process.env.PORTABLE_EXECUTABLE_FILE&&
+      fs.existsSync(path.join(path.dirname(process.execPath),'Uninstall '+path.basename(process.execPath)));
+  });
+  async function installVerifiedUpdate(file,sha256,version,portable){
+    if(updatePreparing)return {ok:false,error:'update-in-progress'};
     updatePreparing=true;let job;
     try{
-      const portable=!!process.env.PORTABLE_EXECUTABLE_FILE;
-      const match=path.basename(file).match(portable?/^LocalLink-(\d+\.\d+\.\d+(?:-[\w.]+)?)-Portable\.exe$/i:/^LocalLink-Setup-(\d+\.\d+\.\d+(?:-[\w.]+)?)\.exe$/i);
-      if(!match)throw Error('Wrong update package');
+      if(await updateBlocked())throw Error('active-transfers');
       const updater=require('./lib/update-restart');
-      job=await updater.prepare({file,sha256:_downloadedFiles.get(file),target:process.env.PORTABLE_EXECUTABLE_FILE||process.execPath,userData:app.getPath('userData'),portable,version:match[1]});
+      job=await updater.prepare({file,sha256,target:process.env.PORTABLE_EXECUTABLE_FILE||process.execPath,userData:app.getPath('userData'),portable,version});
       if(await updateBlocked())throw Error('active-transfers');
       await updater.start(job);
       if(await updateBlocked())throw Error('active-transfers');
@@ -1058,6 +1091,16 @@ app.whenReady().then(() => {
       if(job)fs.writeFileSync(path.join(job.job,'cancel'),'1');
       updatePreparing=false;return {ok:false,error:error.message};
     }
+  }
+  ipcMain.handle('update-install',async(event,file)=>{
+    if(process.platform!=='win32'||!app.isPackaged)return {ok:false,error:'packaged-windows-only'};
+    if(updatePreparing)return {ok:false,error:'update-in-progress'};
+    if(typeof file!=='string'||!_downloadedFiles.has(file))return {ok:false,error:'unverified-update'};
+
+    const portable=!!process.env.PORTABLE_EXECUTABLE_FILE;
+    const match=path.basename(file).match(portable?/^LocalLink-(\d+\.\d+\.\d+(?:-[\w.]+)?)-Portable\.exe$/i:/^LocalLink-Setup-(\d+\.\d+\.\d+(?:-[\w.]+)?)\.exe$/i);
+    if(!match)return {ok:false,error:'Wrong update package'};
+    return installVerifiedUpdate(file,_downloadedFiles.get(file),match[1],portable);
   });
 
   ipcMain.handle('locallink-update-recovery',async(event,payload={})=>{
@@ -1065,21 +1108,12 @@ app.whenReady().then(() => {
     const updater=require('./lib/update-restart');
     const attempt=await updater.lastInstall(app.getPath('userData'),process.execPath,app.getVersion());
     if(!attempt)return null;
-    const {id,version,updated,available}=attempt;
-    if(!payload.action)return {id,version,updated,available};
+    const {id,version,updated,available,reason}=attempt;
+    if(!payload.action)return {id,version,updated,available,reason};
     if(payload.id!==id||updated||!available)return {error:'unavailable'};
     if(payload.action==='reveal'){shell.showItemInFolder(attempt.file);return {ok:true};}
     if(payload.action!=='retry')return {error:'unavailable'};
-    if(updatePreparing||await updateBlocked())return {error:'active-transfers'};
-    updatePreparing=true;
-    try{
-      await updater.openVerifiedSetup(attempt,async file=>{
-        if(await updateBlocked())return 'active-transfers';
-        return shell.openPath(file);
-      });
-      setImmediate(()=>app.quit());
-      return {ok:true};
-    }catch(error){updatePreparing=false;return {error:error.message};}
+    return installVerifiedUpdate(attempt.file,attempt.sha256,version,false);
   });
 
   ipcMain.handle('update-reveal-file', (event, file) => {
@@ -1264,9 +1298,9 @@ app.whenReady().then(() => {
   ipcMain.handle('get-local-ips', () => {
     return getLocalIPv4s();
   });
-  ipcMain.on('write-clipboard', (event, text) => {
-    clipboard.writeText(text || '');
-    event.returnValue = true;
+  ipcMain.on('write-clipboard', async (event, text) => {
+    try{await clipboard.writeText(text || '');event.returnValue=true;}
+    catch{event.returnValue=false;}
   });
 
   // E2EE IPC
@@ -2062,13 +2096,21 @@ app.whenReady().then(() => {
     const retry=records.some(r=>r.direction!=='outgoing'||['failed','cancelled'].includes(r.status));
     return {file,real,records,size:stat.size,identity:diskIdentity(file,true),state:active?'active':retry?'retained':'cleanable'};
   }
-  async function deliveredCacheFiles(){
+  function isOnlyCacheRecord(entry,id){
+    return id===undefined || (entry.records.length===1 && entry.records[0].id===id);
+  }
+  function inOutbox(row){
+    return !!row.path && path.dirname(path.resolve(row.path))===path.resolve(app.getPath('userData'),'locallink-outbox');
+  }
+  async function deliveredCacheFiles(id){
     const root=path.resolve(app.getPath('userData'),'locallink-outbox');
     if((await fs.promises.lstat(root).catch(()=>null))?.isSymbolicLink())return [];
-    const names=await fs.promises.readdir(root).catch(e=>{if(e.code==='ENOENT')return [];throw e;});
+    const row=id===undefined?null:globalDb.transfers.get(id);
+    if(id!==undefined&&(!row||!inOutbox(row)||row.direction!=='outgoing'||row.status!=='delivered'||!/[.](png|jpe?g|webp|gif)$/i.test(row.name)))return [];
+    const names=row?[path.basename(row.path)]:await fs.promises.readdir(root).catch(e=>{if(e.code==='ENOENT')return [];throw e;});
     const candidates=[];
     for(const name of names){
-      try{const entry=await outboxEntry(root,name);if(entry)candidates.push(entry);}
+      try{const entry=await outboxEntry(root,name);if(entry&&isOnlyCacheRecord(entry,id))candidates.push(entry);}
       catch(e){if(e.code!=='ENOENT')throw e;}
     }
     return candidates;
@@ -2078,35 +2120,54 @@ app.whenReady().then(() => {
     const sum=state=>files.filter(f=>f.state===state).reduce((n,f)=>n+f.size,0);
     return {bytes:sum('cleanable'),active:sum('active'),retained:sum('retained'),count:files.filter(f=>f.state==='cleanable').length};
   });
-  ipcMain.handle('locallink-clean-sent-cache',async()=>{
-    const candidates=(await deliveredCacheFiles()).filter(f=>f.state==='cleanable'&&f.identity);
-    if(!candidates.length)return {ok:true,count:0};
-    const choice=await dialog.showMessageBox(mainWindow,{type:'question',title:'LocalLink',message:llText('清理可釋放的傳送快取？','清理可释放的发送缓存？','Clear reclaimable send cache?'),detail:candidates.length+' · '+candidates.slice(0,8).map(c=>path.basename(c.file)).join('\n')+(candidates.length>8?' …':''),buttons:[llText('取消','取消','Cancel'),llText('移到資源回收筒','移到回收站','Move to Recycle Bin')],defaultId:0,cancelId:0});
-    if(choice.response!==1)return {cancelled:true};let count=0;const errors=[];
+  ipcMain.handle('locallink-clean-sent-cache',async(event,id)=>{
+    const candidates=(await deliveredCacheFiles(id)).filter(f=>f.state==='cleanable'&&f.identity);
+    if(!candidates.length)return id===undefined?{ok:true,count:0}:{ok:false,error:llText('目前無法清理這張圖片','目前无法清理这张图片','This image cannot be cleared right now')};
+    if(id===undefined){
+      const choice=await dialog.showMessageBox(mainWindow,{type:'question',title:'LocalLink',message:llText('清理可釋放的傳送快取？','清理可释放的发送缓存？','Clear reclaimable send cache?'),detail:candidates.length+' · '+candidates.slice(0,8).map(c=>path.basename(c.file)).join('\n')+(candidates.length>8?' …':''),buttons:[llText('取消','取消','Cancel'),llText('移到資源回收筒','移到回收站','Move to Recycle Bin')],defaultId:0,cancelId:0});
+      if(choice.response!==1)return {cancelled:true};
+    }
+    let count=0;const errors=[];
     for(const entry of candidates){
       try{
         const current=await outboxEntry(path.dirname(entry.file),path.basename(entry.file));
-        if(current?.state!=='cleanable'||current.identity!==entry.identity||browserShare?.usesSource(current.real)||sendingOutbox.has(current.real)||cleaningOutbox.has(current.real))continue;
+        if(current?.state!=='cleanable'||!isOnlyCacheRecord(current,id)||current.identity!==entry.identity||browserShare?.usesSource(current.real)||sendingOutbox.has(current.real)||cleaningOutbox.has(current.real))continue;
         cleaningOutbox.add(current.real);
         try{await shell.trashItem(current.file);}finally{cleaningOutbox.delete(current.real);}
         for(const row of current.records)globalDb.transfers.save({...row,path:null,fileRemoved:true});
         count++;
       }catch(error){errors.push(error.message);}
     }
-    mainWindow?.webContents.send('locallink-history-changed');return {ok:!errors.length,count,error:errors.join('\n')};
+    if(count)mainWindow?.webContents.send('locallink-history-changed',id!==undefined?{imageId:id}:undefined);return {ok:!errors.length,count,error:errors.join('\n')};
   });
-  ipcMain.handle('locallink-storage-cleanup',async(event,ids)=>{
+  ipcMain.handle('locallink-storage-cleanup',async(event,selection)=>{
+    const fromImageCard=typeof selection==='string';
+    const ids=fromImageCard?[selection]:selection;
     if(!Array.isArray(ids)||ids.length>1000)return {ok:false,error:'Invalid selection'};
     const rows=ids.map(id=>globalDb.transfers.get(id));
     if(rows.some(r=>!r||r.direction!=='incoming'||r.status!=='received'||!r.path))return {ok:false,error:llText('只能清理已接收的檔案','只能清理已接收的文件','Only received files can be cleaned up')};
-    const confirm=await dialog.showMessageBox(mainWindow,{type:'warning',message:llText('將所選檔案移到資源回收筒？','将所选文件移到回收站？','Move selected files to the Recycle Bin?'),detail:rows.map(r=>r.name+'\n'+r.path).join('\n\n'),buttons:[llText('取消','取消','Cancel'),llText('移到資源回收筒','移到回收站','Move to Recycle Bin')],defaultId:0,cancelId:0});
-    if(confirm.response!==1)return {cancelled:true};
+    if(fromImageCard&&!/[.](png|jpe?g|webp|gif)$/i.test(rows[0].name))return {ok:false,error:'Invalid image selection'};
+    if(!fromImageCard){
+      const confirm=await dialog.showMessageBox(mainWindow,{type:'warning',message:llText('將所選檔案移到資源回收筒？','将所选文件移到回收站？','Move selected files to the Recycle Bin?'),detail:rows.map(r=>r.name+'\n'+r.path).join('\n\n'),buttons:[llText('取消','取消','Cancel'),llText('移到資源回收筒','移到回收站','Move to Recycle Bin')],defaultId:0,cancelId:0});
+      if(confirm.response!==1)return {cancelled:true};
+    }
     let count=0;const errors=[];
     for(const row of rows)try{if(fs.existsSync(row.path)){
         if(!row.diskIdentity || diskIdentity(row.path,true)!==row.diskIdentity)throw Error(llText('無法確認為原檔案，可單獨移除記錄','无法确认为原文件，可单独移除记录','Cannot verify the original file. You can remove the history entry.'));
-        await shell.trashItem(row.path);
+        try{await shell.trashItem(row.path);}
+        catch(error){
+          if(!fromImageCard||process.platform!=='win32'||!/operation was aborted/i.test(error.message))throw error;
+          await new Promise(resolve=>setTimeout(resolve,350));
+          if(fs.existsSync(row.path)){
+            if(diskIdentity(row.path,true)!==row.diskIdentity)throw error;
+            try{await shell.trashItem(row.path);}catch(retryError){
+              if(!/operation was aborted/i.test(retryError.message))throw retryError;
+              throw Error(llText('Windows 已中止移到資源回收筒。可從「所在資料夾」查看檔案。','Windows 已中止移到回收站。可从“所在目录”查看文件。','Windows aborted the move to the Recycle Bin. Use Show in folder to inspect the file.'));
+            }
+          }
+        }
       }globalDb.transfers.save({...row,path:null,fileRemoved:true});count++;}catch(error){errors.push(row.name+': '+error.message);}
-    mainWindow?.webContents.send('locallink-history-changed');return {ok:!errors.length,count,error:errors.join('\n')};
+    if(count)mainWindow?.webContents.send('locallink-history-changed',fromImageCard?{imageId:selection}:undefined);return {ok:!errors.length,count,error:errors.join('\n')};
   });
   ipcMain.handle('locallink-send-content',async(event,request)=>{
     if(updatePreparing)return {ok:false,error:'Update in progress'};
@@ -2136,19 +2197,49 @@ app.whenReady().then(() => {
       if(temporaryFile)await fs.promises.unlink(temporaryFile).catch(error=>console.warn('Could not remove temporary content',error.message));
     }
   });
+  let imageDecoder;
+  function decodeChatImage(file,options){
+    if(!imageDecoder){
+      imageDecoder=require('sharp');
+      // Cached libvips operations can retain a JPEG handle and block Windows recycling.
+      if(process.platform==='win32')imageDecoder.cache(false);
+    }
+    return imageDecoder(file,options);
+  }
+  let lastClipboardRequest=0;
+  ipcMain.handle('locallink-copy-image',async(event,id)=>{
+    const request=++lastClipboardRequest;
+    const row=globalDb.transfers.get(id);
+    let png;
+    try{
+      if(!row?.path||!['received','delivered'].includes(row.status)||!/[.](png|jpe?g|webp|gif)$/i.test(row.name))throw Error();
+      png=await decodeChatImage(row.path,{limitInputPixels:50000000}).rotate().toColourspace('srgb').png({compressionLevel:1}).toBuffer();
+    }catch{return {ok:false,error:llText('無法讀取原圖','无法读取原图','Could not read the original image')};}
+    if(request!==lastClipboardRequest)return {superseded:true};
+    try{
+      const item=new ClipboardItem({'image/png':new Blob([png],{type:'image/png'})});
+      await clipboard.write([item]);
+      return {ok:true};
+    }catch(error){dlog('[Clipboard] Image write failed: '+(error.code||error.name));}
+    if(process.platform==='win32'&&request===lastClipboardRequest){
+      try{await require('./lib/windows-image-clipboard')(png);return {ok:true};}
+      catch(error){dlog('[Clipboard] Windows image write failed: '+(error.code||error.name));}
+    }
+    return {ok:false,error:llText('剪貼簿未寫入，請重試','剪贴板未写入，请重试','Clipboard write failed. Try again.')};
+  });
   ipcMain.handle('locallink-preview-transfer',async(event,id)=>{
     const record=globalDb.transfers.get(id);
     if(!record?.path||!['received','delivered'].includes(record.status)||!/[.](png|jpe?g|webp|gif)$/i.test(record.name))return null;
     try{
       const stat=await fs.promises.stat(record.path);if(stat.size>32*1024*1024)return null;
-      const preview=await require('sharp')(record.path,{limitInputPixels:25000000}).rotate().resize({width:480,height:320,fit:'inside',withoutEnlargement:true}).png().toBuffer();
+      const preview=await decodeChatImage(record.path,{limitInputPixels:25000000}).rotate().resize({width:480,height:320,fit:'inside',withoutEnlargement:true}).png().toBuffer();
       return 'data:image/png;base64,'+preview.toString('base64');
     }catch{return null;}
   });
   ipcMain.handle('locallink-cancel-transfer',async(event,id)=>({ok:localSendInstance?.cancelTask(id)||false}));
   ipcMain.on('locallink-active-count',event=>{event.returnValue=globalDb.transfers.activeCount();});
   ipcMain.on('locallink-batch-summary',(event,id)=>{event.returnValue=globalDb.transfers.batchSummary(id);});
-  ipcMain.on('locallink-list-transfers',(event,query)=>{event.returnValue=globalDb.transfers.list(query||{});});
+  ipcMain.on('locallink-list-transfers',(event,query)=>{event.returnValue=globalDb.transfers.list(query||{}).map(row=>({...row,hasSendCache:row.direction==='outgoing'&&inOutbox(row)}));});
   ipcMain.handle('locallink-discover',async(event,address)=>{
     try{if(!localSendInstance)throw new Error('Transport is not running');return {ok:true,peer:await localSendInstance.discover(address)};}
     catch(error){return {ok:false,error:error.message};}

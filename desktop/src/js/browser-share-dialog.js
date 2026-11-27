@@ -45,11 +45,6 @@
     } else if (!s?.url) { q('.share-code').replaceChildren(); delete q('.share-code').dataset.url; }
     q('.share-pin').hidden = !s?.code;
     q('.share-pin b').textContent = s?.code || '';
-    q('.share-files').hidden = !s;
-    q('.share-files summary').textContent = t('已選檔案','已选文件','Selected files')+' · '+(s?.files.length || 0);
-    q('.share-files ul').replaceChildren(...(s?.files || []).map(file=>{
-      const item=document.createElement('li');item.textContent=file.name;return item;
-    }));
     q('.share-start').hidden=!!s; q('.share-start').disabled=busy || !select.value;
     q('.share-add').hidden=!s; q('.share-add').disabled=busy;
     q('.share-stop').hidden=!s; q('.share-stop').disabled=busy;
@@ -90,7 +85,6 @@
       <div class="share-code" hidden></div><div class="share-pin" hidden><span>${t('配對碼','配对码','Pairing code')}</span><b></b></div>
       <div class="share-interface"><label for="ll-share-address">${icon('network')}${t('本機位址','本机地址','Computer address')}</label><select id="ll-share-address"></select></div>
       <label class="share-multiple"><input type="checkbox" checked> ${t('允許多台手機加入並下載所選檔案','允许多台手机加入并下载所选文件','Allow multiple phones to join and download selected files')}</label>
-      <details class="share-files" hidden><summary></summary><ul></ul></details>
       <p class="share-hint"></p><p class="share-error" role="alert"></p>
       <footer><button class="share-stop" hidden>${icon('square')}${t('結束共享','结束共享','End sharing')}</button><button class="share-start" disabled>${icon('qr-code')}${t('開始共享','开始共享','Start sharing')}</button><button class="share-add" hidden>${icon('file-plus-2')}${t('選擇檔案','选择文件','Choose files')}</button></footer>`;
     const current=dialog;

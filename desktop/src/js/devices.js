@@ -97,7 +97,7 @@ window.LocalLinkDevices = {
         const copy=document.createElement('button');copy.type='button';
         const label=t('複製','复制','Copy');
         copy.textContent=label;copy.setAttribute('aria-label',label+' '+endpoint);
-        copy.onclick=()=>{window.orbitAPI.writeClipboard(endpoint);copy.textContent=t('已複製','已复制','Copied');};
+        copy.onclick=()=>{copy.textContent=window.orbitAPI.writeClipboard(endpoint)?t('已複製','已复制','Copied'):t('複製失敗，請重試','复制失败，请重试','Copy failed. Try again.');};
         row.append(address,copy);addresses.appendChild(row);
       }
       addresses.className='ll-connect-addresses';
@@ -125,10 +125,10 @@ window.LocalLinkDevices = {
   renderTrust(section,peer) {
     const t=window.LocalSendPanel.text.bind(window.LocalSendPanel),state=this.trust(peer.userId),paired=state.paired===true;
     section.dataset.trustEditor=peer.userId;section._peer=peer;section.className='ll-device-trust';
-    section.innerHTML=`<h3 class="${paired?'ll-trusted':''}"><i data-lucide="shield-check"></i>${paired?t('已信任的裝置','已信任的设备','Trusted device'):t('尚未配對','尚未配对','Not paired')}</h3>
+    section.innerHTML=`<div class="ll-trust-heading"><h3 class="${paired?'ll-trusted':''}"><i data-lucide="shield-check"></i>${paired?t('已信任的裝置','已信任的设备','Trusted device'):t('尚未配對','尚未配对','Not paired')}</h3><div class="ll-file-actions"><button type="button" data-trust-action>${paired?t('解除信任','解除信任','Remove trust'):t('配對此裝置','配对此设备','Pair this device')}</button></div></div>
       <p class="ll-settings-copy">${t('僅控制本機接收對方內容的權限，收藏不代表信任。','仅控制本机接收对方内容的权限，收藏不代表信任。','Controls what this computer receives. Favorites do not grant trust.')}</p>
       ${paired?`<label class="ll-setting-row"><span class="ll-setting-label">${t('自動接收此裝置的內容','自动接收此设备的内容','Automatically receive from this device')}</span><input class="ll-switch" type="checkbox" role="switch" data-auto-receive ${state.autoReceive?'checked':''}></label>`:''}
-      <div class="ll-file-actions"><button type="button" data-trust-action>${paired?t('解除信任','解除信任','Remove trust'):t('配對此裝置','配对此设备','Pair this device')}</button></div><p role="status" class="ll-settings-copy"></p>`;
+      <p role="status" class="ll-settings-copy"></p>`;
     const action=section.querySelector('[data-trust-action]');
     action.disabled=!paired&&!this.isNearby(peer);
     const run=async(channel,payload)=>{

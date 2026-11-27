@@ -2,29 +2,33 @@
 
 [繁體中文](README.zh-TW.md)
 
-LocalLink shares files, folders and text across a local network. **Desktop release 1.0.9** is available for Windows x64 and macOS.
+LocalLink shares files, folders and text across a local network. **Desktop release 1.1.0** targets Windows x64 and macOS.
 
 ## Download
 
-Choose a package from the [1.0.9 release](https://github.com/MostimaJK/LocalLink/releases/tag/v1.0.9).
+Choose a package from the [GitHub Releases page](https://github.com/MostimaJK/LocalLink/releases).
 
 | Computer | Package |
 | --- | --- |
-| Windows x64 | `LocalLink-Setup-1.0.9.exe` or `LocalLink-1.0.9-Portable.exe` |
-| Mac with Apple silicon | `LocalLink-1.0.9-arm64.dmg` |
-| Intel Mac | `LocalLink-1.0.9-x64.dmg` |
+| Windows x64 | `LocalLink-Setup-1.1.0.exe` or `LocalLink-1.1.0-Portable.exe` |
+| Mac with Apple silicon | `LocalLink-1.1.0-arm64.dmg` |
+| Intel Mac | `LocalLink-1.1.0-x64.dmg` |
 
 The release includes SHA256SUMS.txt for all four packages. Windows builds are unsigned. Mac builds use ad-hoc signatures and have not been notarized by Apple. On Mac, open the matching DMG and drag LocalLink to Applications.
 
-Folders transfer directly and retain their relative paths. If delivery confirmation is lost between two desktops running 1.0.8 or later, retry checks the receiver’s saved copy before uploading again. If nearby discovery is unavailable, open **Connect device** to copy the address and port for a manual connection. [Release notes](docs/RELEASE-NOTES-1.0.9.md)
+Folders transfer directly and retain their relative paths. If delivery confirmation is lost between two desktops running 1.0.8 or later, retry checks the receiver’s saved copy before uploading again. If nearby discovery is unavailable, open **Connect device** to copy the address and port for a manual connection. [Release notes](docs/RELEASE-NOTES-1.1.0.md)
 
 If a 1.0.7 Windows update downloads but does not restart, exit LocalLink completely and run the verified Setup in the update folder, or replace the old Portable executable with the new Portable package.
+
+In the Windows Setup edition, open **Settings → About → Check for updates** and choose **Download, install and restart**. Finish active transfers first. If installation is interrupted, return to About to review the result and retry the verified package.
 
 ## Features
 
 Nearby discovery, favorites, aliases, files, images, folders with their directory structure and native LocalLink text. Includes progress, cancellation, retry, history, backups, receive-folder selection, pairing, authorized auto-receive, bandwidth limits and Windows adapter information.
 
 File sizes are limited by available storage and system limits. English is the default for new profiles. Traditional Chinese and Simplified Chinese are available in Settings → General. Existing preferences are preserved.
+
+In Device details, use **Remove trust** beside the trust status to revoke pairing. For multi-phone sharing, use the QR panel to invite phones and choose files. Open the group conversation to see shared files and messages.
 
 ## Screenshots
 
@@ -63,4 +67,4 @@ Desktop folder transfers and file batches have no fixed entry count. Incoming ba
 
 ## Licensing
 
-Based on Orbit, inspired by LocalSend; no official affiliation. Retained [MIT license](LICENSE), [dependency notices](desktop/THIRD-PARTY-NOTICES.txt) and [security policy](SECURITY.md). See the [1.0.9 release notes](docs/RELEASE-NOTES-1.0.9.md).
+Based on Orbit, inspired by LocalSend; no official affiliation. Retained [MIT license](LICENSE), [dependency notices](desktop/THIRD-PARTY-NOTICES.txt) and [security policy](SECURITY.md). See the [1.1.0 release notes](docs/RELEASE-NOTES-1.1.0.md).

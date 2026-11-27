@@ -10,9 +10,10 @@ test('general settings prioritize folders and retain preferences across sections
   await expect(page.locator('.settings-tab[data-tab="network"],.settings-tab[data-tab="data"],.settings-tab[data-tab="notifications"]')).toHaveCount(0);
   await expect(page.locator('#ll-choose-directory')).toBeInViewport();
   expect(await page.locator('[data-general-section]').evaluateAll(nodes=>nodes.map(n=>n.dataset.generalSection))).toEqual(['account','network','notifications','data']);
-  expect(await page.locator('#settings-content > section, #settings-content > [data-general-section="account"]').evaluateAll(nodes=>nodes.slice(0,3).map(node=>
-    node.querySelector('#interface-language')?'language':node.querySelector('#ll-receive-path')?'receiving':node.querySelector('#input-username')?'name':'other'
-  ))).toEqual(['language','receiving','name']);
+  const order=process.platform==='win32'?['language','admin','receiving','name']:['language','receiving','name'];
+  expect(await page.locator('#settings-content > section, #settings-content > [data-general-section="account"]').evaluateAll((nodes,count)=>nodes.slice(0,count).map(node=>
+    node.querySelector('#interface-language')?'language':node.querySelector('#ll-admin-launch')?'admin':node.querySelector('#ll-receive-path')?'receiving':node.querySelector('#input-username')?'name':'other'
+  ),order.length)).toEqual(order);
   await expect(page.locator('#settings-content')).not.toContainText('單次傳輸上限');
   expect(await page.locator('#ll-show-history').evaluate(el=>!!el.closest('section').nextElementSibling.querySelector('#ll-run-in-background'))).toBe(true);
   await expect(page.locator('#transport-mode option[value=localsend]')).toHaveText('LocalSend');

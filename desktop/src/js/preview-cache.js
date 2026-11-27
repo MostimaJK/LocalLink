@@ -12,6 +12,11 @@
       const job={id,needed:[needed],generation:this.generation};
       job.promise=new Promise(resolve=>{job.resolve=resolve;});this.pending.set(id,job);this.queue.push(job);this.drain();return job.promise;
     }
+    forget(id) {
+      if(this.cache.has(id)){this.bytes-=this.cache.get(id).length*2;this.cache.delete(id);}
+      const job=this.pending.get(id);
+      if(job){job.generation=-1;this.pending.delete(id);}
+    }
     clear() {
       this.generation++;this.cache.clear();this.bytes=0;
       for(const job of this.queue)job.resolve(null);

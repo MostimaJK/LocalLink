@@ -5,6 +5,7 @@ $config=Get-Content -LiteralPath $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-J
 $backup=$config.target+'.previous-'+$config.id
 $replaced=$false
 $launched=$null
+$originalExited=$false
 function Get-Sha256([string]$file) {
  $stream=[IO.File]::OpenRead($file);$hash=[Security.Cryptography.SHA256]::Create()
  try{([BitConverter]::ToString($hash.ComputeHash($stream))).Replace('-','').ToLower()}finally{$stream.Dispose();$hash.Dispose()}
@@ -23,8 +24,8 @@ function Launch-App($updated) {
 }
 try {
  if($config.id -notmatch '^[a-f0-9-]{36}$' -or $config.sha256 -notmatch '^[a-f0-9]{64}$'){throw 'Invalid update configuration'}
- if((Get-Sha256 $config.source) -ne $config.sha256){throw 'Update checksum mismatch'}
- Write-Stage 'Verified package; waiting for the running app to exit'
+ # prepare() already verified the staged copy. Recheck it immediately before use below.
+ Write-Stage 'Helper started; waiting for the running app to exit'
  Set-Content -LiteralPath (Join-Path $job 'helper-ready') -Value '1'
  $deadline=[DateTime]::UtcNow.AddSeconds(120)
  while(Get-Process -Id $config.pid -ErrorAction SilentlyContinue){
@@ -32,6 +33,7 @@ try {
   Start-Sleep -Milliseconds 200
  }
  if(Test-Path -LiteralPath (Join-Path $job 'cancel')){throw 'Update cancelled'}
+ $originalExited=$true
  if((Get-Sha256 $config.source) -ne $config.sha256){throw 'Update checksum mismatch'}
  if($config.portable){
   if((Get-Sha256 $config.target) -ne $config.oldHash){throw 'Original executable changed'}
@@ -43,13 +45,13 @@ try {
  }else{
   # NSIS /D must be last and unquoted, including paths with spaces.
   Write-Stage ('Starting installer for '+$config.target)
-  $installer=Start-Process -FilePath $config.source -ArgumentList ('/S /D='+(Split-Path -Parent $config.target)) -WindowStyle Hidden -PassThru -Wait
+  $installer=Start-Process -FilePath $config.source -ArgumentList ('/S --updated /D='+(Split-Path -Parent $config.target)) -WindowStyle Hidden -PassThru -Wait
   Write-Stage ('Installer exit code '+$installer.ExitCode)
   if($installer.ExitCode -ne 0){throw ('Installer exit code '+$installer.ExitCode)}
   $actual=[Diagnostics.FileVersionInfo]::GetVersionInfo($config.target).ProductVersion
   Write-Stage ('Installed product version: '+$actual+'; expected '+$config.version)
   if($config.version -match '^\d+\.\d+\.\d+$' -and $actual -ne $config.version -and $actual -ne ($config.version+'.0')){
-   throw ('Expected LocalLink '+$config.version+' but found '+$actual+'. Run the downloaded Setup to finish the update.')
+   throw ('Expected LocalLink '+$config.version+' but found '+$actual+'.')
   }
  }
  Write-Stage 'Starting application and waiting for version confirmation'
@@ -64,7 +66,7 @@ try {
  if(!$config.portable){Remove-Item -LiteralPath $config.source -Force}
 }catch{
  $failure=$_.Exception.Message
- if($launched){try{& taskkill.exe /PID $launched.Id /T /F 2>$null | Out-Null}catch{}}
+ if($config.portable -and $launched){try{& taskkill.exe /PID $launched.Id /T /F 2>$null | Out-Null}catch{}}
  if($replaced -and (Test-Path -LiteralPath $backup)){
   try{
    $deadline=[DateTime]::UtcNow.AddSeconds(30)
@@ -72,6 +74,11 @@ try {
    Launch-App $false | Out-Null
    Save-Result 'rolled-back' $failure
   }catch{Save-Result 'failed' ($failure+'; rollback: '+$_.Exception.Message)}
- }else{Save-Result 'failed' $failure}
+ }else{
+  Save-Result 'failed' $failure
+  if(!$config.portable -and $originalExited -and !$launched -and (Test-Path -LiteralPath $config.target)){
+   try{Launch-App $false | Out-Null}catch{Write-Stage ('Could not reopen application: '+$_.Exception.Message)}
+  }
+ }
  if(!$NoErrorDialog){try{Add-Type -AssemblyName PresentationFramework;[System.Windows.MessageBox]::Show(('LocalLink update failed. '+$failure+"`n"+$job),'LocalLink') | Out-Null}catch{}}
 }

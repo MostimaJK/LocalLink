@@ -8,6 +8,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
  fs.writeFileSync(compile,`param([string]$Output)
 Add-Type -OutputAssembly $Output -OutputType WindowsApplication -TypeDefinition @'
 using System; using System.IO;
+[assembly: System.Reflection.AssemblyInformationalVersion("1.0.7")]
 class Fixture { public static void Main(string[] args) {
  string data=null,id=null; foreach(string arg in args){if(arg.StartsWith("--user-data-dir="))data=arg.Substring(16);if(arg.StartsWith("--locallink-update-id="))id=arg.Substring(22);}
  if(data!=null && id!=null && Environment.GetEnvironmentVariable("LOCALLINK_TEST_SKIP_READY")!="1") File.WriteAllText(Path.Combine(data,"locallink-updates",id,"app-ready"),"1");
@@ -20,9 +21,8 @@ class Fixture { public static void Main(string[] args) {
  assert.equal(attempt.updated,false);assert.equal(attempt.available,true);
  assert.equal((await updater.lastInstall(recoveryDir,fixture,'1.0.7')).updated,true);
  assert.equal(await updater.lastInstall(recoveryDir,fixture,'1.0.8'),null);
- let opened;await updater.openVerifiedSetup(attempt,async file=>{opened=file;return '';});
- assert.equal(opened,setup.source);fs.appendFileSync(opened,'tampered');
- await assert.rejects(updater.openVerifiedSetup(attempt,()=>assert.fail()),/unverified-update/);
+ fs.appendFileSync(attempt.file,'tampered');
+ await assert.rejects(updater.prepare({file:attempt.file,sha256:attempt.sha256,target:fixture,userData:recoveryDir,portable:false,version:attempt.version}),/checksum mismatch/);
  for(const rollback of [false,true]){
   const data=path.join(root,rollback?'rollback':'資料 with spaces');fs.mkdirSync(data);
   const target=path.join(data,'LocalLink.exe'),download=path.join(data,'download.exe');fs.copyFileSync(fixture,target);fs.copyFileSync(fixture,download);fs.appendFileSync(download,'new-build');
@@ -42,6 +42,37 @@ class Fixture { public static void Main(string[] args) {
    assert.equal(result.status,rollback?'rolled-back':'updated',JSON.stringify(result));
    assert.equal(await updater.hashFile(target),rollback?oldHash:sha256);
   }finally{parent.kill();child?.kill();}
+ }
+ // Exercise the actual NSIS command line when the local Windows toolchain is available.
+ const nsisDir=path.resolve(__dirname,'../dist/build-tools/nsis-bundle/windows');
+ const makensis=path.join(nsisDir,'makensis.exe');
+ if(fs.existsSync(makensis)){
+  const installDir=path.join(root,'Setup �yԇ'),profile=path.join(root,'Setup profile');
+  fs.mkdirSync(installDir);fs.mkdirSync(profile);
+  const installed=path.join(installDir,'LocalLink.exe');
+  fs.writeFileSync(installed,'previous build');
+  const installer=path.join(root,'Setup-test.exe'),recipe=path.join(root,'test.nsi');
+  fs.writeFileSync(recipe,[
+   'Unicode true','RequestExecutionLevel user','Name "LocalLink test fixture"','OutFile "Setup-test.exe"',
+   'Section','SetOutPath "$INSTDIR"','File /oname=LocalLink.exe "fixture.exe"','SectionEnd'
+  ].join('\r\n'));
+  execFileSync(makensis,['/V1',recipe],{cwd:root,windowsHide:true,env:{...process.env,NSISDIR:nsisDir}});
+  // The process that starts the helper must actually exit before installation.
+  const launcher=path.join(root,'start-update.cjs');
+  fs.writeFileSync(launcher,`const u=require(process.argv[2]);(async()=>{
+   const [file,target,userData]=process.argv.slice(3);
+   const job=await u.prepare({file,sha256:await u.hashFile(file),target,userData,portable:false,version:'1.0.7'});
+   await u.start(job);
+   require('node:assert/strict').equal(require('node:fs').readFileSync(target,'utf8'),'previous build');
+   process.stdout.write(job.job);
+  })().catch(e=>{console.error(e);process.exitCode=1});`);
+  const jobPath=execFileSync(process.execPath,[launcher,require.resolve('../lib/update-restart'),installer,installed,profile],{windowsHide:true,encoding:'utf8',timeout:90000});
+  const resultFile=path.join(jobPath,'result.json');
+  for(let i=0;i<300&&!fs.existsSync(resultFile);i++)await sleep(100);
+  const result=JSON.parse(fs.readFileSync(resultFile,'utf8').replace(/^\uFEFF/,''));
+  assert.equal(result.status,'updated',JSON.stringify(result));
+  assert.equal(await updater.hashFile(installed),await updater.hashFile(fixture));
+  console.log('PASS: ordinary parent exits; real user-scope NSIS Setup installs in place and the restarted fixture acknowledges the update');
  }
  // A Setup process may exit successfully without replacing the installed binary.
  const data=path.join(root,'unchanged install');

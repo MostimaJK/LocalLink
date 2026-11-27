@@ -105,7 +105,7 @@
         }
         continue;}
       const copy=element(row,'button',t('複製','复制','Copy'));
-      copy.onclick=()=>{window.orbitAPI.writeClipboard(msg.text);copy.textContent=t('已複製','已复制','Copied');};
+      copy.onclick=()=>{copy.textContent=window.orbitAPI.writeClipboard(msg.text)?t('已複製','已复制','Copied'):t('複製失敗，請重試','复制失败，请重试','Copy failed. Try again.');};
     }
     if (atEnd) feed.scrollTop=feed.scrollHeight;
   }

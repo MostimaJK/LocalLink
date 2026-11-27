@@ -37,7 +37,7 @@ test('trust shield, receiver permission, persistence and offline revocation',asy
   await page.screenshot({path:require('path').resolve('.agent/trust-switch-fixed.png')});
   await expect(page.locator('#ll-trust-shield')).toHaveAttribute('aria-label','Trusted · Ask before receiving');
   await app.evaluate(({dialog})=>{dialog.showMessageBox=async()=>({response:1});});
-  await page.locator('#ll-trusted-dialog [data-trust-action]').click();
+  await page.locator('#ll-trusted-dialog .ll-trust-heading [data-trust-action]').click();
   await expect(page.locator('#ll-trust-shield')).not.toHaveClass(/ll-trusted/);
   await expect(page.locator('#ll-trusted-dialog [data-auto-receive]')).toHaveCount(0);
   expect(await page.evaluate(()=>window.orbitAPI.invoke('locallink-list-trusted'))).toEqual([]);

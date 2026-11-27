@@ -14,7 +14,12 @@ window.Changelog = {
         '<button id="changelog-close" style="background:transparent;border:none;cursor:pointer;color:var(--text-secondary);padding:4px;"><i data-lucide="x" style="width:20px;height:20px;"></i></button>' +
       '</div>' +
       '<div style="display:flex;flex-direction:column;gap:20px;">' +
-        versionBlock('1.0.9', 'Latest', [
+        versionBlock('1.1.0', 'Latest', [
+          ['Transfers', ['Confirm dropped files, copy images and clear individual images directly in chat.']],
+          ['Devices', ['Manage trust beside the pairing status. In multi-phone sessions, open the group conversation to see shared files and messages.']],
+          ['Windows', ['Choose administrator startup in General settings.']]
+        ]) +
+        versionBlock('1.0.9', '', [
           ['Interface', ['Navigation highlights slide between pages. Chat actions align on the right, and local connection addresses are always visible.']]
         ]) +
         versionBlock('1.0.8', '', [

@@ -1,6 +1,7 @@
 const {test,expect}=require('@playwright/test');
 const {launchApp,tmpUserDataDir}=require('./helpers');
 const crypto=require('node:crypto');
+const path=require('node:path');
 
 test('GitHub updates: settings, package selection, verified download and rejection',async()=>{
  const directory=tmpUserDataDir('updates');
@@ -62,6 +63,35 @@ test('GitHub updates: settings, package selection, verified download and rejecti
   const current=await page.evaluate(()=>window.UpdateNotice.checkManual({fetchImpl:async()=>({ok:true,json:async()=>[{tag_name:'v1.0.0',body:'- Current release',assets:[]}]})}));
   expect(current.hasUpdate).toBe(false);
  } finally {await app.close();}
+});
+
+test('installed Windows edition hands a verified Setup to the installer automatically',async()=>{
+ test.skip(process.platform!=='win32','Windows Setup only');
+ const dir=tmpUserDataDir('setup-handoff');
+ const {app,page}=await launchApp(dir,[],{fixtureLocale:false});
+ try{
+  const name='LocalLink-Setup-9.0.0.exe',bytes='verified test package';
+  const digest=crypto.createHash('sha256').update(bytes).digest('hex');
+  await app.evaluate(({ipcMain,app,net},{dir,name,bytes,digest})=>{
+   app.setPath('downloads',dir);
+   ipcMain.removeAllListeners('locallink-installed-setup');
+   ipcMain.on('locallink-installed-setup',event=>{event.returnValue=true;});
+   ipcMain.removeHandler('update-install');
+   global.installRequests=[];
+   ipcMain.handle('update-install',(_,file)=>{global.installRequests.push(file);return {ok:false,error:'active-transfers'};});
+   net.fetch=async url=>new Response(String(url).endsWith('SHA256SUMS.txt')?digest+'  '+name:bytes);
+  },{dir,name,bytes,digest});
+  await page.evaluate(name=>{
+   const base='https://github.com/MostimaJK/LocalLink/releases/download/v9.0.0/';
+   return window.UpdateNotice.checkManual({fetchImpl:async()=>({ok:true,json:async()=>[{tag_name:'v9.0.0',assets:[name,'SHA256SUMS.txt'].map(n=>({name:n,browser_download_url:base+n})),body:'Setup update',html_url:base}]})});
+  },name);
+  await page.getByRole('button',{name:'Download, install and restart'}).click();
+  await expect(page.locator('#update-download-status')).toContainText('Finish or cancel transfers');
+  const calls=await app.evaluate(()=>global.installRequests);
+  expect(calls).toHaveLength(1);expect(path.basename(calls[0])).toBe(name);
+  await page.locator('#update-open-file').click();
+  expect(await app.evaluate(()=>global.installRequests)).toEqual([calls[0],calls[0]]);
+ }finally{await app.close();}
 });
 
 test('About shows recovery for an interrupted Setup update',async()=>{

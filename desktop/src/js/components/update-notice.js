@@ -33,6 +33,7 @@ window.UpdateNotice = {
     container.hidden=false;
     const status=document.createElement('p');status.setAttribute('role','status');status.textContent=message;container.append(status);
     if(attempt.updated)return;
+    if(attempt.reason)status.textContent+=' · '+attempt.reason;
     if(!attempt.available){status.textContent+=t('。請重新下載更新包。','。请重新下载更新包。','. Download the update package again.');return;}
     const actions=document.createElement('div');actions.className='ll-file-actions';container.append(actions);
     for(const [action,label] of [['reveal',t('開啟所在資料夾','打开所在目录','Open folder')],['retry',t('重新執行安裝程式','重新运行安装包','Run installer again')]]){
@@ -78,6 +79,8 @@ window.UpdateNotice = {
     this.closeModal();
     const t = this._t.bind(this), esc = this._esc;
     const windowsUpdate = window.orbitAPI.platform === 'win32';
+    const setupUpdate=windowsUpdate&&window.orbitAPI.sendSync('locallink-installed-setup');
+    const downloadLabel=setupUpdate?t('下載、安裝並重新啟動','下载、安装并重启','Download, install and restart'):t('下載更新','下载更新','Download update');
     const overlay = document.createElement('div');
     overlay.id = 'update-notice-modal';
     overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:#0009;display:grid;place-items:center';
@@ -94,7 +97,7 @@ window.UpdateNotice = {
         <button class="ll-action-button" id="update-modal-notes">${t('發行說明','发行说明','Release notes')}</button>
         <button class="ll-action-button" id="update-reveal-file" hidden>${t('開啟資料夾','打开文件夹','Open folder')}</button>
         <button class="ll-action-button" id="update-open-file" hidden>${t('更新並重新啟動','更新并重启','Update and restart')}</button>
-        <button class="ll-action-button" id="update-modal-download">${t('下載更新','下载更新','Download update')}</button>
+        <button class="ll-action-button" id="update-modal-download">${downloadLabel}</button>
       </div></section>`;
     document.body.appendChild(overlay); this._modal = overlay;
     const find = id => overlay.querySelector('#'+id);
@@ -145,14 +148,15 @@ window.UpdateNotice = {
               ? t('請先完成或取消傳輸，並結束通話，再更新。','请先完成或取消传输，并结束通话，再更新。','Finish or cancel transfers and end calls before updating.')
               : opened?.error==='packaged-windows-only'
                 ? t('請在 Windows 安裝版或免安裝版中使用自動更新。','请在 Windows 安装版或免安装版中使用自动更新。','Automatic replacement requires a packaged Windows app.')
-                : t('無法更新，程式未退出。請確認資料夾可寫入，或從資料夾手動更新。','无法更新，程序未退出。请确认文件夹可写入，或从文件夹手动更新。','Could not update; the app is still open. Check folder permissions or update manually from the download folder.');
+                : t('無法開始安裝','无法开始安装','Installation could not start')+' · '+(opened?.error||t('請重試','请重试','Try again'));
           } catch(error){status.textContent=t('更新失敗，請重試。','更新失败，请重试。','Update failed. Please retry.');}
           finally{install.disabled=false;}
         };
+        if(setupUpdate)await find('update-open-file').onclick();
       } catch (error) { status.textContent = t('下載失敗，請重試。','下载失败，请重试。','Download failed. Please retry.'); }
       finally {
         unsubscribe(); this._busy = false; button.disabled = false;
-        button.textContent = t('下載更新','下载更新','Download update');
+        button.textContent = downloadLabel;
         find('update-modal-close').disabled = false;
       }
     };
