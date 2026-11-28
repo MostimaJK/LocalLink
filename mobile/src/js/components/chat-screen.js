@@ -276,34 +276,6 @@ var OrbitChat = {
         } else {
           avatarEl.textContent = initial;
         }
-      // Add profile frame for DM chats (friend's profile frame) — gated on stable setting
-      if (MStore.settings && MStore.settings.profileFrames) {
-        if (chat.type !== 'group') {
-          var pfNum = 0;
-          var friends = MStore.friends || [];
-          for (var fi = 0; fi < friends.length; fi++) {
-            if (friends[fi].id === chat.peerId || friends[fi].peerId === chat.peerId || friends[fi].id === chat.id) {
-              pfNum = parseInt(friends[fi].profileFrame, 10) || 0;
-              break;
-            }
-          }
-          var oldFrame = avatarEl.querySelector('.pfp-frame');
-          if (pfNum > 0) {
-            if (!oldFrame) {
-              var frameEl = document.createElement('img');
-              frameEl.className = 'pfp-frame';
-              frameEl.draggable = false;
-              frameEl.alt = '';
-              avatarEl.appendChild(frameEl);
-            } else {
-              var frameEl = oldFrame;
-            }
-            frameEl.src = 'icons/frames/pfp_frame_' + pfNum + '.png';
-          } else if (oldFrame) {
-            oldFrame.remove();
-          }
-        }
-      }
       avatarEl.style.display = '';
     }
   },

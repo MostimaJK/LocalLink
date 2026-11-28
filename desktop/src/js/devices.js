@@ -159,14 +159,24 @@ window.LocalLinkDevices = {
       }
     }catch(error){dialog.querySelector('[role="status"]').textContent=error.message;}
   },
+  async fillRoutes(select,id,pref=''){
+    window.LocalLinkSelect.enhance(select.parentElement);
+    const routes=id?await window.orbitAPI.invoke('locallink-routes',id):[];
+    if(select.dataset.peer!==id)return;
+    select.replaceChildren(new Option('自动（'+(routes[0]?.label||'系统路由')+'）',''));
+    for(const r of routes)if(!Array.from(select.options).some(o=>o.value===r.key))
+      select.add(new Option(r.label+' · '+r.ip+(r.speed?' · '+r.speed/1e9+' Gbps':''),r.key));
+    if(pref&&!routes.some(r=>r.key===pref))select.add(new Option(pref+'（离线）',pref));
+    select.value=pref;
+  },
   edit(peer) {
     if (document.getElementById('device-details-dialog')) return;
     const meta = this.get(peer);
     const dialog = document.createElement('dialog');
     dialog.id = 'device-details-dialog';
     dialog.style.cssText = 'position:relative;margin:auto;padding:24px;border:1px solid var(--border-subtle);border-radius:12px;background:var(--bg-surface);color:var(--text-primary);width:420px;max-width:90vw;';
-    dialog.innerHTML = '<form method="dialog"><h2 style="margin-bottom:16px"><span data-i18n="s30">Device details</span></h2><p id="device-reported-name"></p><label for="device-alias"><span data-i18n="s31">Local remark (optional)</span></label><input id="device-alias" maxlength="64" style="display:block;width:100%;margin:8px 0 16px;padding:8px"><label for="device-type"><span data-i18n="s32">Device type (set locally)</span></label><select id="device-type" style="display:block;width:100%;margin:8px 0 16px;padding:8px"><option value="unknown"><span data-i18n="s33">Unknown</span></option><option value="phone"><span data-i18n="s34">Phone</span></option><option value="desktop"><span data-i18n="s35">Desktop</span></option><option value="laptop"><span data-i18n="s36">Laptop</span></option><option value="tablet"><span data-i18n="s37">Tablet</span></option></select><p id="device-error" role="alert"></p><div style="display:flex;justify-content:flex-end;gap:16px;margin-top:20px"><button value="cancel"><span data-i18n="s28">Cancel</span></button><button id="device-save" type="button"><span data-i18n="s29">Save</span></button></div></form>';
-    dialog.querySelectorAll('input, select, button').forEach(control => {
+    dialog.innerHTML = '<form method="dialog"><h2 style="margin-bottom:16px"><span data-i18n="s30">Device details</span></h2><p id="device-reported-name"></p><label for="device-alias"><span data-i18n="s31">Local remark (optional)</span></label><input id="device-alias" maxlength="64" style="display:block;width:100%;margin:8px 0 16px;padding:8px"><label for="device-type"><span data-i18n="s32">Device type (set locally)</span></label><select id="device-type" style="display:block;width:100%;margin:8px 0 16px;padding:8px"><option value="unknown"><span data-i18n="s33">Unknown</span></option><option value="phone"><span data-i18n="s34">Phone</span></option><option value="desktop"><span data-i18n="s35">Desktop</span></option><option value="laptop"><span data-i18n="s36">Laptop</span></option><option value="tablet"><span data-i18n="s37">Tablet</span></option></select><p id="device-error" role="alert"></p><div class="ll-device-actions"><button type="button" data-device-cancel><span data-i18n="s28">Cancel</span></button><button id="device-save" class="ll-primary-button" type="submit"><span data-i18n="s29">Save</span></button></div></form>';
+    dialog.querySelectorAll('input, select').forEach(control => {
       control.style.background = 'var(--bg-base)';
       control.style.color = 'var(--text-primary)';
       control.style.border = '1px solid var(--border-subtle)';
@@ -180,11 +190,15 @@ window.LocalLinkDevices = {
     if(peer.userId.startsWith('localsend:')){
       const section=document.createElement('section');dialog.querySelector('#device-error').before(section);this.renderTrust(section,peer);
     }
-    dialog.querySelector('#device-save').onclick = () => {
+    const permissionWrites = [];
+    dialog.querySelector('[data-device-cancel]').onclick = () => dialog.close();
+    dialog.querySelector('form').onsubmit = event => {
+      event.preventDefault();
       try {
         const raw = dialog.querySelector('#device-alias').value;
         const alias = raw.trim() ? this.validateName(raw) : '';
         window.orbitAPI.dbSetSetting(this.key(peer.userId), {...this.get(peer), alias, type:dialog.querySelector('#device-type').value});
+        for (const savePermission of permissionWrites) savePermission();
         window.store.setState({friends: [...window.store.getState().friends]});
         dialog.close();
       } catch (error) { dialog.querySelector('#device-error').textContent = error.message; }
@@ -200,6 +214,28 @@ window.LocalLinkDevices = {
     window.LocalLinkSelect.enhance(dialog);
     dialog.addEventListener('close',()=>window.LocalLinkSelect.close());
     dialog.showModal();
+    if(peer.userId.startsWith('localsend:')){
+      const root=window.orbitAPI.dbGetSetting('search.folder','');
+      if(root && this.trust(peer.userId).paired){
+        const row=document.createElement('label'),rule=document.createElement('input');
+        rule.type='checkbox';const key='agent.sendRule.'+peer.userId;
+        rule.checked=window.orbitAPI.dbGetSetting(key,'')===root;
+        row.className='ll-setting-row ll-device-permission';
+        row.append(window.LocalSendPanel.text('允許 MCP 自動傳送此資料夾的檔案至此裝置','允许 MCP 自动发送此文件夹的文件到此设备','Allow automatic MCP sends from this folder to this device')+' · '+root,rule);
+        dialog.querySelector('#device-error').before(row);
+        permissionWrites.push(()=>window.orbitAPI.dbSetSetting(key,rule.checked && this.trust(peer.userId).paired ? root : ''));
+      }
+      const grant=document.createElement('label'),check=document.createElement('input');
+      grant.className='ll-setting-row ll-device-permission';
+      check.type='checkbox';
+      check.className='ll-switch';
+      check.setAttribute('role','switch');
+      const grantKey='agent.peer.'+peer.userId;
+      check.checked=window.orbitAPI.dbGetSetting(grantKey,false);
+      grant.append(window.LocalSendPanel.text('允許 MCP 讀取此裝置已驗證的收件','允许 MCP 读取此设备已验证的收件','Allow MCP to read authenticated items from this device'),check);
+      dialog.querySelector('#device-error').before(grant);
+      permissionWrites.push(()=>window.orbitAPI.dbSetSetting(grantKey,check.checked));
+    }
   }
 };
 document.addEventListener('click', function(event) {

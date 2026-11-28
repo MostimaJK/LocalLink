@@ -17,6 +17,8 @@ electronLanguages:
 # requires ../shared/crypto/* — both resolve to resources/shared at runtime.
 # Without this, every shared/ module 404s in packaged builds.
 extraResources:
+  - from: lib/inbox-mcp.cjs
+    to: inbox-mcp.cjs
   - from: THIRD-PARTY-NOTICES.txt
     to: licenses/THIRD-PARTY-NOTICES.txt
   - from: ../LICENSE
@@ -29,6 +31,11 @@ extraResources:
 
 # --- Windows ---
 win:
+  extraResources:
+    - from: vendor/everything-engine
+      to: vendor/everything-engine
+    - from: vendor/everything-es
+      to: vendor/everything-es
   target:
     - target: nsis
       arch:

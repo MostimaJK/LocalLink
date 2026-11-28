@@ -1,5 +1,9 @@
 # LocalLink Changelog
 
+## v1.2.0 — Desktop release
+
+Everything file and folder search, local MCP access, per-device transfer routes and smoother batch conversations. [Release notes](docs/RELEASE-NOTES-1.2.0.md)
+
 ## v1.1.0 — Desktop release
 
 Image clipboard and cleanup actions, drag-and-drop confirmation, conversation scrolling and optional Windows administrator startup. [Release notes](docs/RELEASE-NOTES-1.1.0.md)

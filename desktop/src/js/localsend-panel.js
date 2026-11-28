@@ -3,6 +3,37 @@ window.LocalSendPanel = {
   const t=this.text;
   return (incoming?t('圖片已清理','图片已清理','Image cleared'):t('傳送快取已清理','发送缓存已清理','Sent image cache cleared'))+' · '+name;
  },
+ iconMarkup:new Map(),
+ conversationIcon(name){
+  if(!this.iconMarkup.has(name)){
+   const root=document.createElement('span'),placeholder=document.createElement('i');
+   placeholder.dataset.lucide=name;
+   placeholder.setAttribute('aria-hidden','true');
+   root.append(placeholder);
+   window.lucide.createIcons({root});
+   this.iconMarkup.set(name,root.innerHTML);
+  }
+  return this.iconMarkup.get(name);
+ },
+ batchCaption(batch,total){
+  return this.text('批次傳輸','批量传输','Batch transfer')+' · '+(batch?batch.finished+' / ':'')+total;
+ },
+ batchCounts(batch,incoming){
+  if(!batch)return '';
+  return ' · '+this.statusLabel(incoming?'received':'delivered')+' '+(batch.finished-batch.failed-batch.cancelled)+
+   (batch.failed?' · '+this.statusLabel('failed')+' '+batch.failed:'')+
+   (batch.cancelled?' · '+this.statusLabel('cancelled')+' '+batch.cancelled:'');
+ },
+ updateCollapsedBatch(host,batch){
+  if(batch.finished===batch.total || this.expandedBatches.has(batch.id))return false;
+  const timeline=host?.querySelector('.ll-timeline');
+  if(timeline?.dataset.peerId!==batch.peerId || timeline.dataset.query || this.offsets.get(batch.peerId))return false;
+  const card=timeline.querySelector('[data-show-batch="'+CSS.escape(batch.id)+'"]')?.closest('article');
+  if(!card || Boolean(batch.failed)!==Boolean(card.querySelector('[data-failed-batch]')))return false;
+  card.querySelector('[data-batch-caption]').textContent=this.batchCaption(batch,batch.total);
+  card.querySelector('[data-batch-counts]').textContent=this.batchCounts(batch,card.classList.contains('ll-incoming'));
+  return true;
+ },
  batches:new Map(),
  expandedBatches:new Set(),
  cleaningImages:new Set(),
@@ -89,7 +120,7 @@ window.LocalSendPanel = {
    const rows=window.orbitAPI.sendSync('locallink-list-transfers',{batchId,peerId:dialog.querySelector('#ll-history-device').value||undefined,query:dialog.querySelector('input').value,direction:dialog.querySelector('select').value,status:dialog.querySelector('#ll-history-status').value,kind:dialog.querySelector('#ll-history-kind').value,from:dialog.querySelector('#ll-history-from').value?new Date(dialog.querySelector('#ll-history-from').value+'T00:00:00').getTime():undefined,to:dialog.querySelector('#ll-history-to').value?new Date(dialog.querySelector('#ll-history-to').value+'T23:59:59.999').getTime()+1:undefined,limit,offset});
    dialog.querySelector('.ll-history-rows').innerHTML=rows.map(r=>{
     const peer=window.store.getState().friends.find(p=>p.userId===r.peerId);
-    return '<div class="ll-history-row">'+(r.direction==='incoming'&&r.status==='received'&&r.path?'<input type="checkbox" data-cleanup-id="'+esc(r.id)+'" aria-label="'+esc(t('選取 ','选择 ','Select ')+r.name)+'">':'')+'<button data-history-peer="'+esc(r.peerId)+'"><strong>'+esc(r.name)+'</strong><span>'+esc(r.peerId==='web:browser'?this.browserLabel():peer?window.LocalLinkDevices.name(peer):r.peerId)+' · '+esc(this.statusLabel(r.status))+' · '+new Date(r.startedAt||r.time).toLocaleString()+'</span></button>'+(['delivered','received','failed','cancelled'].includes(r.status)?'<button data-remove-record="'+esc(r.id)+'">'+t('移除記錄','移除记录','Remove record')+'</button>':'')+(r.direction==='incoming'&&r.status==='received'&&r.path?'<button data-trash-file="'+esc(r.id)+'">'+t('清理檔案','清理文件','Clean up file')+'</button>':'')+'</div>';
+    return '<div class="ll-history-row">'+(r.direction==='incoming'&&r.status==='received'&&r.path?'<input type="checkbox" data-cleanup-id="'+esc(r.id)+'" aria-label="'+esc(t('選取 ','选择 ','Select ')+r.name)+'">':'')+'<button data-history-peer="'+esc(r.peerId)+'"><strong>'+esc(r.name)+'</strong><span>'+esc(r.peerId==='web:browser'?this.browserLabel():peer?window.LocalLinkDevices.name(peer):r.peerId)+' · '+esc(this.statusLabel(r.status)+(r.routeLabel?' · '+r.routeLabel:''))+' · '+new Date(r.startedAt||r.time).toLocaleString()+'</span></button>'+(['delivered','received','failed','cancelled'].includes(r.status)?'<button data-remove-record="'+esc(r.id)+'">'+t('移除記錄','移除记录','Remove record')+'</button>':'')+(r.direction==='incoming'&&r.status==='received'&&r.path?'<button data-trash-file="'+esc(r.id)+'">'+t('清理檔案','清理文件','Clean up file')+'</button>':'')+'</div>';
    }).join('')||'<p>'+t('沒有符合的記錄','没有匹配的记录','No matching records')+'</p>';
    cleanup.disabled=true;
    dialog.querySelectorAll('[data-cleanup-id]').forEach(input=>input.onchange=()=>{cleanup.disabled=!dialog.querySelector('[data-cleanup-id]:checked');});
@@ -152,22 +183,33 @@ window.LocalSendPanel = {
   }
   const follow=!same||incoming||(!offset&&(gap<=2||(changed&&nearEnd)));
   const pendingSent=!follow&&same&&(changed||old.dataset.pendingSent==='true')&&old.dataset.query===query;
-  const icon=type=>'<i data-lucide="'+type+'" aria-hidden="true"></i>';
+  const icon=type=>this.conversationIcon(type);
   const locale=window.I18n.locale==='en'?'en':window.I18n.locale==='zh-Hans'?'zh-CN':'zh-TW';
+  const dayFormat=new Intl.DateTimeFormat(locale,{year:'numeric',month:'long',day:'numeric'});
+  const timeFormat=new Intl.DateTimeFormat(locale,{hour:'2-digit',minute:'2-digit',hour12:false});
+  const recordsById=new Map(records.map(record=>[record.id,record]));
   let lastDate='', feed='';
+  const previousCards=same?old._fileCards:null;
+  const fileCards=new Map();
+  const fileMarkup=new Map();
+  function addFileCard(id,html){
+   fileMarkup.set(id,html);
+   const existing=previousCards?.get(id);
+   if(existing && existing._markup===html){
+    fileCards.set(id,existing);
+    feed+='<template data-reuse="'+esc(id)+'"></template>';
+   }else feed+=html;
+  }
   const visibleBatches=new Set();
   for(const r of records){
-   const date=new Date(r.startedAt||r.time), day=date.toLocaleDateString(locale,{year:'numeric',month:'long',day:'numeric'});
+   const date=new Date(r.startedAt||r.time), day=dayFormat.format(date);
    if(day!==lastDate){feed+='<div class="ll-date"><span>'+esc(day)+'</span></div>';lastDate=day;}
    const incoming=r.direction==='incoming'||r.status==='received';
    if(r.batchCount>8 && !query){
     if(!visibleBatches.has(r.batchId)){
      visibleBatches.add(r.batchId);
      const batch=this.batches.get(r.batchId)||window.orbitAPI.sendSync('locallink-batch-summary',r.batchId);
-     const caption=t('批次傳輸','批量传输','Batch transfer')+' · '+(batch?batch.finished+' / ':'')+r.batchCount;
-     feed+='<article class="ll-transfer '+(incoming?'ll-incoming':'ll-outgoing')+'"><div class="ll-bubble"><strong>'+caption+'</strong>'+
-      (batch?' · '+this.statusLabel(incoming?'received':'delivered')+' '+(batch.finished-batch.failed-batch.cancelled):'')+
-      (batch?.failed?' · '+this.statusLabel('failed')+' '+batch.failed:'')+(batch?.cancelled?' · '+this.statusLabel('cancelled')+' '+batch.cancelled:'')+
+     feed+='<article class="ll-transfer '+(incoming?'ll-incoming':'ll-outgoing')+'"><div class="ll-bubble"><strong data-batch-caption>'+this.batchCaption(batch,r.batchCount)+'</strong><span data-batch-counts>'+this.batchCounts(batch,incoming)+'</span>'+
       '<div class="ll-file-actions"><button data-show-batch="'+esc(r.batchId)+'" aria-expanded="'+this.expandedBatches.has(r.batchId)+'">'+icon('files')+t('檔案明細','文件明细','File details')+'</button>'+
        (batch?.failed?'<button data-failed-batch="'+esc(r.batchId)+'">'+icon('circle-alert')+t('查看失敗項目','查看失败项目','View failed files')+'</button>':'')+'</div></div></article>';
     }
@@ -180,14 +222,14 @@ window.LocalSendPanel = {
    const fileIcon=['png','jpg','jpeg','webp','gif'].includes(ext)?'file-image':['mp4','mov','mkv'].includes(ext)?'file-video':['zip','7z','rar'].includes(ext)?'file-archive':'file-text';
    const imageCard=fileIcon==='file-image'&&r.kind!=='text';
    if(done&&imageCard&&r.fileRemoved&&!r.path){
-    feed+='<article class="ll-transfer '+(incoming?'ll-incoming':'ll-outgoing')+'" data-transfer-id="'+esc(r.id)+'" data-status="'+esc(r.status)+'"><p class="ll-cleanup-result" role="status">'+esc(this.cleanupMessage(incoming,r.name))+'</p></article>';
+    addFileCard(r.id,'<article class="ll-transfer '+(incoming?'ll-incoming':'ll-outgoing')+'" data-transfer-id="'+esc(r.id)+'" data-status="'+esc(r.status)+'"><p class="ll-cleanup-result" role="status">'+esc(this.cleanupMessage(incoming,r.name))+'</p></article>');
     continue;
    }
    const canClean=imageCard&&r.path&&(incoming||r.hasSendCache);
    const trashLabel=canClean?
     (incoming?t('將這張圖片移到資源回收筒','将这张图片移到回收站','Move this image to the Recycle Bin'):t('清理這張圖片的快取','清理这张图片的缓存','Clear this cached image')):
     t('原始檔案沒有快取','原始文件没有缓存','Original file has no cached copy');
-   feed+='<article class="ll-transfer '+(incoming?'ll-incoming':'ll-outgoing')+'" data-transfer-id="'+esc(r.id)+'" data-status="'+esc(r.status)+'">'+
+   addFileCard(r.id,'<article class="ll-transfer '+(incoming?'ll-incoming':'ll-outgoing')+'" data-transfer-id="'+esc(r.id)+'" data-status="'+esc(r.status)+'">'+
     '<div class="ll-bubble">'+(r.kind==='text'?'<p class="ll-text-content selectable">'+esc(r.text||'')+'</p>':((done&&r.path&&imageCard?'<img class="ll-image-preview" data-preview="'+esc(r.id)+'" alt="'+esc(r.name)+'" hidden>':'')+'<div class="ll-file-main"><span class="ll-file-icon">'+icon(fileIcon)+'</span><div class="ll-file-copy"><strong class="selectable">'+esc(r.name)+'</strong><span>'+this.size(r.size)+'</span></div></div>'))+
     (done?'<div class="ll-message-footer">':'')+
     '<div class="ll-file-state '+(failed?'ll-error':'')+'">'+icon(failed?'circle-alert':done?'check-check':'clock-3')+'<span>'+esc(this.statusLabel(r.status))+'</span></div>'+
@@ -203,15 +245,41 @@ window.LocalSendPanel = {
     (done?'</div>':'')+
     (imageCard&&this.cleaningImages.has(r.id)?'<p role="status">'+t('正在清理…','正在清理…','Clearing…')+'</p>':'')+
     (imageCard&&r.path&&this.imageCleanupErrors.has(r.id)?'<p role="alert" class="ll-error-detail selectable">'+esc(this.imageCleanupErrors.get(r.id))+'</p>':'')+'</div>'+
-    '<div class="ll-message-meta">'+esc(incoming?name:t('本裝置','本设备','This device'))+' · <time datetime="'+date.toISOString()+'">'+date.toLocaleTimeString(locale,{hour:'2-digit',minute:'2-digit',hour12:false})+'</time></div></article>';
+    '<div class="ll-message-meta">'+esc(incoming?name:t('本裝置','本设备','This device'))+' · <time datetime="'+date.toISOString()+'">'+timeFormat.format(date)+'</time></div></article>');
   }
   host.style.display='flex';host.style.flexDirection='column';
-  host.innerHTML='<section class="ll-conversation">'+
-   '<header class="chat-header ll-chat-header"><span class="ll-device-icon">'+icon(window.LocalLinkDevices.icon(peer))+'</span><div class="ll-peer-heading"><h2>'+esc(name)+'</h2><p><span class="ll-presence '+(nearby?'online':'')+'"></span>'+t(nearby?'附近的裝置':'裝置離線',nearby?'附近的设备':'设备离线',nearby?'Nearby device':'Device offline')+'<span class="ll-protocol"> · LocalSend</span></p></div><button id="ll-open-receive-folder" class="ll-header-folder" title="'+t('開啟接收資料夾','打开接收文件夹','Open receive folder')+'">'+icon('folder-open')+'<span>'+t('開啟資料夾','打开文件夹','Open folder')+'</span></button><button id="btn-device-details" class="ll-icon-button" title="'+t('裝置詳情','设备详情','Device details')+'" aria-label="'+t('裝置詳情','设备详情','Device details')+'">'+icon('info')+'</button></header>'+
+  const shell=document.createElement('template');
+  shell.innerHTML='<section class="ll-conversation">'+
+   '<header class="chat-header ll-chat-header"><span class="ll-device-icon">'+icon(window.LocalLinkDevices.icon(peer))+'</span><div class="ll-peer-heading"><h2>'+esc(name)+'</h2><p><span class="ll-presence '+(nearby?'online':'')+'"></span>'+t(nearby?'附近的裝置':'裝置離線',nearby?'附近的设备':'设备离线',nearby?'Nearby device':'Device offline')+'<span class="ll-protocol"> · LocalSend</span></p></div><span class="ll-header-route"><select id="device-transfer-route" aria-label="传输线路"><option>自动</option></select></span><button id="ll-open-receive-folder" class="ll-header-folder" title="'+t('開啟接收資料夾','打开接收文件夹','Open receive folder')+'">'+icon('folder-open')+'<span>'+t('開啟資料夾','打开文件夹','Open folder')+'</span></button><button id="btn-device-details" class="ll-icon-button" title="'+t('裝置詳情','设备详情','Device details')+'" aria-label="'+t('裝置詳情','设备详情','Device details')+'">'+icon('info')+'</button></header>'+
    '<div class="ll-conversation-tools"><input id="ll-search-files" type="search" value="'+esc(query)+'" placeholder="'+t('搜尋此裝置的檔案','搜索此设备的文件','Search files on this device')+'" aria-label="'+t('搜尋檔案','搜索文件','Search files')+'"></div>'+
    '<div class="ll-timeline" role="region" aria-label="'+t('檔案會話','文件会话','File conversation')+'" tabindex="0" data-peer-id="'+esc(peer.userId)+'">'+(offset?'<button id="ll-newer-records" class="ll-load-more">'+t('較新記錄','较新记录','Newer records')+'</button>':'')+(records.length===limit?'<button id="ll-more-records" class="ll-load-more">'+t('載入更早記錄','加载更早记录','Load earlier records')+'</button>':'')+(feed||(query?'<p class="ll-conversation-empty">'+t('沒有符合的檔案','没有匹配的文件','No matching files')+'</p>':'<div class="ll-conversation-empty"><span class="ll-empty-icon">'+icon('files')+'</span><h3>'+t('與此裝置分享檔案','与此设备分享文件','Share files with this device')+'</h3><p>'+t('傳送和接收的檔案會依時間顯示在這裡','发送和接收的文件会按时间显示在这里','Sent and received files appear here in order')+'</p></div>'))+'</div>'+
    '<footer class="ll-composer"><p id="localsend-feedback" role="status">'+esc(this.feedback.get(peer.userId)||'')+'</p><div class="ll-compose-wrapper"><button id="localsend-send" class="ll-icon-button" title="'+t('選擇檔案','选择文件','Choose files')+'" aria-label="'+t('選擇檔案','选择文件','Choose files')+'" '+(busy||!canSend?'disabled':'')+'>'+icon('file')+'</button><textarea id="ll-message-input" rows="1" maxlength="65000" placeholder="'+t(canSend?'輸入文字、連結，或拖入檔案':'裝置離線，仍可查看記錄',canSend?'输入文字、链接，或拖入文件':'设备离线，仍可查看记录',canSend?'Write text, a link, or drop files':'Offline — saved history is available')+'" aria-label="'+t('文字或連結','文字或链接','Text or link')+'">'+esc(this.drafts.get(peer.userId)||'')+'</textarea><button id="ll-send-text" class="ll-send" '+(busy||!canSend||!this.drafts.get(peer.userId)?.trim()?'disabled':'')+'>'+icon('send')+t('傳送','发送','Send')+'</button></div></footer></section>';
-  window.lucide.createIcons({root:host});
+  const next=shell.content.firstElementChild;
+  const nextTimeline=next.querySelector('.ll-timeline');
+  if(same && fileCards.size){
+   // Keep unchanged cards mounted: updating the composer must not lay out every file again.
+   const retained=new Set(fileCards.values());
+   for(const child of Array.from(old.children))if(!retained.has(child))child.remove();
+   let cursor=old.firstElementChild;
+   for(const child of Array.from(nextTimeline.children)){
+    const node=fileCards.get(child.dataset.reuse)||child;
+    if(node!==cursor)old.insertBefore(node,cursor);
+    cursor=node.nextElementSibling;
+   }
+   const conversation=old.parentElement;
+   for(const child of Array.from(conversation.children))if(child!==old)child.remove();
+   for(const child of Array.from(next.children)){
+    if(child===nextTimeline)continue;
+    if(child.matches('.ll-composer'))old.after(child);else old.before(child);
+   }
+  }else host.replaceChildren(next);
+  const timeline=host.querySelector('.ll-timeline');
+  for(const card of timeline.querySelectorAll('article[data-transfer-id]')){
+   const id=card.dataset.transferId;
+   card._markup=fileMarkup.get(id);
+   fileCards.set(id,card);
+  }
+  timeline._fileCards=fileCards;
   const preparation=document.createElement('div');
   preparation.className='ll-preparation';
   preparation.innerHTML='<span role="status"></span><progress aria-label="'+t('打包進度','打包进度','Packing progress')+'"></progress><button type="button">'+t('取消準備','取消准备','Cancel preparation')+'</button>';
@@ -236,7 +304,6 @@ window.LocalSendPanel = {
    details.ontoggle=()=>{if(details.open&&!shown)showFolders();};
    host.querySelector('.ll-compose-wrapper').before(details);
   }
-  const timeline=host.querySelector('.ll-timeline');
   timeline.dataset.latest=latestId;
   timeline.dataset.query=query;
   timeline.dataset.pendingSent=String(Boolean(pendingSent));
@@ -273,6 +340,10 @@ window.LocalSendPanel = {
    finally{this.busy.delete(peer.userId);if(stillActive())this.render(peer,host);}
   };
   const trust=document.createElement('button');trust.className='ll-icon-button';trust.id='ll-trust-shield';trust.dataset.trustShield=peer.userId;trust.innerHTML=icon('shield-check');trust.onclick=()=>window.LocalLinkDevices.edit(peer);host.querySelector('#localsend-send').before(trust);window.lucide.createIcons({root:trust});window.LocalLinkDevices.refreshTrust();
+  const routeSelect=host.querySelector('#device-transfer-route');
+  routeSelect.dataset.peer=peer.userId;
+  window.LocalLinkDevices.fillRoutes(routeSelect,peer.userId,window.orbitAPI.dbGetSetting('route.'+peer.userId,'')).catch(()=>{routeSelect.disabled=true;});
+  routeSelect.onchange=()=>window.orbitAPI.dbSetSetting('route.'+peer.userId,routeSelect.value);
   host.querySelector('#ll-open-receive-folder').onclick=async()=>{
    try{const result=await window.orbitAPI.invoke('locallink-open-directory');if(!result.ok)throw new Error(result.error||t('無法開啟資料夾','无法打开文件夹','Could not open folder'));}
    catch(error){this.feedback.set(peer.userId,error.message);if(stillActive())host.querySelector('#localsend-feedback').textContent=error.message;}
@@ -301,7 +372,7 @@ window.LocalSendPanel = {
   });
   host.querySelectorAll('[data-trash-image]:enabled').forEach(button=>button.onclick=async()=>{
    const id=button.dataset.trashImage;
-   const row=records.find(record=>record.id===id);
+   const row=recordsById.get(id);
    if(this.cleaningImages.has(id))return;
    button.disabled=true;
    this.cleaningImages.add(id);
@@ -348,7 +419,19 @@ window.LocalSendPanel = {
    if(bounds.right>viewport.right-6||bounds.left<viewport.left+6)notice.classList.add('ll-copy-inside');
    setTimeout(()=>notice.remove(),result.ok?3000:5000);
   });
-  host.querySelectorAll('[data-copy]').forEach(button=>button.onclick=()=>window.orbitAPI.send('write-clipboard',records.find(r=>r.id===button.dataset.copy)?.text||''));
+  host.querySelectorAll('[data-transfer-id]').forEach(card=>{
+   const r=recordsById.get(card.dataset.transferId);
+   if(!r||r.direction!=='incoming'||r.status!=='received')return;
+   card.oncontextmenu=e=>{
+    e.preventDefault();e.stopPropagation();
+    const key='agent.item.'+r.id,allowed=window.orbitAPI.dbGetSetting(key,false);
+    const dlg=document.createElement('dialog'),btn=document.createElement('button');
+    btn.textContent=allowed?t('撤銷此項 MCP 授權','撤销此项 MCP 授权','Revoke this item’s MCP grant'):t('允許 MCP 讀取此項','允许 MCP 读取此项','Allow MCP to read this item');
+    btn.onclick=()=>{window.orbitAPI.dbSetSetting(key,!allowed);dlg.close();};
+    dlg.append(btn);document.body.append(dlg);dlg.onclose=()=>dlg.remove();dlg.onclick=e=>{if(e.target===dlg)dlg.close();};dlg.showModal();btn.focus();
+   };
+  });
+  host.querySelectorAll('[data-copy]').forEach(button=>button.onclick=()=>window.orbitAPI.send('write-clipboard',recordsById.get(button.dataset.copy)?.text||''));
   host.querySelectorAll('[data-preview]').forEach(async img=>{
    const id=img.dataset.preview;
    const src=await this.previews.get(id,()=>img.isConnected);if(src&&img.isConnected){const follow=timeline.scrollHeight-timeline.clientHeight-timeline.scrollTop<60;const before=timeline.scrollTop;img.onload=()=>{if(follow&&Math.abs(timeline.scrollTop-before)<2)timeline.scrollTop=timeline.scrollHeight;};img.src=src;img.hidden=false;}
@@ -357,9 +440,84 @@ window.LocalSendPanel = {
   host.querySelector('#ll-search-files').oninput=event=>{this.queries.set(peer.userId,event.target.value);this.offsets.delete(peer.userId);this.render(peer,host);};
   host.querySelector('#ll-more-records')?.addEventListener('click',()=>{this.offsets.set(peer.userId,offset+limit);this.render(peer,host);});
   host.querySelector('#ll-newer-records')?.addEventListener('click',()=>{this.offsets.set(peer.userId,Math.max(0,offset-limit));this.render(peer,host);});
-  host.querySelectorAll('[data-retry]').forEach(button=>button.onclick=async()=>{const r=records.find(r=>r.id===button.dataset.retry);let pin;if(r?.error?.includes('HTTP 401')){pin=await this.askPin();if(pin===null)return;}run('locallink-retry-transfer',{id:button.dataset.retry,pin});});
+  host.querySelectorAll('[data-retry]').forEach(button=>button.onclick=async()=>{const r=recordsById.get(button.dataset.retry);let pin;if(r?.error?.includes('HTTP 401')){pin=await this.askPin();if(pin===null)return;}run('locallink-retry-transfer',{id:button.dataset.retry,pin});});
   host.querySelectorAll('[data-cancel]').forEach(button=>button.onclick=async()=>{button.disabled=true;await window.orbitAPI.invoke('locallink-cancel-transfer',button.dataset.cancel);});
   const mergeSelection=items=>[...new Map(items.map(item=>[typeof item==='string'?item:item.path,item])).values()];
+  const searchButton=document.createElement('button');
+  searchButton.className='ll-icon-button';searchButton.title=t('搜尋本機檔案','搜索本机文件','Search local files');
+  searchButton.setAttribute('aria-label',searchButton.title);searchButton.innerHTML=icon('search');folder.after(searchButton);
+  window.lucide.createIcons({root:searchButton});
+  searchButton.disabled=busy||!canSend;
+  searchButton.onclick=async()=>{
+    if(!stillActive())return;
+    const dialog=document.createElement('dialog');dialog.className='ll-local-search';dialog.setAttribute('aria-label',searchButton.title);
+    dialog.innerHTML=`<header>${icon('search')}<input type="search" maxlength="180"><button class="ll-search-clear" type="button" hidden>${icon('x')}</button></header><div class="ll-search-body"><p role="status"></p><section></section></div><footer><span aria-live="polite"></span><button type="button"></button><button class="ll-primary-button" type="button"></button></footer>`;
+    const query=dialog.querySelector('input'),list=dialog.querySelector('section'),status=dialog.querySelector('p'),count=dialog.querySelector('footer span');
+    const [cancel,send]=dialog.querySelectorAll('footer button'),selected=new Set();
+    const clear=dialog.querySelector('.ll-search-clear');
+    clear.title=t('清除搜尋','清除搜索','Clear search');
+    clear.setAttribute('aria-label',clear.title);
+    clear.onclick=()=>{query.value='';schedule();query.focus();};
+    query.placeholder=searchButton.title;query.setAttribute('aria-label',query.placeholder);
+    cancel.textContent=t('取消','取消','Cancel');cancel.onclick=()=>dialog.close();
+    send.textContent=t('確認傳送','确认发送','Confirm send');
+    function update(){
+      count.textContent=t('已選擇 '+selected.size+' 項','已选择 '+selected.size+' 项',selected.size+' selected');
+      send.disabled=!selected.size;
+    }
+    send.onclick=async()=>{
+      if(!selected.size||!stillActive())return;
+      const paths=[...selected];dialog.close();
+      const result=await run('locallink-send-paths',{peerId:peer.userId,paths});
+      const remaining=result?.remaining??(result?.ok?[]:paths);
+      if(remaining.length){
+        this.droppedFiles.set(peer.userId,mergeSelection([...(this.droppedFiles.get(peer.userId)||[]),...remaining]));
+        if(stillActive())this.render(peer,host);
+      }
+    };
+    let timer,revision=0;
+    function schedule(){
+      clearTimeout(timer);const current=++revision,term=query.value.trim();list.replaceChildren();
+      clear.hidden=!query.value;
+      status.textContent='';
+      list.setAttribute('aria-busy',String(Boolean(term)));
+      if(!term){list.replaceChildren();status.textContent='';return;}
+      timer=setTimeout(async()=>{
+        status.textContent=t('搜尋中…','搜索中…','Searching…');
+        try{
+          const reply=await window.orbitAPI.invoke('locallink-search-local',term);
+          if(!dialog.open||current!==revision)return;
+          list.setAttribute('aria-busy','false');
+          status.textContent=reply.results.length===0&&!reply.partial?t('未找到相符項目','未找到匹配项','No matches found'):reply.engine+' · '+reply.results.length+' '+t('項結果','项结果','results')+(reply.partial?' · '+t('部分結果','部分结果','Partial results'):'');
+          for(const file of reply.results){
+            const row=document.createElement('label'),ext=file.name.split('.').pop().toLowerCase();
+            const type=file.kind==='folder'?'folder':/^(png|jpe?g|webp|gif|svg|bmp|avif|tiff?)$/.test(ext)?'image':/^(mp4|mov|mkv|webm)$/.test(ext)?'film':/^(mp3|flac|wav|aac)$/.test(ext)?'music':/^(xlsx?|csv|ods)$/.test(ext)?'table':/^(exe|msi|app)$/.test(ext)?'app-window':/^(zip|rar|7z)$/.test(ext)?'archive':'file-text';
+            row.innerHTML=icon(type)+'<span><strong></strong><small></small></span><input type="checkbox">';
+            row.querySelector('strong').textContent=file.name;row.querySelector('small').textContent=file.path;row.title=file.path;
+            const check=row.querySelector('input');check.checked=selected.has(file.path);
+            check.onchange=()=>{if(check.checked)selected.add(file.path);else selected.delete(file.path);update();};
+            const item=document.createElement('div'),reveal=document.createElement('button');
+            item.className='ll-search-result';reveal.className='ll-icon-button';reveal.type='button';
+            reveal.title=t('開啟所在資料夾','打开所在文件夹','Show in folder');
+            reveal.setAttribute('aria-label',reveal.title+' · '+file.name);reveal.innerHTML=icon('folder-open');
+            reveal.onclick=async()=>{
+              const ok=await window.orbitAPI.invoke('locallink-reveal-search-file',file.path).catch(()=>false);
+              if(!ok && current===revision)status.textContent=t('無法定位檔案','无法定位文件','Could not locate file');
+            };
+            item.append(row,reveal);list.append(item);
+          }
+          window.lucide.createIcons({root:list});
+        }catch(error){
+          if(current!==revision)return;
+          list.setAttribute('aria-busy','false');status.textContent=error.message;
+        }
+      },220);
+    }
+    query.addEventListener('input',schedule);
+    query.addEventListener('compositionend',schedule);
+    dialog.onclose=()=>{clearTimeout(timer);revision++;dialog.remove();};update();document.body.append(dialog);
+    window.lucide.createIcons({root:dialog});dialog.showModal();query.focus();
+  };
   const staged=this.droppedFiles.get(peer.userId)||[];
   if(staged.length){
    const bar=document.createElement('div');bar.className='ll-draft-bubble';
@@ -417,7 +575,7 @@ window.orbitAPI.on('locallink-batch-progress',batch=>{
  }
  if(state.activeChatId===batch.peerId){
   const peer=state.friends.find(p=>p.userId===batch.peerId);
-  if(peer)panel.render(peer,window.ChatPanel.container);
+  if(peer && !panel.updateCollapsedBatch(window.ChatPanel.container,batch))panel.render(peer,window.ChatPanel.container);
  }
  if(batch.finished===batch.total&&!state.settings.notifyDnd&&window.orbitAPI.dbGetSetting('locallink.transferNotifications',true)){
   const message=panel.text('批次傳輸','批量传输','Batch transfer')+' · '+(batch.total-batch.failed-batch.cancelled)+' / '+batch.total;

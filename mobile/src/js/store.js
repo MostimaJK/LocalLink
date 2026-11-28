@@ -38,7 +38,7 @@ class Store {
       logNetworkPackets: false,
       showConnectionStats: false,
       enableExperimental: false,
-      profileFrames: true,
+      profileFrames: false,
       // Automatic "is there a newer Orbit?" check. Off means no network
       // contact at all; Settings → About's manual check still works.
       updateCheckEnabled: true,
@@ -525,17 +525,10 @@ class Store {
       delete this.settings.experimentalMessageFx;
     }
 
-    // ONE-TIME MIGRATION: "Profile Frames" graduated from Experimental to a
-    // stable Appearance setting. Legacy persisted key `experimentalProfileFrames` → `profileFrames`.
-    // Only migrates when the legacy key exists in the loaded (persisted) settings
-    // AND the new key was never persisted, so users who toggle the new setting
-    // afterward keep their choice. `!!` coerces legacy true/false; undefined guard
-    // keeps this safe for malformed saved settings. The legacy key is deleted so it
-    // is never written back to storage again.
-    if (savedSettings && typeof savedSettings === 'object' && savedSettings.experimentalProfileFrames !== undefined && savedSettings.profileFrames === undefined) {
-      this.settings.profileFrames = !!savedSettings.experimentalProfileFrames;
-      delete this.settings.experimentalProfileFrames;
-    }
+    // Ignore frame preferences saved by earlier mobile releases.
+    this.settings.profileFrames = false;
+    this.settings.profileFrame = 0;
+    delete this.settings.experimentalProfileFrames;
 
     // Re-sync mutedChats alias (must point to same object as settings.mutedChats for backward compat)
     this.mutedChats = this.settings.mutedChats;

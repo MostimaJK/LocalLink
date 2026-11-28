@@ -1,6 +1,6 @@
 {
   "name": "orbit-beta",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "LocalLink device-to-device file transfer",
   "author": "LocalLink contributors",
   "main": "main.js",
@@ -18,7 +18,7 @@
     "build:win:portable": "node scripts/build-installer.cjs --portable",
     "build:win:both": "node scripts/build-installer.cjs --both",
     "test:windows:preflight": "node tests/browser-share.test.cjs && node tests/receive-file.test.cjs && node tests/folder-preparation.test.cjs && node tests/preview-cache.test.cjs && node tests/discovery-recovery.test.js && node tests/update-restart.test.cjs",
-    "test:release": "node tests/adapters.test.js && node tests/bandwidth.test.js && node tests/localsend-protocol.test.js && node tests/localsend-tasks.test.js && node tests/localsend-bandwidth.test.js && node tests/round3.test.cjs && node tests/communications.test.cjs && node scripts/test-storage.cjs && playwright test tests/e2e/device-trust.spec.js tests/e2e/network-adapters.spec.js tests/e2e/general-settings.spec.js tests/e2e/language.spec.js tests/e2e/localsend.spec.js tests/e2e/transfer-workflow.spec.js tests/e2e/transfer-controls.spec.js tests/e2e/transfer-center.spec.js tests/e2e/context-language.spec.js tests/e2e/desktop-chrome.spec.js tests/e2e/device-browser.spec.js tests/e2e/locallink-devices.spec.js --workers=1"
+    "test:release": "node --test tests/local-search.test.cjs tests/inbox-mcp.test.cjs tests/multiroute.test.cjs && node tests/adapters.test.js && node tests/bandwidth.test.js && node tests/localsend-protocol.test.js && node tests/localsend-tasks.test.js && node tests/localsend-bandwidth.test.js && node tests/round3.test.cjs && node tests/communications.test.cjs && node scripts/test-storage.cjs && playwright test tests/e2e/agent-routes.spec.js tests/e2e/device-trust.spec.js tests/e2e/network-adapters.spec.js tests/e2e/general-settings.spec.js tests/e2e/language.spec.js tests/e2e/localsend.spec.js tests/e2e/transfer-workflow.spec.js tests/e2e/transfer-controls.spec.js tests/e2e/transfer-center.spec.js tests/e2e/context-language.spec.js tests/e2e/desktop-chrome.spec.js tests/e2e/device-browser.spec.js tests/e2e/locallink-devices.spec.js --workers=1"
   },
   "keywords": [],
   "license": "MIT",

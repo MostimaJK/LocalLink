@@ -14,7 +14,12 @@ window.Changelog = {
         '<button id="changelog-close" style="background:transparent;border:none;cursor:pointer;color:var(--text-secondary);padding:4px;"><i data-lucide="x" style="width:20px;height:20px;"></i></button>' +
       '</div>' +
       '<div style="display:flex;flex-direction:column;gap:20px;">' +
-        versionBlock('1.1.0', 'Latest', [
+        versionBlock('1.2.0', 'Latest', [
+          ['Search', ['Find local files and folders, select multiple results and confirm to send. Windows x64 can reuse your Everything index.']],
+          ['MCP', ['Connect a local stdio client to read authorized items, search permitted files and request transfers to paired devices.']],
+          ['Transfers', ['Choose a route per device, test its bandwidth and browse large batches with fewer interface refreshes.']]
+        ]) +
+        versionBlock('1.1.0', '', [
           ['Transfers', ['Confirm dropped files, copy images and clear individual images directly in chat.']],
           ['Devices', ['Manage trust beside the pairing status. In multi-phone sessions, open the group conversation to see shared files and messages.']],
           ['Windows', ['Choose administrator startup in General settings.']]

@@ -39,7 +39,7 @@ async function destinationParent(root,name){
 const manifestLimit=32*1024*1024;
 const probeBytes=8*1024*1024;
 class LocalSend {
- constructor(opts){this.manualEndpoints=new Map();this.uploadBudget=new Budget();this.downloadBudget=new Budget();this.setBandwidth(opts.bandwidth);this.opts={...opts,maxBytes:opts.maxBytes ?? Number.MAX_SAFE_INTEGER};this.peers=new Map();this.sessions=new Map();this.waiters=new Set();this.sockets=new Set();this.closed=false;this.outgoing=new Map();this.requests=new Set();this.idleMs=opts.idleTimeoutMs||120000;}
+ constructor(opts){this.routeTests=new Map();this.endpoints=new Map();this.manualEndpoints=new Map();this.uploadBudget=new Budget();this.downloadBudget=new Budget();this.setBandwidth(opts.bandwidth);this.opts={...opts,maxBytes:opts.maxBytes ?? Number.MAX_SAFE_INTEGER};this.peers=new Map();this.sessions=new Map();this.waiters=new Set();this.sockets=new Set();this.closed=false;this.outgoing=new Map();this.requests=new Set();this.idleMs=opts.idleTimeoutMs||120000;}
  setBandwidth(value){const limits=normalizeLimits(value);this.uploadBudget.set(limits.upload);this.downloadBudget.set(limits.download);}
  availableBytes(dir,volume){
   const disk=fs.statfsSync(dir);
@@ -132,6 +132,10 @@ class LocalSend {
   const id='localsend:'+normalize(p.fingerprint);
   if(manual)this.manualEndpoints.set(id,{ip,port:p.port,protocol:p.protocol,fingerprint:p.fingerprint});
   const peer={...p,ip,id,seen:Date.now()};this.peers.set(id,peer);
+  if(!this.endpoints.has(id))this.endpoints.set(id,new Map());
+  const entries=this.endpoints.get(id);
+  for(const [key,value] of entries)if(Date.now()-value.seen>45000)entries.delete(key);
+  entries.set(ip,peer);
   this.opts.peer?.({userId:id,username:p.alias,manualEndpoint:this.manualEndpoints.has(id),usertag:'LocalSend',status:'online',ip,transport:'localsend',lastSeen:Date.now(),deviceType:p.deviceType,deviceModel:p.deviceModel});
   return peer;
  }
@@ -195,7 +199,7 @@ class LocalSend {
     req.socket.setTimeout(0);
     const allowed=await this.opts.accept({peerId:peer.id,authenticatedPeerId:peer.id===authenticatedPeerId?authenticatedPeerId:null,alias:peer.alias,ip,files:[{name:body.text.slice(0,160),size:Buffer.byteLength(body.text)}],total:Buffer.byteLength(body.text)},res);
     if(!allowed||this.closed||res.destroyed)return reply(403);
-    const task={id:crypto.randomUUID(),peerId:peer.id,name:'Message',kind:'text',text:body.text,direction:'incoming',startedAt:Date.now(),size:Buffer.byteLength(body.text),bytes:Buffer.byteLength(body.text)};
+    const task={id:crypto.randomUUID(),peerId:peer.id,authenticated:peer.id===authenticatedPeerId,name:'Message',kind:'text',text:body.text,direction:'incoming',startedAt:Date.now(),size:Buffer.byteLength(body.text),bytes:Buffer.byteLength(body.text)};
     this.publish(task,'received');return reply(200,{received:true});
    }finally{this.waiters.delete(waiter);}
   }
@@ -218,7 +222,7 @@ class LocalSend {
     // No await between this check and session registration: concurrent approvals serialize.
     if(total>this.availableBytes(receiveDir,volume))return reply(507);
     const sessionId=crypto.randomUUID();const files=new Map();
-    for(const [id,f] of entries)files.set(id,{...f,token:crypto.randomUUID(),state:'ready',task:{id:crypto.randomUUID(),receiptId:authenticatedPeerId==='localsend:'+normalize(body.info.fingerprint)?id:undefined,batchId:sessionId,batchCount:entries.length,peerId:'localsend:'+normalize(body.info.fingerprint),name:f.fileName,size:f.size,direction:'incoming',startedAt:Date.now()+files.size,bytes:0}});
+    for(const [id,f] of entries)files.set(id,{...f,token:crypto.randomUUID(),state:'ready',task:{id:crypto.randomUUID(),authenticated:authenticatedPeerId==='localsend:'+normalize(body.info.fingerprint),receiptId:authenticatedPeerId==='localsend:'+normalize(body.info.fingerprint)?id:undefined,batchId:sessionId,batchCount:entries.length,peerId:'localsend:'+normalize(body.info.fingerprint),name:f.fileName,size:f.size,direction:'incoming',startedAt:Date.now()+files.size,bytes:0}});
     this.sessions.set(sessionId,{ip,files,volume,reservedBytes:total,remaining:files.size,active:0,writers:new Set(),expires:Date.now()+10*60*1000,receiveDir,peerId:'localsend:'+normalize(body.info?.fingerprint),alias:String(body.info?.alias||ip).slice(0,100)});
     await this.queueTasks([...files.values()].map(f=>f.task));
     if(!this.sessions.has(sessionId))return reply(409);
@@ -233,7 +237,10 @@ class LocalSend {
   if(!file||file.token!==url.searchParams.get('token'))return reply(403);
   if(file.state!=='ready')return reply(409);
   session.active++;file.state='receiving';file.req=req;session.expires=Date.now()+this.idleMs;
-  const task=file.task;task.transferStartedAt=Date.now();let dir,partial,dest,tempRoot,writer,tracked;
+  const task=file.task;task.routeLocal=req.socket.localAddress;task.routeRemote=ip;task.routeLabel=req.socket.localAddress?.replace(/^::ffff:/,'');
+  const incomingRoutes=require('./routes').candidates([{ip,seen:Date.now()}],await this.opts.adapters?.()||[]);
+  const incomingRoute=incomingRoutes.find(r=>r.localAddress===task.routeLabel);
+  if(incomingRoute)task.routeLabel=incomingRoute.label;task.transferStartedAt=Date.now();let dir,partial,dest,tempRoot,writer,tracked;
   this.publish(task,'receiving');
   const sha=crypto.createHash('sha256');let received=0;
   try{
@@ -263,7 +270,7 @@ class LocalSend {
    }
    dest=await require('./receive-file').publishFile(partial,await destinationParent(session.receiveDir,file.fileName),path.posix.basename(file.fileName),{consume:true});
    if(['cancelled','failed'].includes(task.status)){await fs.promises.unlink(dest);dest=null;throw new Error(task.error||'Cancelled');}
-   file.state='complete';task.path=dest;task.bytes=received;
+   file.state='complete';task.path=dest;task.diskIdentity=diskIdentity(dest,true);task.bytes=received;
    if(file.fileType==='text/plain'&&typeof file.preview==='string'&&received<=1024*1024){task.kind='text';task.text=fs.readFileSync(dest,'utf8');}
    this.publish(task,'received');reply(200);
   }catch(error){
@@ -322,9 +329,32 @@ class LocalSend {
   for(const [sid,s] of this.sessions)if([...s.files.values()].some(f=>f.task.id===id)){this.cancel(sid);return true;}
   return false;
  }
- async reachable(id){
+ async routes(id){
+  const routes=require('./routes').candidates(this.endpoints.get(id)?.values()||[],await this.opts.adapters?.()||[]);
+  for(const r of routes){
+   const test=this.routeTests.get([id,r.localAddress,r.peer.ip].join('/'));
+   if(test&&Date.now()-test.time<300000)r.measured=test.bps;
+  }
+  return routes.sort((a,b)=>Number(!!b.measured)-Number(!!a.measured)||(b.measured??b.speed)-(a.measured??a.speed));
+ }
+ async reachable(id,override){
   const peer=this.peers.get(id);
   if(!peer)throw Error('Device is no longer nearby');
+  const routes=await this.routes(id), pref=override??this.opts.routePreference?.(id);
+  const route=pref?routes.find(r=>r.key===pref):routes[0];
+  if(route){
+   for(const r of pref?[route]:routes){
+    const endpoint={...r.peer,localAddress:r.localAddress,routeLabel:r.label};
+    if(routes.length===1||pref)return endpoint;
+    // Verify candidates before sending the transfer manifest. Never replay an upload.
+    try{
+     const info=await this.request(endpoint,'register',this.info(),null,{timeout:1500,signal:AbortSignal.timeout(1500)});
+     if(normalize(info?.fingerprint)===normalize(endpoint.fingerprint))return endpoint;
+    }catch{}
+   }
+   throw Error('No reachable transfer route');
+  }
+  if(pref)throw Error('Selected network interface is offline');
   if(Date.now()-peer.seen<=45000)return peer;
   if(!this.manualEndpoints.has(id))throw Error('Device is no longer nearby');
   const endpoint=this.manualEndpoints.get(id);
@@ -355,12 +385,12 @@ class LocalSend {
  speedPeers(){
   return [...this.peers.values()].filter(p=>p.protocol==='https' && p.locallink?.speedTest===1 && Date.now()-p.seen<120000 && this.opts.canTestSpeed?.(p.id));
  }
- async measureSpeed(id){
-  const peer=this.speedPeers().find(p=>p.id===id);
-  if(!peer || this.probeRunning)throw Error('Device unavailable or busy');
+ async measureSpeed(id,override){
+  const eligible=this.speedPeers().find(p=>p.id===id);
+  if(!eligible || this.probeRunning)throw Error('Device unavailable or busy');
   this.probeRunning=true;
   try{
-   const speeds={};
+   const peer=await this.reachable(id,override);const speeds={};
    for(const direction of ['upload','download']){
     const body=direction==='upload'?Buffer.alloc(probeBytes):{};
     const start=performance.now();
@@ -368,7 +398,8 @@ class LocalSend {
     if(result.bytes!==probeBytes)throw Error('Incomplete speed test');
     speeds[direction]=probeBytes*8/(performance.now()-start)/1000;
    }
-   return speeds;
+   if(peer.localAddress)this.routeTests.set([id,peer.localAddress,peer.ip].join('/'),{time:Date.now(),bps:speeds.upload*1e6});
+   return {...speeds,routeLabel:peer.routeLabel||peer.ip};
   }finally{this.probeRunning=false;}
  }
  async request(peer,action,body,file,options={}){
@@ -376,7 +407,15 @@ class LocalSend {
   if(action.startsWith('prepare-upload') && raw.length>manifestLimit)throw Error('File list too large');
   return new Promise((resolve,reject)=>{
    const client=peer.protocol==='https'?https:http;
-   const req=client.request({host:peer.ip,port:peer.port,path:PREFIX+action,method:'POST',agent:options.agent||false,rejectUnauthorized:false,cert:this.pem?.cert,key:this.pem?.private,signal:options.signal,headers:{'Content-Type':file?'application/octet-stream':'application/json',...(file?.streamDigest?{Trailer:'X-LocalLink-SHA256'}:{'Content-Length':file?file.size:raw.length})}},res=>{
+   const req=client.request({host:peer.ip,localAddress:peer.localAddress,port:peer.port,path:PREFIX+action,method:'POST',agent:options.agent||false,rejectUnauthorized:false,cert:this.pem?.cert,key:this.pem?.private,signal:options.signal,headers:{'Content-Type':file?'application/octet-stream':'application/json',...(file?.streamDigest?{Trailer:'X-LocalLink-SHA256'}:{'Content-Length':file?file.size:raw.length})}},res=>{
+    if(peer.localAddress && res.socket?.localAddress?.replace(/^::ffff:/,'')!==peer.localAddress){
+     res.destroy();return reject(Error('Unexpected transfer interface'));
+    }
+    if(options.task){
+     options.task.routeLocal=res.socket?.localAddress;
+     options.task.routeRemote=res.socket?.remoteAddress;
+     options.task.routeLabel=peer.routeLabel||options.task.routeLocal;
+    }
     if(options.probeDownload && res.statusCode===200){
      let bytes=0;res.on('data',chunk=>{bytes+=chunk.length;if(bytes>probeBytes)res.destroy(new Error('Invalid speed response'));});
      res.on('error',reject);res.on('end',()=>resolve({bytes}));return;
@@ -425,6 +464,7 @@ class LocalSend {
   try{
    await this.queueTasks(tasks,options.onRegistered);signal.throwIfAborted();
    peer=await this.reachable(peerId);
+   for(const task of tasks)task.routeLabel=peer.routeLabel;
    if(peer.protocol==='https')agent=new https.Agent({keepAlive:true,maxSockets:1,maxCachedSessions:0});
    let total=0;const files={}, info=this.info();
    const retries=[];
@@ -475,7 +515,7 @@ class LocalSend {
     if(task.status==='delivered')continue;
     if(!prepared.files?.[task.id]){task.error='Receiver did not accept this file';this.publish(task,'failed');continue;}
     task.transferStartedAt=Date.now();this.publish(task,'transferring');
-    await this.request(peer,'upload?'+new URLSearchParams({sessionId:prepared.sessionId,fileId:task.id,token:prepared.files[task.id]}),null,{path:task.path,size:task.size,streamDigest:files[task.id].streamDigest},{signal,agent,
+    await this.request(peer,'upload?'+new URLSearchParams({sessionId:prepared.sessionId,fileId:task.id,token:prepared.files[task.id]}),null,{path:task.path,size:task.size,streamDigest:files[task.id].streamDigest},{signal,agent,task,
      progress:bytes=>this.progress(task,bytes,'transferring'),flushed:()=>this.publish(task,'confirming')});
     task.bytes=task.size;this.publish(task,'delivered');
    }

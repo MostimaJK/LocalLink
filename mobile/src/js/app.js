@@ -602,7 +602,6 @@ document.addEventListener('DOMContentLoaded', function() {
       var timeStr = c.lastTime ? formatTime(c.lastTime) : '';
       var avatarHtml = '';
       var statusDot = '';
-      var chatFrameHtml = '';
       var usedGroupGrid = false;
       if (MStore.settings.showChatAvatars !== false) {
         var initial = c.name ? c.name.charAt(0).toUpperCase() : '?';
@@ -625,14 +624,6 @@ document.addEventListener('DOMContentLoaded', function() {
           statusDot = statusClass ? '<div class="chat-row-status-dot ' + statusClass + '"></div>' : '';
           if (statusClass) {
             avatarHtml = '<div class="avatar-glow-' + statusClass + '" style="border-radius:50%;width:100%;height:100%;overflow:hidden;display:flex;align-items:center;justify-content:center;">' + avatarHtml + '</div>';
-          }
-          // Profile frame for DM avatars
-          if (MStore.settings.profileFrames) {
-            var cf = MStore.friends.find(function(f) { return f.id === c.id; });
-            var cfNum = cf ? getProfileFrame(cf) : 0;
-            if (cfNum > 0) {
-              chatFrameHtml = '<img src="icons/frames/pfp_frame_' + cfNum + '.png" class="pfp-frame" draggable="false" alt="">';
-            }
           }
         }
       }
@@ -693,7 +684,6 @@ document.addEventListener('DOMContentLoaded', function() {
         (MStore.settings.showChatAvatars !== false
           ? '<div class="chat-row-avatar-wrapper">' +
             '<div class="chat-row-avatar' + (usedGroupGrid ? ' has-group-avatar' : '') + '"' + (isGroup ? ' style="border-radius:12px;"' : '') + '>' + avatarHtml + '</div>' +
-            chatFrameHtml +
             statusDot +
           '</div>'
           : '') +
@@ -922,28 +912,6 @@ document.addEventListener('DOMContentLoaded', function() {
         _avatarEl.innerHTML = '<img src="' + escapeHtml(chatAvatar) + '" alt="">';
       } else {
         _avatarEl.textContent = _displayName.charAt(0).toUpperCase();
-      }
-      // Profile frame for DMs (friend's profile frame) — gated on stable setting
-      if (MStore.settings && MStore.settings.profileFrames) {
-        var pfNum = 0;
-        if (!group && _friendAv) {
-          pfNum = parseInt(_friendAv.profileFrame, 10) || 0;
-        }
-        if (pfNum > 0) {
-          var oldFrame = _avatarEl.querySelector('.pfp-frame');
-          if (!oldFrame) {
-            var frameEl = document.createElement('img');
-            frameEl.className = 'pfp-frame';
-            frameEl.draggable = false;
-            frameEl.alt = '';
-            _avatarEl.appendChild(frameEl);
-            oldFrame = frameEl;
-          }
-          oldFrame.src = 'icons/frames/pfp_frame_' + pfNum + '.png';
-        } else {
-          var oldFrame = _avatarEl.querySelector('.pfp-frame');
-          if (oldFrame) oldFrame.remove();
-        }
       }
       _avatarEl.style.display = '';
     }
@@ -6291,20 +6259,6 @@ document.addEventListener('DOMContentLoaded', function() {
     var navEl = document.getElementById('nav-user-avatar');
     if (navEl) {
       navEl.innerHTML = u && u.avatar ? '<img src="' + escapeHtml(u.avatar) + '" alt="">' : initial;
-      var navPf = getProfileFrame(MStore.settings);
-      var navFrame = navEl.parentNode.querySelector('.pfp-frame');
-      if (navPf > 0) {
-        if (!navFrame) {
-          navFrame = document.createElement('img');
-          navFrame.className = 'pfp-frame';
-          navFrame.draggable = false;
-          navFrame.alt = '';
-          navEl.parentNode.appendChild(navFrame);
-        }
-        navFrame.src = 'icons/frames/pfp_frame_' + navPf + '.png';
-      } else if (navFrame) {
-        navFrame.remove();
-      }
     }
 
     var headerEl = document.getElementById('panel-header-avatar');
@@ -6500,16 +6454,10 @@ document.addEventListener('DOMContentLoaded', function() {
     var u = MStore.user;
     var initial = u && u.name ? u.name.charAt(0).toUpperCase() : '?';
 
-    var sPfNum = 0;
-    try { sPfNum = getProfileFrame(MStore.settings); } catch(e) {}
-    
-    var sPfHtml = sPfNum > 0 ? '<img src="icons/frames/pfp_frame_' + sPfNum + '.png" class="pfp-frame" draggable="false" alt="">' : '';
-    
     container.innerHTML =
       '<div class="settings-profile-card" id="settings-profile-card">' +
         '<div style="position:relative;display:inline-flex;">' +
           '<div class="settings-profile-avatar">' + (u && u.avatar ? '<img src="' + escapeHtml(u.avatar) + '">' : initial) + '</div>' +
-          sPfHtml +
         '</div>' +
         '<div class="settings-profile-info">' +
           '<div class="settings-profile-name">' + escapeHtml(u && u.name ? u.name : 'User') + '</div>' +
@@ -7159,17 +7107,9 @@ document.addEventListener('DOMContentLoaded', function() {
       // Profile frame, gated on the stable setting — the same rule the header
       // avatar and the chat rows use. It is drawn over the avatar, so it has to
       // sit inside .acct-pic and after the picture.
-      var _acctFrame = 0;
-      if (MStore.settings && MStore.settings.profileFrames) {
-        _acctFrame = parseInt(MStore.settings.profileFrame, 10) || 0;
-      }
-      var _acctFrameHtml = _acctFrame > 0
-        ? '<img class="pfp-frame" src="icons/frames/pfp_frame_' + _acctFrame +
-          '.png" alt="" draggable="false">'
-        : '';
       html +=
         '<div class="settings-account-row" id="settings-account-row" role="button" tabindex="0">' +
-          '<div class="acct-pic">' + _acctPic + _acctFrameHtml +
+          '<div class="acct-pic">' + _acctPic +
             (window.OrbitPresence ? window.OrbitPresence.badge(_acct.status || 'offline', 12, 'var(--bg-surface)') : '') + '</div>' +
           '<div class="acct-info">' +
             '<div class="acct-name">' + escapeHtml(_acct.name || 'User') + '</div>' +
@@ -7267,9 +7207,7 @@ document.addEventListener('DOMContentLoaded', function() {
         card('maximize-2', 'App Zoom', 'Zoom the entire app interface',
           '<div style="display:flex;align-items:center;gap:6px;width:140px;"><input type="range" min="80" max="150" value="' + (s.appZoom || 100) + '" class="settings-slider" id="set-zoom" style="flex:1;height:4px;"><span id="zoom-val-label" style="font-size:12px;min-width:36px;text-align:right;font-weight:600;color:var(--accent-primary);">' + (s.appZoom || 100) + '%</span></div>') +
         card('sun', 'Disable Light Mode Flashbang', 'Skip the white flash when switching to Light Mode',
-          '<button class="settings-toggle ' + (s.noFlashbang ? 'on' : '') + '" id="set-nobang"></button>') +
-        card('frame', 'Profile Frames', 'Overlay decorative frames on avatars',
-          '<button class="settings-toggle ' + (s.profileFrames ? 'on' : '') + '" id="set-profile-frames"></button>');
+          '<button class="settings-toggle ' + (s.noFlashbang ? 'on' : '') + '" id="set-nobang"></button>');
       case 'chat':
         return card('corner-down-left', 'Enter to Send', 'Press Enter to send messages',
           '<button class="settings-toggle ' + (s.enterToSend ? 'on' : '') + '" id="set-enter-send"></button>') +
@@ -7698,7 +7636,6 @@ document.addEventListener('DOMContentLoaded', function() {
         // No flashbang toggle
         bindToggle('set-nobang', function(on) { s.noFlashbang = on; MStore.save(); }, s.noFlashbang);
         // Profile Frames (graduated from Experimental)
-        bindToggle('set-profile-frames', function(on) { s.profileFrames = on; MStore.save(); if (on) document.documentElement.setAttribute('data-exp-frames','true'); else document.documentElement.removeAttribute('data-exp-frames'); }, s.profileFrames);
         break;
       case 'chat':
         bindToggle('set-enter-send', function(on) { s.enterToSend = on; MStore.save(); }, s.enterToSend);
@@ -10278,15 +10215,13 @@ vBlock('0.8.7-beta', '', [
       ? '<img class="profile-hero-banner" src="' + escapeHtml(u.banner) + '" alt="" draggable="false">'
       : '';
 
-    var pfNum = getProfileFrame(MStore.settings);
-    var selfFrameHtml = pfNum > 0 ? '<img src="icons/frames/pfp_frame_' + pfNum + '.png" class="pfp-frame" draggable="false" alt="">' : '';
 
     container.innerHTML =
       '<div class="profile-hero' + (hasBanner ? ' has-banner' : '') + '">' +
         bannerHtml +
         '<div class="profile-hero-bg"></div>' +
         '<div class="profile-hero-content">' +
-          '<div class="profile-avatar-wrapper" style="position:relative;">' + (u.avatar ? '<img src="' + escapeHtml(u.avatar) + '">' : '<div class="avatar-placeholder">' + initial + '</div>') + selfFrameHtml + '</div>' +
+          '<div class="profile-avatar-wrapper" style="position:relative;">' + (u.avatar ? '<img src="' + escapeHtml(u.avatar) + '">' : '<div class="avatar-placeholder">' + initial + '</div>') + '</div>' +
           '<div class="profile-name">' + escapeHtml(u ? u.name : 'User') + '</div>' +
           '<div class="profile-id">#' + escapeHtml(u ? u.tag : '0000') + '</div>' +
         '</div>' +
@@ -10317,22 +10252,6 @@ vBlock('0.8.7-beta', '', [
           '</div>' +
         '</div>' +
       '</div>' +
-      (MStore.settings.profileFrames ? (
-      '<div class="settings-section">' +
-        '<div class="settings-item" style="border:none;">' +
-          '<div style="color:var(--text-secondary);font-size:14px;flex-shrink:0;">Frame</div>' +
-          '<select id="profile-frame-select" style="background:var(--bg-hover);color:var(--text-primary);border:1px solid var(--border-subtle);border-radius:8px;padding:6px 10px;font-size:13px;outline:none;margin-left:auto;">' +
-            (function() {
-              var opts = '';
-              for (var fi = 0; fi <= 42; fi++) {
-                opts += '<option value="' + fi + '"' + (MStore.settings.profileFrame == fi ? ' selected' : '') + '>' + (fi === 0 ? 'None' : '#' + fi) + '</option>';
-              }
-              return opts;
-            })() +
-          '</select>' +
-        '</div>' +
-      '</div>'
-      ) : '') +
       '<div class="settings-section">' +
         '<div class="settings-item" style="border:none;">' +
           '<div style="color:var(--text-secondary);font-size:14px;flex-shrink:0;">User ID</div>' +
@@ -10399,20 +10318,6 @@ vBlock('0.8.7-beta', '', [
         }
       }
     });
-
-    // Profile frame selector
-    var frameSelect = document.getElementById('profile-frame-select');
-    if (frameSelect) {
-      frameSelect.addEventListener('change', function() {
-        MStore.settings.profileFrame = parseInt(this.value, 10) || 0;
-        MStore.save();
-        renderProfile();
-        updateNavAvatar();
-        renderChatList();
-        renderFriends();
-        renderSettings();
-      });
-    }
 
     // File upload handlers for avatar/banner using cropper
     function setupProfileUpload(btnId, inputId) {
@@ -10523,7 +10428,6 @@ vBlock('0.8.7-beta', '', [
     var initial = friend.name ? friend.name.charAt(0).toUpperCase() : '?';
     var statusLabels = { online: 'Online', away: 'Away', busy: 'Busy', offline: 'Offline' };
     var statusColor = getStatusColor(friend.status);
-    var frameNum = getProfileFrame(friend);
 
     var backdrop = document.createElement('div');
     backdrop.id = 'profile-view-overlay';
@@ -10544,7 +10448,6 @@ vBlock('0.8.7-beta', '', [
       ? '<img class="profile-hero-banner" src="' + escapeHtml(bannerUrl) + '" alt="" draggable="false">'
       : '';
 
-    var frameHtml = frameNum > 0 ? '<img src="icons/frames/pfp_frame_' + frameNum + '.png" class="pfp-frame" draggable="false" alt="">' : '';
     var fAvatarSrc = safeAvatarSrc(friend.avatar);
     var avatarEl = fAvatarSrc
       ? '<img src="' + fAvatarSrc + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">'
@@ -10562,7 +10465,6 @@ vBlock('0.8.7-beta', '', [
         '<div class="profile-hero-content">' +
           '<div class="profile-avatar-wrapper" style="position:relative;">' +
             avatarEl +
-            frameHtml +
             // Status dot
             '<div style="position:absolute;bottom:2px;right:2px;width:18px;height:18px;border-radius:50%;background:' + statusColor + ';border:3px solid var(--bg-surface);box-sizing:content-box;"></div>' +
           '</div>' +
@@ -10936,8 +10838,6 @@ vBlock('0.8.7-beta', '', [
     var bannerHtml = hasBanner
       ? '<img class="profile-hero-banner" src="' + escapeHtml(u.banner) + '" alt="" draggable="false">'
       : '';
-    var pfNum = getProfileFrame(MStore.settings);
-    var frameHtml = pfNum > 0 ? '<img src="icons/frames/pfp_frame_' + pfNum + '.png" class="pfp-frame" draggable="false" alt="">' : '';
 
     // Build profile content HTML (hero + edit form)
     var contentHtml =
@@ -10955,7 +10855,6 @@ vBlock('0.8.7-beta', '', [
         '<div class="profile-hero-content">' +
           '<div class="profile-avatar-wrapper" style="position:relative;">' +
             (safeAvatarSrc(u.avatar) ? '<img src="' + safeAvatarSrc(u.avatar) + '">' : '<div class="avatar-placeholder">' + escapeHtml(initial) + '</div>') +
-            frameHtml +
           '</div>' +
           '<div class="profile-name">' + escapeHtml(u.name) + '</div>' +
           '<div class="profile-id">#' + escapeHtml(u.tag || '0000') + '</div>' +
@@ -11102,20 +11001,6 @@ vBlock('0.8.7-beta', '', [
           '</select>' +
         '</div>' +
       '</div>' +
-      (MStore.settings.profileFrames ? (
-      '<div class="settings-section">' +
-        '<div class="settings-section-title">Profile Frame</div>' +
-        '<div class="settings-item" style="border:none;cursor:pointer;" id="frame-picker-btn">' +
-          '<div style="display:flex;align-items:center;gap:12px;width:100%;padding:4px 0;">' +
-            '<div style="width:40px;height:40px;border-radius:50%;background:var(--bg-base);flex-shrink:0;display:flex;align-items:center;justify-content:center;">' +
-              (MStore.settings.profileFrame > 0 ? '<img src="icons/frames/pfp_frame_' + MStore.settings.profileFrame + '.png" style="width:125%;height:125%;pointer-events:none;object-fit:contain;flex-shrink:0;display:block;" draggable="false" alt="">' : '<span style="font-size:10px;color:var(--text-muted);">None</span>') +
-            '</div>' +
-            '<span style="flex:1;font-size:14px;color:var(--text-primary);">' + (MStore.settings.profileFrame > 0 ? 'Frame #' + MStore.settings.profileFrame : 'No Frame') + '</span>' +
-            '<i data-lucide="chevron-up" style="width:16px;height:16px;color:var(--text-muted);flex-shrink:0;"></i>' +
-          '</div>' +
-        '</div>' +
-      '</div>'
-      ) : '') +
       '<div class="settings-section">' +
         '<div class="settings-item" style="border:none;">' +
           '<div style="color:var(--text-secondary);font-size:14px;flex-shrink:0;">User ID</div>' +
@@ -11304,115 +11189,6 @@ vBlock('0.8.7-beta', '', [
 
 
 
-        // Frame picker button — opens drop-up inside the sheet
-    var frameBtn = document.getElementById('frame-picker-btn');
-    var _framePickerOpen = false;
-    if (frameBtn) {
-      frameBtn.addEventListener('click', function() {
-        if (_framePickerOpen) return;
-        _framePickerOpen = true;
-        
-        var fOverlay = document.createElement('div');
-        fOverlay.style.cssText = 'position:fixed;bottom:0;left:0;width:100%;background:var(--bg-surface);border-radius:24px 24px 0 0;max-height:75vh;display:flex;flex-direction:column;animation:slideUp 0.3s cubic-bezier(0.16,1,0.3,1) forwards;';
-        
-        var selectedFrame = MStore.settings.profileFrame || 0;
-        
-        fOverlay.innerHTML =
-          '<div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:20px 20px 0;">' +
-            '<div style="font-size:18px;font-weight:700;color:var(--text-primary);">Choose Frame</div>' +
-            '<button id="btn-close-frame-picker" style="width:32px;height:32px;border-radius:50%;background:var(--bg-hover);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-primary);font-size:16px;">✕</button>' +
-          '</div>' +
-          '<div style="flex:1;overflow-y:auto;padding:16px 20px 30px;">' +
-            '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;">' +
-              (function() {
-                var html = '';
-                // 0 is the "None" option; 1..COUNT are the frames. This stopped at
-                // 42 while 55 exist, so the phone never offered 43-55 — and a
-                // picker missing its last twelve entries looks exactly like a
-                // picker that ends there. COUNT now comes from the shared list the
-                // desktop reads too.
-                var _frameMax = (window.ProfileFrames && window.ProfileFrames.COUNT) || 42;
-                for (var fi = 0; fi <= _frameMax; fi++) {
-                  var isSel = selectedFrame == fi;
-                  if (fi === 0) {
-                    html += '<div class="frame-option" data-frame="0" style="width:100%;aspect-ratio:1;border-radius:50%;background:var(--bg-hover);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-muted);cursor:pointer;transition:all 0.15s;box-sizing:border-box;overflow:hidden;' + (isSel ? 'border:2px solid var(--accent-primary);' : 'border:2px solid transparent;') + '">None</div>';
-                  } else {
-                    html += '<div class="frame-option" data-frame="' + fi + '" style="width:100%;aspect-ratio:1;border-radius:50%;background:var(--bg-base);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.15s;position:relative;box-sizing:border-box;overflow:hidden;' + (isSel ? 'border:2px solid var(--accent-primary);' : 'border:2px solid transparent;') + '">' +
-                      '<img src="icons/frames/pfp_frame_' + fi + '.png" style="width:100%;height:100%;object-fit:cover;border-radius:50%;pointer-events:none;" draggable="false" alt="">' +
-                    '</div>';
-                  }
-                }
-                return html;
-              })() +
-            '</div>' +
-          '</div>';
-        
-        backdrop.appendChild(fOverlay);
-
-        // Drag-down-to-close (onClose mirrors the ✕ button handler)
-        if (window.OrbitSheet && typeof window.OrbitSheet.enableDragClose === 'function') {
-          OrbitSheet.enableDragClose({ sheet: fOverlay, onClose: function () { fOverlay.remove(); _framePickerOpen = false; } });
-        }
-
-        document.getElementById('btn-close-frame-picker').addEventListener('click', function() {
-          fOverlay.remove();
-          _framePickerOpen = false;
-        });
-        
-        fOverlay.addEventListener('click', function(e) { e.stopPropagation(); });
-        
-        fOverlay.querySelectorAll('.frame-option').forEach(function(el) {
-          el.addEventListener('click', function() {
-            var frameNum = parseInt(this.getAttribute('data-frame'), 10) || 0;
-            
-            var previewWrap = frameBtn.querySelector('div:first-child > div:first-child');
-            var labelEl = frameBtn.querySelector('span');
-            if (previewWrap) {
-              if (frameNum > 0) {
-                previewWrap.innerHTML = '<img src="icons/frames/pfp_frame_' + frameNum + '.png" style="width:125%;height:125%;pointer-events:none;object-fit:contain;flex-shrink:0;display:block;" draggable="false" alt="">';
-              } else {
-                previewWrap.innerHTML = '<span style="font-size:10px;color:var(--text-muted);">None</span>';
-              }
-            }
-            if (labelEl) {
-              labelEl.textContent = frameNum > 0 ? 'Frame #' + frameNum : 'No Frame';
-            }
-            
-            MStore.settings.profileFrame = frameNum;
-            MStore.save();
-            updateNavAvatar();
-            renderChatList();
-            renderFriends();
-            
-            var heroFrame = sheet.querySelector('.profile-avatar-wrapper .pfp-frame');
-            if (frameNum > 0) {
-              if (heroFrame) {
-                heroFrame.src = 'icons/frames/pfp_frame_' + frameNum + '.png';
-              } else {
-                var aw = sheet.querySelector('.profile-avatar-wrapper');
-                if (aw) {
-                  var newFrame = document.createElement('img');
-                  newFrame.className = 'pfp-frame';
-                  newFrame.draggable = false;
-                  newFrame.alt = '';
-                  newFrame.src = 'icons/frames/pfp_frame_' + frameNum + '.png';
-                  aw.appendChild(newFrame);
-                }
-              }
-            } else {
-              if (heroFrame) heroFrame.remove();
-            }
-            
-            // Refresh the header avatar's frame. (This used to repaint the
-            // floating pill's avatar.)
-            if (window.OrbitNav) window.OrbitNav.syncAvatar();
-
-            fOverlay.remove();
-            _framePickerOpen = false;
-          });
-        });
-      });
-    }
     // Hide pill
     var pill = document.getElementById('profile-pill');
     if (pill) { pill.style.opacity = '0'; pill.style.pointerEvents = 'none'; }
@@ -12039,8 +11815,6 @@ vBlock('0.8.7-beta', '', [
       var statusColor = friend
         ? ({ online: 'var(--accent-success)', away: 'var(--accent-warning)', busy: 'var(--accent-danger)', offline: 'var(--text-muted)' }[friend.status] || 'var(--text-muted)')
         : 'var(--text-muted)';
-      var mPfNum = mid === myId ? getProfileFrame(MStore.settings) : (friend ? getProfileFrame(friend) : 0);
-      var mPfHtml = mPfNum > 0 ? '<img src="icons/frames/pfp_frame_' + mPfNum + '.png" class="pfp-frame" draggable="false" alt="">' : '';
 
       var canManage = isOwner || _isGroupAdmin(group, myId);
       var isSelf = mid === myId;
@@ -12067,7 +11841,6 @@ vBlock('0.8.7-beta', '', [
       membersHtml += '<div class="group-member-row" data-user-id="' + mid + '">' +
         '<div class="group-member-avatar-wrap">' +
           '<div class="group-member-avatar">' + mAvatar + '</div>' +
-          mPfHtml +
           '<span class="group-member-status" style="background:' + statusColor + ';"></span>' +
         '</div>' +
         '<div class="group-member-info">' +
@@ -15629,12 +15402,6 @@ vBlock('0.8.7-beta', '', [
     var target = f.avatar || null;
     if (c.avatar !== target) { c.avatar = target; return true; }
     return false;
-  }
-
-  function getProfileFrame(source) {
-    if (MStore.settings.profileFrames !== true) return 0;
-    var val = (source && source.profileFrame != null) ? source.profileFrame : 0;
-    return Math.max(0, parseInt(val, 10) || 0);
   }
 
   /* -- Debug log buffer (visible when devMode is on) -- */

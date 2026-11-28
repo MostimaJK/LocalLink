@@ -233,6 +233,31 @@ test('real file conversation: manual discovery, text, batch, paste, folder and h
   await expect(page.locator('.tabs-container')).not.toBeVisible();
   await expect(page.locator('#localsend-send svg')).toHaveAttribute('data-lucide','file');
   await expect(page.locator('#ll-open-receive-folder')).toBeVisible();
+  const searchDir=path.join(dir,'search-files');fs.mkdirSync(searchDir);
+  for(const file of ['alpha.txt','beta.png'])fs.writeFileSync(path.join(searchDir,file),'fixture');
+  fs.mkdirSync(path.join(searchDir,'深圳大学资料'));
+  await page.evaluate(dir=>{
+    window.orbitAPI.dbSetSetting('search.allDrives',false);
+    window.orbitAPI.dbSetSetting('search.manualFolder',dir);
+    window.orbitAPI.dbSetSetting('search.useIndex',false);
+  },searchDir);
+  await page.locator('#ll-send-folder + button').click();
+  const search=page.locator('dialog.ll-local-search');
+  await search.getByRole('searchbox').evaluate(input=>{
+    input.value='深圳大学';
+    input.dispatchEvent(new InputEvent('input',{bubbles:true,isComposing:true}));
+    input.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true,data:'深圳大学'}));
+  });
+  await expect(search.locator('.ll-search-result strong')).toHaveText('深圳大学资料');
+  await search.getByRole('searchbox').fill('alpha');
+  await search.getByRole('checkbox').check();
+  await search.getByRole('searchbox').fill('beta');
+  await search.getByRole('checkbox').check();
+  await expect(search.locator('footer span')).toContainText('2');
+  await search.getByRole('searchbox').fill('alpha');
+  await expect(search.getByRole('checkbox')).toBeChecked();
+  await search.locator('footer button').first().click();
+  await expect(search).toHaveCount(0);
   const composer=page.locator('#ll-message-input');
   await composer.fill('你好，這是 LocalLink 的文字與連結。');
   await composer.press('End');await composer.press('Shift+Enter');
@@ -247,20 +272,25 @@ test('real file conversation: manual discovery, text, batch, paste, folder and h
   expect(incoming.find(r=>r.status==='received').text).toContain('你好');
   await expect(page.locator('#ll-message-input')).toHaveValue('');
   const files=['Notes.txt','中文空文件.txt'].map((name,i)=>{const file=path.join(dir,name);fs.writeFileSync(file,i?'':'a file with original bytes');return file;});
-  await page.evaluate(paths=>{
-   const panel=window.LocalSendPanel,bind=panel.bindFileDrop;
-   panel.bindFileDrop=function(surface,enabled,add){bind.call(this,surface,enabled,add);window.addDropped=add;};
-   window.store.setState({friends:[...window.store.getState().friends]});
-   const peer=window.store.getState().friends.find(p=>p.userId===window.store.getState().activeChatId);
-   panel.render(peer,document.querySelector('#chat-container'));
-   window.addDropped([paths[0]]);window.addDropped(paths);
-  },files);
+  await page.evaluate(()=>{
+   const input=document.createElement('input');input.type='file';input.multiple=true;input.hidden=true;
+   input.id='ll-drop-fixture';document.body.append(input);
+  });
+  async function drop(paths){
+   await page.locator('#ll-drop-fixture').setInputFiles(paths);
+   await page.evaluate(()=>{
+    const dt=new DataTransfer();
+    for(const file of document.querySelector('#ll-drop-fixture').files)dt.items.add(file);
+    for(const type of ['dragover','drop'])document.querySelector('.ll-conversation').dispatchEvent(new DragEvent(type,{dataTransfer:dt,bubbles:true,cancelable:true}));
+   });
+  }
+  await drop([files[0]]);await drop(files);
   await expect(page.locator('.ll-composer')).toContainText('待傳送 · 2');
   await expect(page.locator('.ll-draft-bubble')).toContainText('Notes.txt');
   await page.locator('.ll-draft-actions').getByRole('button',{name:'取消',exact:true}).click();
   await expect(page.locator('.ll-draft-bubble')).toHaveCount(0);
   expect(incoming.filter(r=>r.status==='received')).toHaveLength(1);
-  await page.evaluate(paths=>window.addDropped(paths),files);
+  await drop(files);
   await page.locator('.ll-draft-confirm').click();
   await expect(page.locator('[data-status="delivered"]')).toHaveCount(3);
   expect(incoming.filter(r=>r.status==='received').length).toBe(3);
@@ -464,8 +494,16 @@ test('real file conversation: manual discovery, text, batch, paste, folder and h
    const file=path.join(dir,'batch-'+index+'.txt');fs.writeFileSync(file,'fixture '+index);return file;
   });
   await page.evaluate(()=>{
-   window.chatMaxGap=0;let last=performance.now();
-   window.chatHeartbeat=setInterval(()=>{const now=performance.now();window.chatMaxGap=Math.max(window.chatMaxGap,now-last);last=now;},50);
+   window.chatMaxGap=0;let last=performance.now(),phase='receive';
+   const phases={};window.chatPhases=phases;
+   function sample(){
+     const now=performance.now(),gap=now-last;
+     window.chatMaxGap=Math.max(window.chatMaxGap,gap);
+     phases[phase]=Math.max(phases[phase]||0,gap);
+     last=now;
+   }
+   window.setChatPhase=name=>{sample();phase=name;};
+   window.chatHeartbeat=setInterval(sample,50);
   });
   const started=Date.now();
   const sending=receiver.sendBatch(peer.id,fixtures);
@@ -478,29 +516,38 @@ test('real file conversation: manual discovery, text, batch, paste, folder and h
    await chatCard.locator('.ll-receipt-accept').click();
    await sending;
   }finally{receiver.stop();await sending.catch(()=>{});}
+  const batchElapsed=Date.now()-started;
+  const batchGap=await page.evaluate(()=>window.chatMaxGap);
+  console.log('Receive phase including confirmation: '+batchElapsed+' ms; peak heartbeat interval: '+Math.round(batchGap)+' ms');
   await expect(page.locator('[data-show-batch]').first()).toBeVisible();
   const finished=await page.evaluate(n=>[...window.LocalSendPanel.batches.values()].find(b=>b.total===n),batchSize);
   expect(finished.finished).toBe(batchSize);expect(finished.failed).toBe(0);
   expect(await app.evaluate(()=>globalThis.__llShown.length)).toBe(3);
+  await page.evaluate(()=>window.setChatPhase('expand'));
   await page.locator('[data-show-batch]').first().click();
   await expect(page.locator('[data-status="received"]')).toHaveCount(100);
+  await page.evaluate(()=>window.setChatPhase('scroll'));
   const jump=page.locator('.ll-jump-latest');
   await timeline.evaluate(el=>{el.scrollTop=0;});
   await expect(jump).toBeVisible();
+  await page.evaluate(()=>window.setChatPhase('sendWhileReading'));
   await composer.fill('scroll regression: reading history');
   await composer.press('Enter');
   await expect(jump).toHaveAccessibleName(/新傳送訊息/);
   expect(await timeline.evaluate(el=>el.scrollTop)).toBeLessThan(3);
+  await page.evaluate(()=>window.setChatPhase('jump'));
   await jump.click();
   await expect.poll(gapToLatest).toBeLessThan(3);
   await timeline.evaluate(el=>{el.scrollTop=el.scrollHeight-el.clientHeight-40;});
+  await page.evaluate(()=>window.setChatPhase('sendAtBottom'));
   await composer.fill('scroll regression: following latest');
   await composer.press('Enter');
   await expect(page.locator('.ll-text-content').last()).toHaveText('scroll regression: following latest');
   await expect.poll(gapToLatest).toBeLessThan(3);
   const summary=await page.evaluate(id=>window.orbitAPI.sendSync('locallink-batch-summary',id),finished.id);
   expect(summary.finished).toBe(batchSize);
-  const gap=await page.evaluate(()=>{clearInterval(window.chatHeartbeat);return window.chatMaxGap;});
+  const gap=await page.evaluate(()=>{window.setChatPhase('done');clearInterval(window.chatHeartbeat);return window.chatMaxGap;});
+  console.log('Phase peak intervals (ms):',await page.evaluate(()=>window.chatPhases));
   console.log(batchSize+' files with chat open: '+(Date.now()-started)+' ms; longest renderer heartbeat interval: '+Math.round(gap)+' ms');
   await app.evaluate(({dialog})=>{dialog.showMessageBox=async()=>({response:1});});
   const target=await page.evaluate(()=>window.orbitAPI.sendSync('locallink-list-transfers',{direction:'incoming',limit:1})[0]);

@@ -14,6 +14,20 @@ if(!process.argv.some(arg=>arg.startsWith('--user-data-dir'))){
 }
 
 
+// BAT launches share the development profile and its Chromium caches.
+if (!app.isPackaged) {
+  if (!app.requestSingleInstanceLock()) {
+    app.exit(0);
+    return;
+  }
+  app.on('second-instance', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  });
+}
+
 function tryAddFirewallRule() {
   if (process.platform !== 'win32') return;
   const ruleName = 'Orbit P2P Discovery (UDP 45678)';
@@ -1735,6 +1749,7 @@ app.whenReady().then(async () => {
           }else if(!batch.timer)batch.timer=setTimeout(notify,200);
         }
         localSendInstance = new LocalSend({
+          adapters:async()=>(await readAdapters()).adapters, routePreference:id=>globalDb.getSetting("route."+id,""),
           discovery: process.env.LOCALLINK_TEST_NO_DISCOVERY !== '1',
           transaction:fn=>globalDb.db.transaction(fn)(),
           lookupReceipt:(peer,id)=>globalDb.transfers.receipt(peer,id),
@@ -2267,9 +2282,78 @@ app.whenReady().then(async () => {
   ipcMain.handle('locallink-speed-test',async(event,id)=>{
     if(event.sender!==mainWindow?.webContents || event.senderFrame!==event.sender.mainFrame)return;
     if(!id)return (localSendInstance?.speedPeers()||[]).map(({id,alias,ip})=>({id,alias,ip}));
-    return localSendInstance.measureSpeed(id);
+    return typeof id==='string'?localSendInstance.measureSpeed(id):localSendInstance.measureSpeed(id.peerId,id.route);
   });
-  ipcMain.handle('locallink-network-adapters', () => readAdapters());
+  const finder=require('./lib/local-search.cjs');
+  const searchRoot=()=>globalDb.getSetting('search.folder','');
+  if(globalDb.getSetting('search.manualFolder',null)===null)globalDb.setSetting('search.manualFolder',searchRoot());
+  const manualRoot=()=>globalDb.getSetting('search.manualFolder','');
+  const esPath=process.platform==='win32' && process.arch==='x64'
+    ? path.join(app.isPackaged?process.resourcesPath:__dirname,'vendor','everything-es','es.exe'):null;
+  const bundledEngine=esPath && require('./lib/bundled-everything.cjs').createEngine(
+    path.resolve(path.dirname(esPath),'../everything-engine/Everything.exe'),path.join(app.getPath('userData'),'search-index'));
+  const searchBackend=()=>globalDb.getSetting('search.useIndex',true) && esPath
+    ? {command:esPath,engine:bundledEngine}:null;
+  ipcMain.handle('locallink-set-index-enabled',(event,value)=>{
+    if(event.sender!==mainWindow?.webContents || event.senderFrame!==event.sender.mainFrame || typeof value!=='boolean')throw Error('Invalid request');
+    globalDb.setSetting('search.useIndex',value);
+    if(!value && bundledEngine)bundledEngine.stop();
+  });
+  if(bundledEngine)app.once('will-quit',()=>bundledEngine.stop());
+  ipcMain.handle('locallink-search-folder',async(event,target)=>{
+    if(event.sender!==mainWindow?.webContents || event.senderFrame!==event.sender.mainFrame)return;
+    const pick=await dialog.showOpenDialog(mainWindow,{properties:['openDirectory']});
+    const key=target==='agent'?'search.folder':'search.manualFolder';
+    if(pick.canceled && target==='agent')return null;
+    if(!pick.canceled)globalDb.setSetting(key,await fs.promises.realpath(pick.filePaths[0]));
+    return globalDb.getSetting(key,'');
+  });
+  let manualSearch;
+  ipcMain.handle('locallink-reveal-search-file',async(event,file)=>{
+    if(event.sender!==mainWindow?.webContents || event.senderFrame!==event.sender.mainFrame ||
+       typeof file!=='string'||!path.isAbsolute(file))return false;
+    const stat=await fs.promises.stat(file).catch(()=>null);
+    if(!stat?.isFile() && !stat?.isDirectory())return false;
+    shell.showItemInFolder(file);
+    return true;
+  });
+  ipcMain.handle('locallink-search-local',async(event,query)=>{
+    if(event.sender!==mainWindow?.webContents || event.senderFrame!==event.sender.mainFrame)throw Error('Invalid search window');
+    manualSearch?.abort();
+    manualSearch=new AbortController();
+    if(!globalDb.getSetting('search.allDrives',true)){
+      if(!manualRoot())throw Error(llText('請在 Everything 設定中選擇資料夾','请在 Everything 设置中选择文件夹','Choose a folder in Everything settings'));
+      return finder.search(manualRoot(),query,searchBackend(),undefined,manualSearch.signal);
+    }
+    return finder.searchComputer(query,searchBackend(),manualSearch.signal);
+  });
+  const eligiblePeers=()=>Array.from(localSendInstance?.peers.values()||[]).filter(p=>p.protocol==='https' &&
+    Date.now()-p.seen<45000 && globalDb.getSetting('locallink.trust.'+p.id,{}).paired===true);
+  require('./lib/search-bridge.cjs').start({app,db:globalDb,onCall:async(name,args)=>{
+    const permitted=()=>globalDb.getSetting('agent.enabled',false) && globalDb.getSetting('agent.search',true);
+    if(!permitted())throw Error('Enable MCP file search in LocalLink settings');
+    if(name==='list_send_devices')return eligiblePeers().map(({id,alias})=>({id,alias}));
+    const all=()=>(!searchRoot() || globalDb.getSetting('agent.searchAll',false)===true);
+    const scope=file=>all()?path.parse(path.resolve(file)).root:searchRoot();
+    if(name==='search_local_files' && all())return finder.searchComputer(args.query,searchBackend());
+    if(name==='search_local_files')return finder.search(searchRoot(),args.query,searchBackend());
+    if(name!=='send_local_file')throw Error('Unknown tool');
+    const peer=eligiblePeers().find(p=>p.id===args.peerId);
+    if(!peer)throw Error('Choose an online paired device');
+    const file=await finder.validate(scope(args.path),args.path);
+    const auto=()=>!all() && Boolean(searchRoot()) && globalDb.getSetting('agent.sendRule.'+peer.id,'')===searchRoot();
+    if(!auto()){
+      const answer=await dialog.showMessageBox(mainWindow,{type:'question',message:'MCP · '+llText('傳送檔案？','发送文件？','Send file?'),detail:file.path+' → '+peer.alias+' ('+peer.id+')',buttons:[llText('取消','取消','Cancel'),llText('傳送','发送','Send')],cancelId:0,defaultId:0});
+      if(answer.response!==1)return {cancelled:true};
+    }
+    if(!permitted()||!eligiblePeers().some(p=>p.id===peer.id))throw Error('Permission or peer changed');
+    const checked=await finder.validate(scope(file.path),file.path);
+    if(checked.path!==file.path||checked.modified!==file.modified||checked.size!==file.size)throw Error('File changed');
+    return sendPaths(peer.id,[checked.path]);
+  }});
+  ipcMain.handle('locallink-mcp-config',()=>({mcpServers:{'locallink-inbox':{command:'node',args:[app.isPackaged?path.join(process.resourcesPath,'inbox-mcp.cjs'):path.join(__dirname,'lib','inbox-mcp.cjs'),globalDb.dbPath]}}}));
+  ipcMain.handle('locallink-routes',async(_,id)=>(await localSendInstance?.routes(id)||[]).map(r=>({key:r.key,label:r.label,ip:r.peer.ip,speed:r.speed})));
+  ipcMain.handle('locallink-network-adapters' , () => readAdapters());
   ipcMain.handle('locallink-diagnostics',async()=>({running:!!localSendInstance?.port&&!localSendInstance.closed,error:localSendError,discoveryError:localSendInstance?.discoveryError||null,port:localSendInstance?.port||null,addresses:Object.values(os.networkInterfaces()).flat().filter(a=>a?.family==='IPv4'&&!a.internal).map(a=>a.address)}));
   ipcMain.handle('locallink-storage',async()=>({ok:true,path:receiveDir()}));
   function absoluteFolder(value){

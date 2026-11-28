@@ -314,28 +314,6 @@ var OrbitNav = {
       }
     }
 
-    // Profile frame, gated on the stable setting.
-    if (MStore.settings && MStore.settings.profileFrames) {
-      var num = parseInt(MStore.settings.profileFrame, 10) || 0;
-      var frame = wrap.querySelector('.pfp-frame');
-      if (num > 0) {
-        if (!frame) {
-          frame = document.createElement('img');
-          frame.className = 'pfp-frame';
-          frame.draggable = false;
-          frame.alt = '';
-          wrap.appendChild(frame);
-        }
-        var src = 'icons/frames/pfp_frame_' + num + '.png';
-        if (frame.getAttribute('src') !== src) frame.src = src;
-      } else if (frame) {
-        frame.remove();
-      }
-    } else {
-      var stale = wrap.querySelector('.pfp-frame');
-      if (stale) stale.remove();
-    }
-
     if (dot) {
       var status = user.status || 'offline';
       // ⚠ THE BADGE POSITIONS ITSELF (`position:absolute; bottom:-1px; right:-1px`)

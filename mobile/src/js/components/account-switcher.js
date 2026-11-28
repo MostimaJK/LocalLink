@@ -85,13 +85,6 @@ var OrbitAccounts = {
       pic = '<div class="acct-initial" style="width:' + size + 'px;height:' + size + 'px;">' +
             this._escape(initial) + '</div>';
     }
-    // Profile frame. Each account's frame number is mirrored into the registry
-    // by Store.syncAccountRecord, so an inactive account can still show its own.
-    var frame = rec && rec.profileFrame ? parseInt(rec.profileFrame, 10) || 0 : 0;
-    if (frame > 0) {
-      pic += '<img class="pfp-frame" src="icons/frames/pfp_frame_' + frame +
-             '.png" alt="" draggable="false">';
-    }
     return pic;
   },
 

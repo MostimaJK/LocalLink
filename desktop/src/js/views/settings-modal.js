@@ -75,6 +75,8 @@ window.SettingsModal = {
     // the active state is a class and there is no second writer left to fight it.
     var navItems = [
       { tab: 'account', icon: 'sliders-horizontal', label: window.LocalSendPanel.text('通用','通用','General') },
+      { tab: 'everything', icon: 'search', label: 'Everything' },
+      { tab: 'agent', icon: 'bot', label: 'MCP' },
       { tab: 'appearance', icon: 'palette', label: window.I18n.t('s2') },
       { tab: 'security', icon: 'shield', label: window.I18n.t('s6'), experimental: true },
       { tab: 'advanced', icon: 'sliders-horizontal', label: window.orbitAPI.dbGetSetting('locallink.transport','localsend')==='localsend'?(window.I18n.locale==='en'?'Diagnostics':window.I18n.locale==='zh-Hans'?'诊断':'診斷'):window.I18n.t('s7') },
@@ -301,7 +303,7 @@ window.SettingsModal = {
             if(enabled){
               const dialog=document.createElement('dialog');dialog.className='ll-connect-dialog';
               dialog.setAttribute('aria-labelledby','ll-admin-restart-title');
-              dialog.innerHTML=`<form method="dialog"><h2 id="ll-admin-restart-title">${t('以系統管理員身分重新啟動？','以管理员身份重启？','Restart as administrator?')}</h2>
+              dialog.innerHTML=`<form method="dialog"><h2 id="ll-admin-restart-title">${t('以系統管理員身分重新啟動？','以管理员身份重启？','Restart as administrator?')}</h2><p class="ll-settings-copy">${t('管理員模式會阻擋從一般檔案總管拖入檔案。仍可使用「選擇檔案」。','管理员模式会阻止从普通文件资源管理器拖入文件。仍可使用“选择文件”。','Administrator mode blocks dragging files from standard File Explorer windows. You can still use Choose files.')}</p>
                 <div class="ll-file-actions"><button value="cancel" autofocus>${t('取消','取消','Cancel')}</button>
                 <button class="ll-primary-button" value="restart">${t('重新啟動','重启','Restart')}</button></div></form>`;
               document.body.append(dialog);
@@ -1603,20 +1605,110 @@ window.SettingsModal = {
         }
       })();
 
+    } else if(tabName==='everything'){
+      content.innerHTML=`<h3 class="ll-settings-title">Everything</h3>
+        <section class="ll-settings-card"><div class="ll-settings-card-head">${t('索引','索引','Index')}</div><div class="ll-settings-card-body">
+        <label class="ll-setting-row">${t('使用 Everything 索引','使用 Everything 索引','Use the Everything index')}<input id="ll-use-index" type="checkbox"></label>
+        <p class="ll-settings-copy">${t('Windows x64 優先使用執行中的 Everything，也可啟用內建索引。關閉後改為按需掃描。','Windows x64 优先使用正在运行的 Everything，必要时启动内置索引。关闭后改为按需扫描。','Windows x64 uses a running Everything instance or starts the bundled index. Turn off to scan on demand.')}</p></div></section>
+        <section class="ll-settings-card"><div class="ll-settings-card-head">${t('搜尋範圍','搜索范围','Search scope')}</div><div class="ll-settings-card-body">
+        <label class="ll-setting-row">${t('在所有磁碟機中搜尋','在所有驱动器中搜索','Search all drives')}<input type="checkbox" id="ll-all-drives"></label>
+        <div class="ll-setting-row ll-folder-choice"><span id="ll-scope-folder" class="selectable"></span><button id="ll-pick-scope">${t('選擇資料夾','选择文件夹','Choose folder')}</button></div></div></section>`;
+      const api=window.orbitAPI,index=content.querySelector('#ll-use-index'),all=content.querySelector('#ll-all-drives');
+      index.checked=api.dbGetSetting('search.useIndex',true);
+      index.disabled=api.platform!=='win32';
+      index.onchange=async()=>{index.disabled=true;try{await api.invoke('locallink-set-index-enabled',index.checked);}finally{index.checked=api.dbGetSetting('search.useIndex',true);index.disabled=false;}};
+      all.checked=api.dbGetSetting('search.allDrives',true);
+      const show=()=>{content.querySelector('.ll-folder-choice').hidden=all.checked;content.querySelector('#ll-scope-folder').textContent=api.dbGetSetting('search.manualFolder','')||t('未選擇資料夾','未选择文件夹','No folder selected');};
+      show();
+      content.querySelector('#ll-pick-scope').onclick=async()=>{await api.invoke('locallink-search-folder');show();};
+      all.onchange=async()=>{
+        if(!all.checked && !api.dbGetSetting('search.manualFolder','')){
+          all.disabled=true;
+          try{all.checked=!await api.invoke('locallink-search-folder');show();}finally{all.disabled=false;}
+        }
+        api.dbSetSetting('search.allDrives',all.checked);show();
+      };
+    } else if(tabName==='agent'){
+      content.innerHTML=`<h3 class="ll-settings-title">MCP</h3>
+        <section class="ll-settings-card"><div class="ll-settings-card-head">${t('讀取權限','读取权限','Read permissions')}</div>
+        <div class="ll-settings-card-body"><label class="ll-setting-row">${t('啟用 MCP 存取','启用 MCP 访问','Enable MCP access')}<input id="ll-mcp-enabled" type="checkbox"></label>
+        <p class="ll-settings-copy">${t('右鍵點選收件可單獨授權，也可在裝置詳情中授權該裝置已驗證的收件。','右键点击收到的消息或文件可单独授权，也可在设备详情中授权该设备已验证的收件。','Right-click a received item to grant access, or authorize authenticated items from a device in its details.')}</p>
+        <label class="ll-setting-row">${t('允許讀取附件內容','允许读取附件内容','Allow reading attachment contents')}<input id="ll-mcp-attachments" type="checkbox"></label>
+        <p class="ll-settings-copy">${t('支援圖片與文字檔，每個附件上限 8 MiB。關閉後仍可查看已授權的檔名與大小。','支持图片和文本文件，每个附件上限 8 MiB。关闭后仍可查看已授权的文件名和大小。','Supports images and text files up to 8 MiB each. File names and sizes remain available for authorized items.')}</p></div></section>
+        <section class="ll-settings-card"><div class="ll-settings-card-head">${t('本機檔案搜尋','本机文件搜索','Local file search')}</div><div class="ll-settings-card-body">
+        <label class="ll-setting-row">${t('MCP 搜尋與傳送範圍','MCP 搜索与发送范围','MCP search and send scope')}<select id="ll-search-grant"><option value="off">${t('不允許','不允许','Off')}</option><option value="folder">${t('指定資料夾','指定文件夹','Selected folder')}</option><option value="all">${t('整台電腦','整台电脑','Entire computer')}</option></select></label>
+        <div class="ll-setting-row ll-folder-choice"><span id="ll-search-root" class="selectable"></span><button id="ll-agent-folder">${t('選擇資料夾','选择文件夹','Choose folder')}</button></div>
+        </div></section>
+        <section class="ll-settings-card"><div class="ll-settings-card-head">${t('用戶端設定','客户端配置','Client configuration')}</div><div class="ll-settings-card-body">
+        <div class="ll-setting-row ll-mcp-config-line"><p class="ll-settings-copy">${t('將 JSON 設定貼到支援 stdio 的本機 MCP 用戶端。','将 JSON 配置粘贴到支持 stdio 的本机 MCP 客户端。','Paste the JSON configuration into a local MCP client that supports stdio.')}</p>
+        <span role="status"></span><button type="button" id="ll-mcp-copy">${t('複製配置','复制配置','Copy configuration')}</button></div></div></section>`;
+      const enabled=content.querySelector('#ll-mcp-enabled'), attachments=content.querySelector('#ll-mcp-attachments');
+      enabled.checked=window.orbitAPI.dbGetSetting('agent.enabled',false);
+      attachments.checked=window.orbitAPI.dbGetSetting('agent.attachments',true);
+      attachments.disabled=!enabled.checked;
+      enabled.onchange=()=>{
+        window.orbitAPI.dbSetSetting('agent.enabled',enabled.checked);
+        attachments.disabled=!enabled.checked;
+      };
+      attachments.onchange=()=>window.orbitAPI.dbSetSetting('agent.attachments',attachments.checked);
+      const searchGrant=content.querySelector('#ll-search-grant'),rootLabel=content.querySelector('#ll-search-root');
+      const api=window.orbitAPI;
+      const refreshScope=()=>{
+        searchGrant.value=api.dbGetSetting('agent.search',true)?((!api.dbGetSetting('search.folder','')||api.dbGetSetting('agent.searchAll',false))?'all':'folder'):'off';
+        searchGrant.disabled=!enabled.checked;
+        rootLabel.parentElement.hidden=searchGrant.disabled||searchGrant.value!=='folder';
+        rootLabel.textContent=api.dbGetSetting('search.folder','')||t('未選擇資料夾','未选择文件夹','No folder selected');
+      };
+      refreshScope();enabled.addEventListener('change',refreshScope);
+      async function applyScope(choice){
+        if(choice==='folder' && !await api.invoke('locallink-search-folder','agent'))choice='all';
+        api.dbSetSetting('agent.searchAll',choice==='all');
+        api.dbSetSetting('agent.search',choice!=='off');
+        refreshScope();
+      }
+      searchGrant.onchange=()=>applyScope(searchGrant.value);
+      content.querySelector('#ll-agent-folder').onclick=()=>applyScope('folder');
+      const status=content.querySelector('[role=status]');
+      content.querySelector('#ll-mcp-copy').onclick=async()=>{
+        try{
+          const config=await window.orbitAPI.invoke('locallink-mcp-config');
+          if(!window.orbitAPI.writeClipboard(JSON.stringify(config,null,2)))throw Error();
+          status.textContent=t('已複製','已复制','Copied');
+        }catch{status.textContent=t('複製失敗，請重試','复制失败，请重试','Copy failed. Try again.');}
+      };
     } else if (tabName === 'advanced' && window.orbitAPI.dbGetSetting('locallink.transport','localsend') === 'localsend') {
       content.innerHTML=`<h3 class="ll-settings-title">${t('診斷','诊断','Diagnostics')}</h3><section class="ll-settings-card"><div class="ll-settings-card-head"><i data-lucide="network"></i>LocalSend</div><div class="ll-settings-card-body"><dl class="ll-about-facts"><div><dt>${t('服務狀態','服务状态','Service status')}</dt><dd id="ll-diagnostic-status"></dd></div><div><dt>IP</dt><dd id="ll-diagnostic-addresses"></dd></div><div><dt>${t('接收埠','接收端口','Receive port')}</dt><dd id="ll-diagnostic-port"></dd></div></dl><button class="ll-primary-button" id="ll-diagnostic-retry">${t('重試連線','重试连接','Retry connection')}</button></div></section>`;
       const adapterCard=document.createElement('section');adapterCard.className='ll-settings-card';
       const macInterfaces=window.orbitAPI.platform==='darwin';
       adapterCard.innerHTML=`<div class="ll-settings-card-head"><i data-lucide="network"></i>${macInterfaces?t('本機網路位址','本机网络地址','Local network addresses'):t('網路介面卡檢測','网络适配器检测','Network adapter diagnostics')}</div><div class="ll-settings-card-body">
         <p class="ll-settings-copy">${macInterfaces?t('手動連線時，在另一部裝置輸入這台 Mac 的區域網路位址。','手动连接时，在另一台设备输入这台 Mac 的局域网地址。','To connect manually, enter this Mac’s LAN address on the other device.'):t('查看目前連線的理論上限；不是實際傳輸速度。虛擬網卡不代表物理頻寬；多張網卡的速度不會相加。','查看当前连接的理论上限；不是实际传输速度。虚拟网卡不代表物理带宽；多张网卡的速度不会相加。','Current link ceilings, not measured transfer speed. Virtual links do not represent physical bandwidth; adapter speeds do not add up.')}</p>
-        <div id="ll-adapters-result" role="status">${t('按下檢測以讀取本機網卡資訊。','点击检测读取本机网卡信息。','Check to read this computer’s adapter information.')}</div>
-        <div class="ll-file-actions"><button id="ll-check-adapters">${t('檢測網卡','检测网卡','Check adapters')}</button></div></div>`;
+        <div class="ll-setting-row"><span>${t('按下檢測以讀取本機網卡資訊。','点击检测读取本机网卡信息。','Check to read this computer’s adapter information.')}</span><button id="ll-check-adapters">${t('檢測網卡','检测网卡','Check adapters')}</button></div><div id="ll-adapters-result" role="status"></div></div>`;
       const probe=document.createElement('div');probe.className='ll-settings-card-body';
       const testCard=document.createElement('section');testCard.className='ll-settings-card';
       testCard.innerHTML=`<div class="ll-settings-card-head"><i data-lucide="network"></i>${t('區域網路傳輸速率測試','局域网传输速率测试','LAN throughput test')}</div>`;
-      probe.innerHTML=`<label class="ll-setting-row">${t('目標裝置','目标设备','Target device')} <select></select></label><p class="ll-settings-copy">${t('選擇已配對的附近電腦，每個方向傳輸 8.39 MB。','选择已配对的附近电脑，每个方向传输 8.39 MB。','Select a nearby paired computer. Transfers 8.39 MB each way.')}</p><div class="ll-file-actions"><button>${t('重新整理','刷新设备','Refresh devices')}</button><button disabled>${t('開始測速','开始测速','Run test')}</button></div><p role="status"></p>`;
+      const metrics=[t('傳送','发送','Send'),t('接收','接收','Receive')];
+      probe.innerHTML=`<div class="ll-speed-metrics">${metrics.map(label=>`<div><span>${label}</span><strong>—</strong> <small>MB/s</small><p></p></div>`).join('')}</div>
+        <p class="ll-speed-status" role="status"></p>
+        <label class="ll-setting-row">${t('目標裝置','目标设备','Target device')} <select></select></label><p class="ll-settings-copy">${t('選擇已配對的附近電腦，每個方向傳輸 8.39 MB。','选择已配对的附近电脑，每个方向传输 8.39 MB。','Select a nearby paired computer. Transfers 8.39 MB each way.')}</p><div class="ll-file-actions"><button>${t('重新整理','刷新设备','Refresh devices')}</button><button disabled>${t('開始測速','开始测速','Run test')}</button></div>`;
       testCard.append(probe);
       const selectPeer=probe.querySelector('select'),[refreshPeers,testSpeed]=probe.querySelectorAll('button'),report=probe.querySelector('[role=status]');
+      const routeRow=document.createElement('label'),route=document.createElement('select');routeRow.className='ll-setting-row';
+      routeRow.append(t('測試線路','测试线路','Test route'),route);selectPeer.parentElement.after(routeRow);
+      function showSpeeds(values=[]){
+        probe.querySelectorAll('.ll-speed-metrics > div').forEach((cell,index)=>{
+          const rate=values[index];
+          cell.querySelector('strong').textContent=Number.isFinite(rate)?(rate/8).toFixed(1):'—';
+          cell.querySelector('p').textContent=Number.isFinite(rate)?rate.toFixed(1)+' Mbps':'';
+        });
+      }
+      function resetResult(){showSpeeds();report.textContent='';}
+      route.onchange=resetResult;
+      async function loadRoutes(){
+        resetResult();
+        const id=selectPeer.value;route.dataset.peer=id;testSpeed.disabled=true;
+        await window.LocalLinkDevices.fillRoutes(route,id);
+        if(selectPeer.value===id)testSpeed.disabled=!id;
+      }
       async function loadPeers(){
         refreshPeers.disabled=true;testSpeed.disabled=true;
         try{
@@ -1624,23 +1716,25 @@ window.SettingsModal = {
           const last=selectPeer.value;selectPeer.replaceChildren(...peers.map(p=>new Option(p.alias+' · '+p.ip,p.id)));
           if(peers.some(p=>p.id===last))selectPeer.value=last;
           if(!peers.length)selectPeer.add(new Option(t('無','无','None'),''));
-          testSpeed.disabled=!peers.length;
+          await loadRoutes();
         }catch{report.textContent=t('無法讀取裝置','无法读取设备','Cannot list devices');}
         finally{refreshPeers.disabled=false;}
       }
       refreshPeers.onclick=loadPeers;loadPeers();
-      selectPeer.onchange=()=>{report.textContent='';};
+      selectPeer.onchange=()=>{report.textContent='';loadRoutes().catch(()=>{testSpeed.disabled=true;});};
       testSpeed.onclick=async()=>{
-        refreshPeers.disabled=testSpeed.disabled=selectPeer.disabled=true;
+        refreshPeers.disabled=testSpeed.disabled=selectPeer.disabled=route.disabled=true;
+        showSpeeds();
         report.textContent=t('測速中…','测速中…','Testing…');
         try{
-          const r=await window.orbitAPI.invoke('locallink-speed-test',selectPeer.value);
-          const fmt=n=>n.toFixed(1)+' Mbps ('+(n/8).toFixed(1)+' MB/s)';
-          report.textContent=t('傳送','发送','Send')+' '+fmt(r.upload)+' · '+t('接收','接收','Receive')+' '+fmt(r.download);
+          const r=await window.orbitAPI.invoke('locallink-speed-test',{peerId:selectPeer.value,route:route.value});
+          showSpeeds([r.upload,r.download]);
+          report.textContent=r.routeLabel+' · '+t('測試完成','测试完成','Test complete');
         }catch{report.textContent=t('測速失敗，請確認雙方已配對且在線。','测速失败，请确认双方已配对且在线。','Test failed. Check that both devices are paired and online.');}
-        finally{refreshPeers.disabled=testSpeed.disabled=selectPeer.disabled=false;}
+        finally{refreshPeers.disabled=testSpeed.disabled=selectPeer.disabled=route.disabled=false;}
       };
-      content.append(adapterCard,testCard);
+      content.querySelector('.ll-settings-card').before(testCard);
+      content.append(adapterCard);
       adapterCard.querySelector('button').onclick=async()=>{
         const button=adapterCard.querySelector('button'),result=adapterCard.querySelector('#ll-adapters-result');
         button.disabled=true;result.textContent=t('正在檢測…','正在检测…','Checking…');

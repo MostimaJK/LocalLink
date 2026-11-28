@@ -3,6 +3,8 @@
 const common = [
   "**/*",
   "!dist/**",
+  "!vendor/everything-es/**",
+  "!vendor/everything-engine/**",
   "!.agent/**",
   "!.github/**",
   "!android/**",
@@ -22,6 +24,10 @@ const common = [
   "!node_modules/lucide/dist/umd/!(lucide.min.js)",
   "!node_modules/better-sqlite3/{src,deps}{,/**/*}",
   "!node_modules/better-sqlite3/binding.gyp",
+  "!node_modules/**/*.js.map",
+  "!node_modules/**/*.d.ts",
+  "!node_modules/node-addon-api/**/*.{h,gyp,gypi}",
+  "!node_modules/emoji-picker-element/custom-elements.json",
 ];
 
 // better-sqlite3 resolves its prebuild by OS and CPU, and by libc on Linux.

@@ -79,7 +79,6 @@ var OrbitHome = {
     }
     
     container.innerHTML = html;
-    this._addAvatarFrames();
     
     container.dataset.centered = (filteredFriends.length <= 1) ? 'true' : 'false';
     
@@ -252,25 +251,6 @@ var OrbitHome = {
       } else {
         avatarEl.textContent = initial;
       }
-      // Add profile frame if a frame is selected — gated on stable setting
-      if (MStore.settings && MStore.settings.profileFrames) {
-        var pfNum = parseInt(MStore.settings.profileFrame, 10) || 0;
-        var oldFrame = avatarEl.querySelector('.pfp-frame');
-        if (pfNum > 0) {
-          if (!oldFrame) {
-            var frameEl = document.createElement('img');
-            frameEl.className = 'pfp-frame';
-            frameEl.draggable = false;
-            frameEl.alt = '';
-            avatarEl.appendChild(frameEl);
-          } else {
-            var frameEl = oldFrame;
-          }
-          frameEl.src = 'icons/frames/pfp_frame_' + pfNum + '.png';
-        } else if (oldFrame) {
-          oldFrame.remove();
-        }
-      }
       nameEl.textContent = displayName;
       var _s = (user.status || 'offline');
       var statusLabels = { online: 'Online', away: 'Away', dnd: 'Do Not Disturb', invisible: 'Invisible', offline: 'Offline' };
@@ -329,7 +309,6 @@ var OrbitHome = {
       var onlineRow = document.getElementById('online-friends-section');
       if (onlineRow) onlineRow.style.display = 'none';
       container.innerHTML = this._buildSearchResults(searchQ, chats, filter);
-      this._addAvatarFrames();
       if (window.lucide) lucide.createIcons();
       return;
     }
@@ -475,7 +454,6 @@ var OrbitHome = {
     });
     
     container.innerHTML = html;
-    this._addAvatarFrames();
 
     // Re-init Lucide icons
     if (window.lucide) {
@@ -892,7 +870,6 @@ var OrbitHome = {
     // only the layout changes, which is why this needs no second renderer.
     container.classList.toggle('contacts-grid', this._contactsDisplay() === 'grid');
     container.innerHTML = html;
-    this._addAvatarFrames();
     if (window.lucide) lucide.createIcons();
   },
 
@@ -967,50 +944,6 @@ var OrbitHome = {
         OrbitHome.setContactsFilter(b.getAttribute('data-filter'));
       });
     }
-  },
-
-  /** Add profile frame overlays to friend avatars that have one selected */
-  _addAvatarFrames: function() {
-    // Gated on the stable Profile Frames setting — never inject frames when off
-    if (!(MStore.settings && MStore.settings.profileFrames)) return;
-    var avatarEls = document.querySelectorAll('.chat-row-avatar, .online-friend-avatar');
-    var groupIds = {};
-    (MStore.groups || []).forEach(function(g) { groupIds[g.id || g.groupId] = true; });
-    var friends = MStore.friends || [];
-    
-    avatarEls.forEach(function(el) {
-      // Skip if frame already exists
-      if (el.querySelector('.pfp-frame')) return;
-      
-      // Find the peer ID from the parent row
-      var row = el.closest('[data-peerid], [data-chatid]');
-      if (!row) return;
-      var id = row.getAttribute('data-peerid') || row.getAttribute('data-chatid');
-      if (!id) return;
-      
-      // Skip groups
-      if (groupIds[id]) return;
-      
-      // Find friend by matching id, peerId, or chat id
-      var pfNum = 0;
-      var rawPeerId = id.replace('dm_', '');
-      for (var fi = 0; fi < friends.length; fi++) {
-        var f = friends[fi];
-        if (f.id === rawPeerId || f.peerId === rawPeerId || f.peerId === id) {
-          pfNum = parseInt(f.profileFrame, 10) || 0;
-          break;
-        }
-      }
-      
-      if (pfNum > 0) {
-        var frameEl = document.createElement('img');
-        frameEl.className = 'pfp-frame';
-        frameEl.draggable = false;
-        frameEl.alt = '';
-        frameEl.src = 'icons/frames/pfp_frame_' + pfNum + '.png';
-        el.appendChild(frameEl);
-      }
-    });
   },
 
   /** Show 3-item quick action menu (New Group / Add Contact / Scan QR) */
