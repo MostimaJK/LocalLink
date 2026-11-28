@@ -238,7 +238,7 @@ test('real file conversation: manual discovery, text, batch, paste, folder and h
   fs.mkdirSync(path.join(searchDir,'深圳大学资料'));
   await page.evaluate(dir=>{
     window.orbitAPI.dbSetSetting('search.allDrives',false);
-    window.orbitAPI.dbSetSetting('search.manualFolder',dir);
+    await window.orbitAPI.invoke('locallink-search-folder','manual');
     window.orbitAPI.dbSetSetting('search.useIndex',false);
   },searchDir);
   await page.locator('#ll-send-folder + button').click();
