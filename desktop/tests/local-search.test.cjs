@@ -4,7 +4,7 @@ const os=require('node:os'), path=require('node:path'), fs=require('node:fs/prom
 const {search,validate}=require('../lib/local-search.cjs');
 
 test('folder search works without Everything and limits file access to the selected directory',async()=>{
-  const tmp=await fs.mkdtemp(path.join(os.tmpdir(),'locallink-search-'));
+  const tmp=await fs.mkdtemp(path.join(await fs.realpath(os.tmpdir()),'locallink-search-'));
   try{
     const root=path.join(tmp,'workspace');
     await fs.mkdir(root);
@@ -19,7 +19,7 @@ test('folder search works without Everything and limits file access to the selec
 });
 
 test('empty or stale index falls back and a later query reuses the ready index',async()=>{
-  const root=await fs.mkdtemp(path.join(os.tmpdir(),'ll-index-'));
+  const root=await fs.mkdtemp(path.join(await fs.realpath(os.tmpdir()),'ll-index-'));
   try {
     const file=path.join(root,'build.exe');
     await fs.writeFile(file,'sample');
@@ -32,7 +32,7 @@ test('empty or stale index falls back and a later query reuses the ready index',
 });
 
 test('fallback keeps the newest 50 matches across multiple batches',async()=>{
-  const root=await fs.mkdtemp(path.join(os.tmpdir(),'ll-many-'));
+  const root=await fs.mkdtemp(path.join(await fs.realpath(os.tmpdir()),'ll-many-'));
   try {
     for(let i=0;i<160;i++){
       const file=path.join(root,'report-'+i);

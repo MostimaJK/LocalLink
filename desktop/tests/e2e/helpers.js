@@ -8,7 +8,7 @@ const DESKTOP_DIR = path.resolve(__dirname, '../..');
 
 // Fresh, per-test user data dir (SQLite DB + electron-store live under userData).
 function tmpUserDataDir(label) {
-  return fs.mkdtempSync(path.join(os.tmpdir(), `orbit-e2e-${label}-`));
+  return fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), `orbit-e2e-${label}-`));
 }
 
 // ⚠ THE REDESIGN IS OPT-IN NOW, SO A SPEC ABOUT IT HAS TO ASK FOR IT.
