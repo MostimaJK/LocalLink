@@ -236,11 +236,12 @@ test('real file conversation: manual discovery, text, batch, paste, folder and h
   const searchDir=path.join(dir,'search-files');fs.mkdirSync(searchDir);
   for(const file of ['alpha.txt','beta.png'])fs.writeFileSync(path.join(searchDir,file),'fixture');
   fs.mkdirSync(path.join(searchDir,'深圳大学资料'));
-  await page.evaluate(dir=>{
+  await app.evaluate(({dialog},folder)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[folder]});},searchDir);
+  await page.evaluate(async()=>{
     window.orbitAPI.dbSetSetting('search.allDrives',false);
-    await window.orbitAPI.invoke('locallink-search-folder','manual');
     window.orbitAPI.dbSetSetting('search.useIndex',false);
-  },searchDir);
+    await window.orbitAPI.invoke('locallink-search-folder','manual');
+  });
   await page.locator('#ll-send-folder + button').click();
   const search=page.locator('dialog.ll-local-search');
   await search.getByRole('searchbox').evaluate(input=>{
